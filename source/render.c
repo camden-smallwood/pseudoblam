@@ -18,6 +18,8 @@
 
 struct render_camera
 {
+    float look_sensitivity;
+    float movement_speed;
     float field_of_view;
     float aspect_ratio;
     float near_clip;
@@ -174,6 +176,8 @@ void render_update(float delta_time)
 
 static void render_camera_initialize(void)
 {
+    render_globals.camera.look_sensitivity = 5.0f;
+    render_globals.camera.movement_speed = 5.0f;
     render_globals.camera.field_of_view = 90.0f;
     render_globals.camera.aspect_ratio = 1.0f;
     render_globals.camera.near_clip = 0.1f;
@@ -185,31 +189,11 @@ static void render_camera_initialize(void)
 
 static void render_camera_update(float delta_time)
 {
-    if (input_is_key_down(SDL_SCANCODE_LEFT))
-    {
-        render_globals.camera.rotation[0] += 1.0f;
-    }
-    else if (input_is_key_down(SDL_SCANCODE_RIGHT))
-    {
-        render_globals.camera.rotation[0] -= 1.0f;
-    }
-
-    if (input_is_key_down(SDL_SCANCODE_UP))
-    {
-        render_globals.camera.rotation[1] += 1.0f;
-    }
-    else if (input_is_key_down(SDL_SCANCODE_DOWN))
-    {
-        render_globals.camera.rotation[1] -= 1.0f;
-    }
-
     vec2 mouse_motion;
     input_get_mouse_motion(&mouse_motion[0], &mouse_motion[1]);
     
-    mouse_motion[0] *= 2.0f;
     mouse_motion[1] = -mouse_motion[1];
-
-    glm_vec2_scale(mouse_motion, 100.0f, mouse_motion);
+    glm_vec2_scale(mouse_motion, render_globals.camera.look_sensitivity, mouse_motion);
     glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
 
     if (render_globals.camera.rotation[1] > 89.0f)
@@ -221,61 +205,61 @@ static void render_camera_update(float delta_time)
     float pitch_radians = glm_rad(render_globals.camera.rotation[1]);
     float pitch_radians_cosine = cosf(pitch_radians);
 
-    vec3 camera_forward =
+    vec3 forward =
     {
         cosf(yaw_radians) * pitch_radians_cosine,
         sinf(pitch_radians),
         sinf(yaw_radians) * pitch_radians_cosine,
     };
-    glm_vec3_normalize(camera_forward);
+    glm_vec3_normalize(forward);
 
-    vec3 camera_right;
-    glm_vec3_cross(render_globals.camera.up, camera_forward, camera_right);
-    glm_normalize(camera_right);
+    vec3 right;
+    glm_vec3_cross(render_globals.camera.up, forward, right);
+    glm_normalize(right);
 
-    vec3 camera_up;
-    glm_vec3_cross(camera_forward, camera_right, camera_up);
+    vec3 up;
+    glm_vec3_cross(forward, right, up);
 
-    vec3 move_amount = GLM_VEC3_ZERO_INIT;
+    vec3 movement = {0.0f, 0.0f, 0.0f};
 
     if (input_is_key_down(SDL_SCANCODE_W))
     {
-        glm_vec3_add(move_amount, camera_forward, move_amount);
+        glm_vec3_add(movement, forward, movement);
     }
     else if (input_is_key_down(SDL_SCANCODE_S))
     {
-        glm_vec3_sub(move_amount, camera_forward, move_amount);
+        glm_vec3_sub(movement, forward, movement);
     }
 
     if (input_is_key_down(SDL_SCANCODE_A))
     {
-        glm_vec3_add(move_amount, camera_right, move_amount);
+        glm_vec3_add(movement, right, movement);
     }
     else if (input_is_key_down(SDL_SCANCODE_D))
     {
-        glm_vec3_sub(move_amount, camera_right, move_amount);
+        glm_vec3_sub(movement, right, movement);
     }
 
     if (input_is_key_down(SDL_SCANCODE_R))
     {
-        glm_vec3_add(move_amount, camera_up, move_amount);
+        glm_vec3_add(movement, up, movement);
     }
     else if (input_is_key_down(SDL_SCANCODE_F))
     {
-        glm_vec3_sub(move_amount, camera_up, move_amount);
+        glm_vec3_sub(movement, up, movement);
     }
 
     if (input_is_key_down(SDL_SCANCODE_LSHIFT))
     {
-        glm_vec3_scale(move_amount, 2.0f, move_amount);
+        glm_vec3_scale(movement, 2.0f, movement);
     }
 
-    glm_vec3_scale(move_amount, 5.0f * delta_time, move_amount);
+    glm_vec3_scale(movement, render_globals.camera.movement_speed * delta_time, movement);
 
-    glm_vec3_add(render_globals.camera.position, move_amount, render_globals.camera.position);
+    glm_vec3_add(render_globals.camera.position, movement, render_globals.camera.position);
     
     vec3 camera_target;
-    glm_vec3_add(render_globals.camera.position, camera_forward, camera_target);
+    glm_vec3_add(render_globals.camera.position, forward, camera_target);
 
     mat4 model;
     glm_mat4_identity(model);
