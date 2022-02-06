@@ -106,7 +106,7 @@ void render_initialize(void)
     render_globals.program = render_load_shader_program("../assets/shaders/basic.vs", "../assets/shaders/basic.fs");
     render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/asdf.dds");
 
-    render_load_obj_file("../assets/models/cube.obj");
+    render_load_obj_file("../assets/models/monkey.obj");
 }
 
 void render_dispose(void)
