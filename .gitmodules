@@ -1,0 +1,3 @@
+[submodule "dependencies/cglm"]
+	path = dependencies/cglm
+	url = https://github.com/recp/cglm

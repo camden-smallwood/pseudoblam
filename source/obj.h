@@ -1,16 +1,23 @@
 #pragma once
+#include <stdbool.h>
 #include <stddef.h>
 
 struct obj
 {
-    int string_count;
-    size_t *string_offsets;
-    size_t string_buffer_size;
-    char *string_buffer;
     int mtllib_count;
     int o_count;
+    int string_count;
+    int tracked_address_count;
+
     struct obj_mtllib *mtllib;
     struct obj_o *o;
+    
+    size_t string_buffer_size;
+    char *string_buffer;
+
+    size_t *string_offsets;
+
+    void **tracked_addresses;
 };
 
 struct obj_mtllib
@@ -86,5 +93,5 @@ struct obj_f
     int *vn_indices;
 };
 
-void obj_read(struct obj *obj, const char *path);
 void obj_dispose(struct obj *obj);
+bool obj_from_file(struct obj *obj, const char *file_path);

@@ -8,7 +8,8 @@
 
 /* ---------- private prototypes */
 
-static inline void *obj_push_sized(int *out_count, void **out_address, void *address, size_t size);
+static inline void *obj_track_realloc(struct obj *obj, void *address, size_t size);
+static inline void *obj_push_sized(struct obj *obj, int *out_count, void **out_address, void *address, size_t size);
 
 static inline char *obj_internalize_string(struct obj *obj, const char *string);
 
@@ -16,10 +17,10 @@ static inline struct obj_o *obj_get_or_start_new_o(struct obj_o **op);
 static inline struct obj_g *obj_get_or_start_new_g(struct obj_g **gp);
 
 static inline void obj_finish_o(struct obj *obj, struct obj_o *o, struct obj_g **gp);
-static inline void obj_finish_g(struct obj_o *o, struct obj_g *g);
+static inline void obj_finish_g(struct obj *obj, struct obj_o *o, struct obj_g *g);
 
 static inline struct obj_o *obj_finish_and_start_new_o(struct obj *obj, struct obj_o **op, struct obj_g **gp);
-static inline struct obj_g *obj_finish_and_start_new_g(struct obj_o *o, struct obj_g **gp);
+static inline struct obj_g *obj_finish_and_start_new_g(struct obj *obj, struct obj_o *o, struct obj_g **gp);
 
 static inline char *obj_parse_next_token_optional(const char *delimiter);
 static inline char *obj_parse_next_token_required(const char *delimiter);
@@ -29,15 +30,15 @@ static inline float obj_parse_next_float_optional(const char *delimiter, float d
 
 static void obj_parse_mtllib(struct obj *obj, struct obj_o **, struct obj_g **);
 static void obj_parse_o(struct obj *obj, struct obj_o **op, struct obj_g **gp);
-static void obj_parse_v(struct obj *, struct obj_o **op, struct obj_g **);
-static void obj_parse_vt(struct obj *, struct obj_o **op, struct obj_g **);
-static void obj_parse_vn(struct obj *, struct obj_o **op, struct obj_g **);
-static void obj_parse_g(struct obj *, struct obj_o **op, struct obj_g **gp);
-static void obj_parse_s(struct obj *, struct obj_o **, struct obj_g **gp);
-static void obj_parse_usemtl(struct obj *, struct obj_o **, struct obj_g **gp);
-static void obj_parse_f(struct obj *, struct obj_o **op, struct obj_g **gp);
+static void obj_parse_v(struct obj *obj, struct obj_o **op, struct obj_g **);
+static void obj_parse_vt(struct obj *obj, struct obj_o **op, struct obj_g **);
+static void obj_parse_vn(struct obj *obj, struct obj_o **op, struct obj_g **);
+static void obj_parse_g(struct obj *obj, struct obj_o **op, struct obj_g **gp);
+static void obj_parse_s(struct obj *obj, struct obj_o **, struct obj_g **gp);
+static void obj_parse_usemtl(struct obj *obj, struct obj_o **, struct obj_g **gp);
+static void obj_parse_f(struct obj *obj, struct obj_o **op, struct obj_g **gp);
 
-static void obj_parse_f_chunk(struct obj_o *o, struct obj_f *f, char *token);
+static void obj_parse_f_chunk(struct obj *obj, struct obj_o *o, struct obj_f *f, char *token);
 
 /* ---------- private constants */
 
@@ -62,53 +63,6 @@ static const obj_parsers[] =
 static const int obj_parser_count = sizeof(obj_parsers) / sizeof(obj_parsers[0]);
 
 /* ---------- public code */
-
-void obj_read(struct obj *obj, const char *path)
-{
-    assert(obj);
-    assert(path);
-
-    memset(obj, 0, sizeof(*obj));
-
-    struct obj_o *o = NULL;
-    struct obj_g *g = NULL;
-
-    FILE *stream = fopen(path, "r");
-
-    size_t line_length = 0;
-    char *line = NULL;
-
-    while (getline(&line, &line_length, stream) >= 0)
-    {
-        line[strcspn(line, "\r\n")] = '\0';
-        char *token = strtok(line, " ");
-        
-        if (!token || strcmp(token, "#") == 0)
-            continue;
-
-        for (int parser_index = 0; parser_index < obj_parser_count; parser_index++)
-        {
-            if (strcmp(token, obj_parsers[parser_index].token) == 0)
-            {
-                obj_parsers[parser_index].parse(obj, &o, &g);
-                break;
-            }
-        }
-        
-        if (strtok(NULL, " "))
-            fprintf(stderr, "unhandled token: %s\n", token);
-    }
-
-    free(line);
-
-    if (o)
-    {
-        obj_finish_o(obj, o, &g);
-        free(o);
-    }
-
-    fclose(stream);
-}
 
 void obj_dispose(struct obj *obj)
 {
@@ -153,14 +107,95 @@ void obj_dispose(struct obj *obj)
     free(obj->o);
 }
 
+bool obj_from_file(struct obj *obj, const char *file_path)
+{
+    assert(obj);
+    assert(file_path);
+
+    memset(obj, 0, sizeof(*obj));
+
+    struct obj_o *o = NULL;
+    struct obj_g *g = NULL;
+
+    FILE *stream = fopen(file_path, "r");
+
+    if (!stream)
+    {
+        fprintf(stderr, "ERROR: file not found: %s\n", file_path);
+        return false;
+    }
+
+    size_t line_length = 0;
+    char *line = NULL;
+
+    while (getline(&line, &line_length, stream) >= 0)
+    {
+        line[strcspn(line, "\r\n")] = '\0';
+        char *token = strtok(line, " ");
+        
+        if (!token || strcmp(token, "#") == 0)
+            continue;
+
+        for (int parser_index = 0; parser_index < obj_parser_count; parser_index++)
+        {
+            if (strcmp(token, obj_parsers[parser_index].token) == 0)
+            {
+                obj_parsers[parser_index].parse(obj, &o, &g);
+                break;
+            }
+        }
+        
+        if (strtok(NULL, " "))
+            fprintf(stderr, "unhandled token: %s\n", token);
+    }
+
+    free(line);
+
+    if (o)
+    {
+        obj_finish_o(obj, o, &g);
+        free(o);
+    }
+
+    fclose(stream);
+
+    return true;
+}
+
 /* ---------- private code */
 
-static inline void *obj_push_sized(int *out_count, void **out_address, void *address, size_t size)
+static inline void *obj_track_realloc(struct obj *obj, void *address, size_t size)
+{
+    int address_index = -1;
+    
+    for (int i = 0; i < obj->tracked_address_count; i++)
+    {
+        if (address == obj->tracked_addresses[i])
+        {
+            address_index = i;
+            break;
+        }
+    }
+
+    if (address_index == -1)
+    {
+        address_index = obj->tracked_address_count++;
+        obj->tracked_addresses = realloc(obj->tracked_addresses, sizeof(void *) * obj->tracked_address_count);
+    }
+
+    void *new_address = realloc(address, size);
+
+    obj->tracked_addresses[address_index] = new_address;
+
+    return new_address;
+}
+
+static inline void *obj_push_sized(struct obj *obj, int *out_count, void **out_address, void *address, size_t size)
 {
     int index = (*out_count)++;
     assert(index < *out_count);
 
-    *out_address = realloc(*out_address, *out_count * size);
+    *out_address = obj_track_realloc(obj, *out_address, *out_count * size);
     assert(*out_address);
 
     return memcpy(((char *)*out_address) + (index * size), address, size);
@@ -188,11 +223,11 @@ static inline char *obj_internalize_string(struct obj *obj, const char *string)
 
         assert(obj->string_buffer_size + string_size > obj->string_buffer_size);
         obj->string_buffer_size += string_size;
-        assert(obj->string_buffer = realloc(obj->string_buffer, obj->string_buffer_size));
+        assert(obj->string_buffer = obj_track_realloc(obj, obj->string_buffer, obj->string_buffer_size));
         memcpy(obj->string_buffer + string_offset, string, string_size);
 
         string_index = obj->string_count;
-        obj_push_sized(&obj->string_count, (void **)&obj->string_offsets, &string_offset, sizeof(string_offset));
+        obj_push_sized(obj, &obj->string_count, (void **)&obj->string_offsets, &string_offset, sizeof(string_offset));
     }
 
     return obj->string_buffer + obj->string_offsets[string_index];
@@ -230,17 +265,17 @@ static inline void obj_finish_o(struct obj *obj, struct obj_o *o, struct obj_g *
 
     if (g)
     {
-        obj_finish_g(o, g);
+        obj_finish_g(obj, o, g);
         free(g);
         *gp = NULL;
     }
 
-    obj_push_sized(&obj->o_count, (void **)&obj->o, o, sizeof(*o));
+    obj_push_sized(obj, &obj->o_count, (void **)&obj->o, o, sizeof(*o));
 }
 
-static inline void obj_finish_g(struct obj_o *o, struct obj_g *g)
+static inline void obj_finish_g(struct obj *obj, struct obj_o *o, struct obj_g *g)
 {
-    obj_push_sized(&o->g_count, (void **)&o->g, g, sizeof(*g));
+    obj_push_sized(obj, &o->g_count, (void **)&o->g, g, sizeof(*g));
 }
 
 static inline struct obj_o *obj_finish_and_start_new_o(struct obj *obj, struct obj_o **op, struct obj_g **gp)
@@ -255,14 +290,14 @@ static inline struct obj_o *obj_finish_and_start_new_o(struct obj *obj, struct o
     return memset(o, 0, sizeof(*o));
 }
 
-static inline struct obj_g *obj_finish_and_start_new_g(struct obj_o *o, struct obj_g **gp)
+static inline struct obj_g *obj_finish_and_start_new_g(struct obj *obj, struct obj_o *o, struct obj_g **gp)
 {
     struct obj_g *g = *gp;
 
     if (!g)
         g = obj_get_or_start_new_g(gp);
     else
-        obj_finish_g(o, g);
+        obj_finish_g(obj, o, g);
 
     return memset(g, 0, sizeof(*g));
 }
@@ -313,7 +348,7 @@ static void obj_parse_mtllib(struct obj *obj, struct obj_o **, struct obj_g **)
 
     struct obj_mtllib mtllib = { path, mtl, mtl_count };
 
-    obj_push_sized(&obj->mtllib_count, (void **)&obj->mtllib, &mtllib, sizeof(mtllib));
+    obj_push_sized(obj, &obj->mtllib_count, (void **)&obj->mtllib, &mtllib, sizeof(mtllib));
 }
 
 static void obj_parse_o(struct obj *obj, struct obj_o **op, struct obj_g **gp)
@@ -323,7 +358,7 @@ static void obj_parse_o(struct obj *obj, struct obj_o **op, struct obj_g **gp)
     o->name = obj_internalize_string(obj, obj_parse_next_token_required(" "));
 }
 
-static void obj_parse_v(struct obj *, struct obj_o **op, struct obj_g **)
+static void obj_parse_v(struct obj *obj, struct obj_o **op, struct obj_g **)
 {
     struct obj_o *o = obj_get_or_start_new_o(op);
 
@@ -334,10 +369,10 @@ static void obj_parse_v(struct obj *, struct obj_o **op, struct obj_g **)
 
     struct obj_v v = { x, y, z, w };
     
-    obj_push_sized(&o->v_count, (void **)&o->v, &v, sizeof(v));
+    obj_push_sized(obj, &o->v_count, (void **)&o->v, &v, sizeof(v));
 }
 
-static void obj_parse_vt(struct obj *, struct obj_o **op, struct obj_g **)
+static void obj_parse_vt(struct obj *obj, struct obj_o **op, struct obj_g **)
 {
     struct obj_o *o = obj_get_or_start_new_o(op);
 
@@ -347,10 +382,10 @@ static void obj_parse_vt(struct obj *, struct obj_o **op, struct obj_g **)
     
     struct obj_vt vt = { u, v, w };
 
-    obj_push_sized(&o->vt_count, (void **)&o->vt, &vt, sizeof(vt));
+    obj_push_sized(obj, &o->vt_count, (void **)&o->vt, &vt, sizeof(vt));
 }
 
-static void obj_parse_vn(struct obj *, struct obj_o **op, struct obj_g **)
+static void obj_parse_vn(struct obj *obj, struct obj_o **op, struct obj_g **)
 {
     struct obj_o *o = obj_get_or_start_new_o(op);
 
@@ -360,13 +395,13 @@ static void obj_parse_vn(struct obj *, struct obj_o **op, struct obj_g **)
 
     struct obj_vn vn = { i, j, k };
 
-    obj_push_sized(&o->vn_count, (void **)&o->vn, &vn, sizeof(vn));
+    obj_push_sized(obj, &o->vn_count, (void **)&o->vn, &vn, sizeof(vn));
 }
 
 static void obj_parse_g(struct obj *obj, struct obj_o **op, struct obj_g **gp)
 {
     struct obj_o *o = obj_get_or_start_new_o(op);
-    struct obj_g *g = obj_finish_and_start_new_g(o, gp);
+    struct obj_g *g = obj_finish_and_start_new_g(obj, o, gp);
 
     g->name = obj_internalize_string(obj, obj_parse_next_token_required(" "));
 }
@@ -405,7 +440,7 @@ static void obj_parse_usemtl(struct obj *obj, struct obj_o **, struct obj_g **gp
     g->usemtl = obj_internalize_string(obj, obj_parse_next_token_required(" "));
 }
 
-static void obj_parse_f(struct obj *, struct obj_o **op, struct obj_g **gp)
+static void obj_parse_f(struct obj *obj, struct obj_o **op, struct obj_g **gp)
 {
     struct obj_o *o = obj_get_or_start_new_o(op);
     struct obj_g *g = obj_get_or_start_new_g(gp);
@@ -419,12 +454,12 @@ static void obj_parse_f(struct obj *, struct obj_o **op, struct obj_g **gp)
         next_token = strtok(NULL, ""),
         token != NULL;
 
-        obj_parse_f_chunk(o, &f, token));
+        obj_parse_f_chunk(obj, o, &f, token));
 
-    obj_push_sized(&g->f_count, (void **)&g->f, &f, sizeof(f));
+    obj_push_sized(obj, &g->f_count, (void **)&g->f, &f, sizeof(f));
 }
 
-static void obj_parse_f_chunk(struct obj_o *o, struct obj_f *f, char *token)
+static void obj_parse_f_chunk(struct obj *obj, struct obj_o *o, struct obj_f *f, char *token)
 {
     char *v_index_string = strtok(token, "/");
     assert(v_index_string);
@@ -450,15 +485,15 @@ static void obj_parse_f_chunk(struct obj_o *o, struct obj_f *f, char *token)
     int index = f->count++;
     assert(index < f->count);
     
-    f->v_indices = realloc(f->v_indices, f->count * sizeof(int));
+    f->v_indices = obj_track_realloc(obj, f->v_indices, f->count * sizeof(int));
     assert(f->v_indices);
     f->v_indices[index] = v_index;
 
-    f->vt_indices = realloc(f->vt_indices, f->count * sizeof(int));
+    f->vt_indices = obj_track_realloc(obj, f->vt_indices, f->count * sizeof(int));
     assert(f->vt_indices);
     f->vt_indices[index] = vt_index;
 
-    f->vn_indices = realloc(f->vn_indices, f->count * sizeof(int));
+    f->vn_indices = obj_track_realloc(obj, f->vn_indices, f->count * sizeof(int));
     assert(f->vn_indices);
     f->vn_indices[index] = vn_index;
 }
