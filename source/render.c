@@ -110,7 +110,7 @@ void render_initialize(void)
     render_globals.program = render_load_shader_program("../assets/shaders/basic.vs", "../assets/shaders/basic.fs");
     render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/asdf.dds");
 
-    render_load_obj_file("../assets/models/monkey.obj");
+    render_load_obj_file("../assets/models/cube_sphere.obj");
 }
 
 void render_dispose(void)
@@ -367,18 +367,17 @@ GLuint render_load_dds_file_as_texture2d(
         width = dds.header.width,
         height = dds.header.height,
         offset = 0,
-        level = 0;
+        level = 0,
+        size;
         
+        size = ((width + 3) / 4) * ((height + 3) / 4) * block_size,
         (level < dds.header.mip_map_count) && (width || height);
         
+        glCompressedTexImage2D(GL_TEXTURE_2D, level, format, width, height, 0, size, dds.data + offset),
         width = width > 1 ? width / 2 : 1,
         height = height > 1 ? height / 2 : 1,
-        level++)
-    {
-        unsigned int size = ((width + 3) / 4) * ((height + 3) / 4) * block_size;
-        glCompressedTexImage2D(GL_TEXTURE_2D, level, format, width, height, 0, size, dds.data + offset);
-        offset += size;
-    }
+        offset += size,
+        level++);
 
     dds_dispose(&dds);
 
@@ -388,11 +387,17 @@ GLuint render_load_dds_file_as_texture2d(
 static void render_load_obj_file(
     const char *file_path)
 {
+    // Read the OBJ file from disk
     struct obj obj;
     obj_from_file(&obj, file_path);
 
+    // Initialize a new render model
     struct render_model model;
     memset(&model, 0, sizeof(model));
+
+    int v_count_total = 0;
+    int vn_count_total = 0;
+    int vt_count_total = 0;
 
     for (int o_index = 0; o_index < obj.o_count; o_index++)
     {
@@ -425,18 +430,21 @@ static void render_load_obj_file(
                     struct render_vertex vertex;
                     memset(&vertex, 0, sizeof(vertex));
 
-                    int v_index = f->v_indices[i] - 1;
-                    struct obj_v *v = o->v + v_index;
-                    memcpy(vertex.position, (vec3){v->x, v->y, v->z}, sizeof(vec3));
+                    int v_index = (f->v_indices[i] ? f->v_indices[i] - v_count_total : 0) - 1;
+                    if (v_index >= 0 && v_index < o->v_count)
+                    {
+                        struct obj_v *v = o->v + v_index;
+                        memcpy(vertex.position, (vec3){v->x, v->y, v->z}, sizeof(vec3));
+                    }
 
-                    int vn_index = f->vn_indices[i] - 1;
+                    int vn_index = (f->vn_indices[i] ? f->vn_indices[i] - vn_count_total : 0) - 1;
                     if (vn_index >= 0 && vn_index < o->vn_count)
                     {
                         struct obj_vn *vn = o->vn + vn_index;
                         memcpy(vertex.normal, (vec3){vn->i, vn->j, vn->k}, sizeof(vec3));
                     }
 
-                    int vt_index = f->vt_indices[i] - 1;
+                    int vt_index = (f->vt_indices[i] ? f->vt_indices[i] - vt_count_total : 0) - 1;
                     if (vt_index >= 0 && vt_index < o->vt_count)
                     {
                         struct obj_vt *vt = o->vt + vt_index;
@@ -492,6 +500,11 @@ static void render_load_obj_file(
 
         // Add the mesh to the model's meshes
         mempush(&model.mesh_count, (void **)&model.meshes, &mesh, sizeof(mesh), realloc);
+        
+        // Increase the total number of vertices for resolving the indices of the next obj_f
+        v_count_total += o->v_count;
+        vn_count_total += o->vn_count;
+        vt_count_total += o->vt_count;
     }
 
     // Add the model to the global models

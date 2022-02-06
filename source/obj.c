@@ -459,28 +459,21 @@ static void obj_parse_f(struct obj *obj, struct obj_o **op, struct obj_g **gp)
     obj_push_sized(obj, &g->f_count, (void **)&g->f, &f, sizeof(f));
 }
 
-static void obj_parse_f_chunk(struct obj *obj, struct obj_o *o, struct obj_f *f, char *token)
+static void obj_parse_f_chunk(struct obj *obj, struct obj_o *, struct obj_f *f, char *token)
 {
     char *v_index_string = strtok(token, "/");
     assert(v_index_string);
     int v_index = atoi(v_index_string);
-    assert(v_index > 0 && v_index <= o->v_count);
 
     char *vt_index_string = strtok(NULL, "/");
     int vt_index = 0;
     if (vt_index_string && strlen(vt_index_string))
-    {
         vt_index = atoi(vt_index_string);
-        assert(vt_index > 0 && vt_index <= o->vt_count);
-    }
 
     char *vn_index_string = strtok(NULL, " ");
     int vn_index = 0;
     if (vn_index_string && strlen(vn_index_string))
-    {
         vn_index = atoi(vn_index_string);
-        assert(vn_index > 0 && vn_index <= o->vn_count);
-    }
 
     int index = f->count++;
     assert(index < f->count);
