@@ -1,5 +1,7 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include <SDL.h>
+#include "input.h"
 #include "render.h"
 
 /* ---------- private variables */
@@ -9,6 +11,7 @@ struct
     SDL_Window *window;
     SDL_GLContext gl_context;
     SDL_Event event;
+    uint64_t last_update;
 } static shell_globals;
 
 /* ---------- private prototypes */
@@ -45,15 +48,21 @@ static inline void shell_initialize(void)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-    shell_globals.window = SDL_CreateWindow("asdf", 0, 0, 1280, 720, SDL_WINDOW_OPENGL);
+    const int screen_width = 1280;
+    const int screen_height = 720;
+
+    shell_globals.window = SDL_CreateWindow("asdf", 0, 0, screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     shell_globals.gl_context = SDL_GL_CreateContext(shell_globals.window);
 
+    input_initialize();
     render_initialize();
+    render_handle_screen_resize(screen_width, screen_height);
 }
 
 static inline void shell_dispose(void)
 {
     render_dispose();
+    input_dispose();
 
     SDL_GL_DeleteContext(shell_globals.gl_context);
     SDL_DestroyWindow(shell_globals.window);
@@ -64,22 +73,46 @@ static inline void shell_dispose(void)
 
 static inline void shell_update(void)
 {
+    uint64_t ticks = SDL_GetTicks64();
+
+    if (!shell_globals.last_update)
+    {
+        shell_globals.last_update = ticks;
+    }
+
+    float delta_time = (ticks - shell_globals.last_update) / 1000.0f;
+
     SDL_Event event;
 
     while (SDL_PollEvent(&event))
     {
         switch (event.type)
         {
-            //
-            // TODO: handle input events
-            //
+        case SDL_WINDOWEVENT:
+            switch(event.window.type)
+            {
+            case SDL_WINDOWEVENT_RESIZED:
+                render_handle_screen_resize(event.window.data1, event.window.data2);
+                break;
+            }
+            break;
+        
+        case SDL_KEYDOWN:
+            input_set_key_down(event.key.keysym.scancode, true);
+            break;
+        
+        case SDL_KEYUP:
+            input_set_key_down(event.key.keysym.scancode, false);
+            break;
             
         case SDL_QUIT:
             shell_dispose();
         }
     }
 
-    render_update();
+    render_update(delta_time);
 
     SDL_GL_SwapWindow(shell_globals.window);
+
+    shell_globals.last_update = ticks;
 }

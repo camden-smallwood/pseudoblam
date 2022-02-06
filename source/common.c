@@ -2,6 +2,8 @@
 #include <string.h>
 #include "common.h"
 
+/* ---------- public code */
+
 void *mempush(
     int *out_count,
     void **out_address,
