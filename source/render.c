@@ -76,7 +76,7 @@ struct
     int model_count;
     struct render_model *models;
 
-    GLuint program;
+    GLuint phong_program;
     GLuint diffuse_texture;
 } render_globals;
 
@@ -111,7 +111,7 @@ void render_initialize(void)
 
     render_camera_initialize();
 
-    render_globals.program = render_load_shader_program("../assets/shaders/basic.vs", "../assets/shaders/basic.fs");
+    render_globals.phong_program = render_load_shader_program("../assets/shaders/phong.vs", "../assets/shaders/phong.fs");
     render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/asdf.dds");
 
     render_load_obj_file("../assets/models/cube_sphere.obj");
@@ -143,31 +143,31 @@ void render_update(float delta_time)
             struct render_mesh *mesh = model->meshes + mesh_index;
 
             // Bind the shader
-            glUseProgram(render_globals.program);
+            glUseProgram(render_globals.phong_program);
 
             // Bind the camera position
-            glUniform3fv(glGetUniformLocation(render_globals.program, "camera_position"), 1, (const GLfloat *)render_globals.camera.position);
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "camera_position"), 1, (const GLfloat *)render_globals.camera.position);
 
             // Bind the camera model/view/projection matrices
-            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "model"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.model);
-            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "view"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.view);
-            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.phong_program, "model"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.model);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.phong_program, "view"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.view);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.phong_program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
 
             // Bind the lighting uniforms
-            glUniform3fv(glGetUniformLocation(render_globals.program, "light_position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "light_color"), 1, (const vec3){0.9f, 0.8, 0.2f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "ambient_color"), 1, (const vec3){0, 1, 0});
-            glUniform1fv(glGetUniformLocation(render_globals.program, "ambient_amount"), 1, (const GLfloat[]){0.1f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "specular_color"), 1, (const vec3){0, 0, 1});
-            glUniform1fv(glGetUniformLocation(render_globals.program, "specular_amount"), 1, (const GLfloat[]){0.5f});
-            glUniform1fv(glGetUniformLocation(render_globals.program, "specular_shininess"), 1, (const GLfloat[]){32.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light_position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light_color"), 1, (const vec3){0.9f, 0.8, 0.2f});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "ambient_color"), 1, (const vec3){0, 1, 0});
+            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "ambient_amount"), 1, (const GLfloat[]){0.1f});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "specular_color"), 1, (const vec3){0, 0, 1});
+            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "specular_amount"), 1, (const GLfloat[]){0.5f});
+            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "specular_shininess"), 1, (const GLfloat[]){32.0f});
 
             // Activate and bind the texture(s)
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
 
             // Register the texture unit(s) in the shader
-            glUniform1i(glGetUniformLocation(render_globals.program, "diffuse_texture"), 0);
+            glUniform1i(glGetUniformLocation(render_globals.phong_program, "diffuse_texture"), 0);
 
             // Draw the geometry
             glBindVertexArray(mesh->vertex_array);
@@ -505,7 +505,7 @@ static void render_load_obj_file(
         glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(struct render_vertex), vertices, GL_STATIC_DRAW);
 
         // Describe the position attribute for each vertex in the mesh's vertex buffer
-        GLuint position_location = glGetAttribLocation(render_globals.program, "position");
+        GLuint position_location = glGetAttribLocation(render_globals.phong_program, "position");
         glEnableVertexAttribArray(position_location);
         glVertexAttribPointer(
             position_location, 3, GL_FLOAT, GL_FALSE,
@@ -513,7 +513,7 @@ static void render_load_obj_file(
             (const void *)offsetof(struct render_vertex, position));
 
         // Describe the normal attribute for each vertex in the mesh's vertex buffer
-        GLuint normal_location = glGetAttribLocation(render_globals.program, "normal");
+        GLuint normal_location = glGetAttribLocation(render_globals.phong_program, "normal");
         glEnableVertexAttribArray(normal_location);
         glVertexAttribPointer(
             normal_location, 3, GL_FLOAT, GL_FALSE,
@@ -521,7 +521,7 @@ static void render_load_obj_file(
             (const void *)offsetof(struct render_vertex, normal));
 
         // Describe the texcoord attribute for each vertex in the mesh's vertex buffer
-        GLuint texcoord_location = glGetAttribLocation(render_globals.program, "texcoord");
+        GLuint texcoord_location = glGetAttribLocation(render_globals.phong_program, "texcoord");
         glEnableVertexAttribArray(texcoord_location);
         glVertexAttribPointer(
             texcoord_location, 2, GL_FLOAT, GL_FALSE,
