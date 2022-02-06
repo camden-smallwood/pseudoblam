@@ -154,11 +154,13 @@ void render_update(float delta_time)
             glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
 
             // Bind the lighting uniforms
-            glUniform1fv(glGetUniformLocation(render_globals.program, "ambient_amount"), 1, (const GLfloat[]){0.1f});
-            glUniform1fv(glGetUniformLocation(render_globals.program, "specular_amount"), 1, (const GLfloat[]){0.5f});
-            glUniform1fv(glGetUniformLocation(render_globals.program, "specular_shininess"), 1, (const GLfloat[]){32.0f});
             glUniform3fv(glGetUniformLocation(render_globals.program, "light_position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
             glUniform3fv(glGetUniformLocation(render_globals.program, "light_color"), 1, (const vec3){0.9f, 0.8, 0.2f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "ambient_color"), 1, (const vec3){0, 1, 0});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "ambient_amount"), 1, (const GLfloat[]){0.1f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "specular_color"), 1, (const vec3){0, 0, 1});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "specular_amount"), 1, (const GLfloat[]){0.5f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "specular_shininess"), 1, (const GLfloat[]){32.0f});
 
             // Activate and bind the texture(s)
             glActiveTexture(GL_TEXTURE0);
