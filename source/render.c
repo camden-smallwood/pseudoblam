@@ -1,13 +1,15 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <SDL.h>
+#include <string.h>
+
 #include <GL/glew.h>
 #include <cglm/cglm.h>
+
+#include "common.h"
 #include "dds.h"
 #include "obj.h"
 #include "render.h"
-#include "common.h"
 
 /* ---------- private types */
 
@@ -44,7 +46,15 @@ struct render_mesh
 
 struct render_mesh_part
 {
-    GLuint element_buffer;
+    int material_index;
+    GLint vertex_index;
+    GLsizei vertex_count;
+};
+
+struct render_vertex
+{
+    vec3 position;
+    vec2 texcoord;
 };
 
 /* ---------- private variables */
@@ -58,8 +68,6 @@ struct
 
     GLuint program;
     GLuint diffuse_texture;
-    GLuint vertex_array;
-    GLuint vertex_buffer;
 } render_globals;
 
 /* ---------- private prototypes */
@@ -99,76 +107,6 @@ void render_initialize(void)
     render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/asdf.dds");
 
     render_load_obj_file("../assets/models/cube.obj");
-
-    const GLfloat vertices[] =
-    {
-        // Bottom
-        -1.0f, -1.0f, -1.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
-        1.0f, -1.0f, -1.0f, 1.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 1.0f, 1.0f,
-        -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
-
-        // Top
-        -1.0f, 1.0f, -1.0f, 0.0f, 0.0f,
-        -1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
-        1.0f, 1.0f, -1.0f, 1.0f, 0.0f,
-        1.0f, 1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
-        1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-
-        // Front
-        -1.0f, -1.0f, 1.0f, 1.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 0.0f, 0.0f,
-        -1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-        1.0f, -1.0f, 1.0f, 0.0f, 0.0f,
-        1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
-        -1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-
-        // Back
-        -1.0f, -1.0f, -1.0f, 0.0f, 0.0f,
-        -1.0f, 1.0f, -1.0f, 0.0f, 1.0f,
-        1.0f, -1.0f, -1.0f, 1.0f, 0.0f,
-        1.0f, -1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, -1.0f, 0.0f, 1.0f,
-        1.0f, 1.0f, -1.0f, 1.0f, 1.0f,
-
-        // Left
-        -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
-        -1.0f, 1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, -1.0f, -1.0f, 0.0f, 0.0f,
-        -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
-        -1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-        -1.0f, 1.0f, -1.0f, 1.0f, 0.0f,
-
-        // Right
-        1.0f, -1.0f, 1.0f, 1.0f, 1.0f,
-        1.0f, -1.0f, -1.0f, 1.0f, 0.0f,
-        1.0f, 1.0f, -1.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 1.0f, 1.0f,
-        1.0f, 1.0f, -1.0f, 0.0f, 0.0f,
-        1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
-    };
-
-    glGenVertexArrays(1, &render_globals.vertex_array);
-    glBindVertexArray(render_globals.vertex_array);
-
-    glGenBuffers(1, &render_globals.vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, render_globals.vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    GLuint position_location = glGetAttribLocation(render_globals.program, "position");
-    glEnableVertexAttribArray(position_location);
-    glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, 32, (const void *)0);
-
-    GLuint normal_location = glGetAttribLocation(render_globals.program, "normal");
-    glEnableVertexAttribArray(normal_location);
-    glVertexAttribPointer(normal_location, 3, GL_FLOAT, GL_FALSE, 32, (const void *)12);
-
-    GLuint texcoord_location = glGetAttribLocation(render_globals.program, "texcoord");
-    glEnableVertexAttribArray(texcoord_location);
-    glVertexAttribPointer(texcoord_location, 2, GL_FLOAT, GL_FALSE, 32, (const void *)24);
 }
 
 void render_dispose(void)
@@ -180,27 +118,46 @@ void render_update(void)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Bind the shader
-    glUseProgram(render_globals.program);
-
-    // Create and bind the camera model/view/projection matrix
+    // Create the camera model/view/projection matrix
     mat4 model, view, projection, mvp;
     glm_mat4_identity(model);
     glm_lookat(render_globals.camera.position, render_globals.camera.target, render_globals.camera.up, view);
     glm_perspective(render_globals.camera.field_of_view, 1280.0f / 720.0f, render_globals.camera.near_clip, render_globals.camera.far_clip, projection);
     glm_mat4_mulN((mat4 *[]){&projection, &view, &model}, 3, mvp);
-    glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "mvp"), 1, GL_FALSE, (const GLfloat *)mvp);
 
-    // Activate and bind the texture(s)
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
+    for (int model_index = 0; model_index < render_globals.model_count; model_index++)
+    {
+        struct render_model *model = render_globals.models + model_index;
 
-    // Register the texture unit(s) in the shader
-    glUniform1i(glGetUniformLocation(render_globals.program, "diffuse_texture"), 0);
+        for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
+        {
+            struct render_mesh *mesh = model->meshes + mesh_index;
 
-    // Draw the geometry
-    glBindVertexArray(render_globals.vertex_array);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+            // Bind the shader
+            glUseProgram(render_globals.program);
+
+            // Bind the camera model/view/projection matrix
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "mvp"), 1, GL_FALSE, (const GLfloat *)mvp);
+
+            // Activate and bind the texture(s)
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
+
+            // Register the texture unit(s) in the shader
+            glUniform1i(glGetUniformLocation(render_globals.program, "diffuse_texture"), 0);
+
+            // Draw the geometry
+            glBindVertexArray(mesh->vertex_array);
+
+            for (int part_index = 0; part_index < mesh->part_count; part_index++)
+            {
+                struct render_mesh_part *part = mesh->parts + part_index;
+
+                // Draw the geometry
+                glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
+            }
+        }
+    }
 }
 
 /* ---------- private code */
@@ -213,10 +170,10 @@ static GLuint render_compile_shader_source(
     glShaderSource(result, 1, &shader_source, NULL);
     glCompileShader(result);
 
-    GLint vs_status;
-    glGetShaderiv(result, GL_COMPILE_STATUS, &vs_status);
+    GLint compile_status;
+    glGetShaderiv(result, GL_COMPILE_STATUS, &compile_status);
 
-    if (vs_status == GL_FALSE)
+    if (compile_status == GL_FALSE)
     {
         GLint maximum_log_length;
         glGetShaderiv(result, GL_INFO_LOG_LENGTH, &maximum_log_length);
@@ -349,27 +306,64 @@ static void render_load_obj_file(
         struct render_mesh mesh;
         memset(&mesh, 0, sizeof(mesh));
 
-        // TODO: create vertex buffer
+        int vertex_count = 0;
+        struct render_vertex *vertices = NULL;
 
         for (int g_index = 0; g_index < o->g_count; g_index++)
         {
             struct obj_g *g = o->g + g_index;
 
-            struct render_mesh_part part;
-            memset(&part, 0, sizeof(part));
-
-            // TODO: create element buffer
+            struct render_mesh_part part =
+            {
+                .material_index = -1, // TODO
+                .vertex_index = vertex_count,
+                .vertex_count = 0,
+            };
 
             for (int f_index = 0; f_index < g->f_count; f_index++)
             {
                 struct obj_f *f = g->f + f_index;
-                assert(f);
+                assert(f->count == 3);
+                
+                for (int i = 0; i < f->count; i++)
+                {
+                    struct render_vertex vertex;
+                    memset(&vertex, 0, sizeof(vertex));
 
-                // TODO: populate element buffer
+                    int v_index = f->v_indices[i] - 1;
+                    struct obj_v *v = o->v + v_index;
+                    memcpy(vertex.position, (vec3){v->x, v->y, v->z}, sizeof(vec3));
+
+                    int vt_index = f->vt_indices[i] - 1;
+                    if (vt_index >= 0 && vt_index < o->vt_count)
+                    {
+                        struct obj_vt *vt = o->vt + vt_index;
+                        memcpy(vertex.texcoord, (vec2){vt->u, vt->v}, sizeof(vec2));
+                    }
+
+                    mempush(&vertex_count, (void **)&vertices, &vertex, sizeof(vertex), realloc);
+                }
+
+                part.vertex_count += f->count;
             }
 
             mempush(&mesh.part_count, (void **)&mesh.parts, &part, sizeof(part), realloc);
         }
+
+        glGenVertexArrays(1, &mesh.vertex_array);
+        glBindVertexArray(mesh.vertex_array);
+
+        glGenBuffers(1, &mesh.vertex_buffer);
+        glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
+        glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(struct render_vertex), vertices, GL_STATIC_DRAW);
+
+        GLuint position_location = glGetAttribLocation(render_globals.program, "position");
+        glEnableVertexAttribArray(position_location);
+        glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, 20, (const void *)0);
+
+        GLuint texcoord_location = glGetAttribLocation(render_globals.program, "texcoord");
+        glEnableVertexAttribArray(texcoord_location);
+        glVertexAttribPointer(texcoord_location, 2, GL_FLOAT, GL_FALSE, 20, (const void *)12);
 
         mempush(&model.mesh_count, (void **)&model.meshes, &mesh, sizeof(mesh), realloc);
     }
