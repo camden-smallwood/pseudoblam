@@ -27,7 +27,9 @@ struct render_camera
     vec3 position;
     vec2 rotation;
     vec3 up;
-    mat4 mvp;
+    mat4 model;
+    mat4 view;
+    mat4 projection;
 };
 
 struct render_model
@@ -143,8 +145,20 @@ void render_update(float delta_time)
             // Bind the shader
             glUseProgram(render_globals.program);
 
+            // Bind the camera position
+            glUniform3fv(glGetUniformLocation(render_globals.program, "camera_position"), 1, (const GLfloat *)render_globals.camera.position);
+
             // Bind the camera model/view/projection matrices
-            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "mvp"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.mvp);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "model"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.model);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "view"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.view);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
+
+            // Bind the lighting uniforms
+            glUniform1fv(glGetUniformLocation(render_globals.program, "ambient_amount"), 1, (const GLfloat[]){0.1f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "specular_amount"), 1, (const GLfloat[]){0.5f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "specular_shininess"), 1, (const GLfloat[]){32.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "light_position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "light_color"), 1, (const vec3){0.9f, 0.8, 0.2f});
 
             // Activate and bind the texture(s)
             glActiveTexture(GL_TEXTURE0);
@@ -152,11 +166,6 @@ void render_update(float delta_time)
 
             // Register the texture unit(s) in the shader
             glUniform1i(glGetUniformLocation(render_globals.program, "diffuse_texture"), 0);
-
-            // Bind the lighting uniforms
-            glUniform1fv(glGetUniformLocation(render_globals.program, "ambient_amount"), 1, (const GLfloat[]){0.1f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "light_position"), 1, (const vec3){1.2f, 1.0f, 2.0f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "light_color"), 1, (const vec3){0.4f, 0.6, 0.8f});
 
             // Draw the geometry
             glBindVertexArray(mesh->vertex_array);
@@ -261,27 +270,21 @@ static void render_camera_update(float delta_time)
     vec3 camera_target;
     glm_vec3_add(render_globals.camera.position, forward, camera_target);
 
-    mat4 model;
-    glm_mat4_identity(model);
+    glm_mat4_identity(
+        render_globals.camera.model);
 
-    mat4 view;
     glm_lookat(
         render_globals.camera.position,
         camera_target,
         render_globals.camera.up,
-        view);
+        render_globals.camera.view);
     
-    mat4 projection;
     glm_perspective(
         render_globals.camera.field_of_view / 2.0f,
         render_globals.camera.aspect_ratio,
         render_globals.camera.near_clip,
         render_globals.camera.far_clip,
-        projection);
-    
-    glm_mat4_mulN(
-        (mat4 *[]){&projection, &view, &model}, 3,
-        render_globals.camera.mvp);
+        render_globals.camera.projection);
 }
 
 static GLuint render_compile_shader_source(
