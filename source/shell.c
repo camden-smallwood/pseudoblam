@@ -54,6 +54,9 @@ static inline void shell_initialize(void)
     shell_globals.window = SDL_CreateWindow("asdf", 0, 0, screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     shell_globals.gl_context = SDL_GL_CreateContext(shell_globals.window);
 
+    SDL_CaptureMouse(SDL_TRUE);
+    SDL_SetRelativeMouseMode(SDL_TRUE);
+
     input_initialize();
     render_initialize();
     render_handle_screen_resize(screen_width, screen_height);
@@ -82,7 +85,12 @@ static inline void shell_update(void)
 
     float delta_time = (ticks - shell_globals.last_update) / 1000.0f;
 
+    input_set_mouse_motion(0.0f, 0.0f);
+    
     SDL_Event event;
+
+    int screen_width, screen_height;
+    SDL_GetWindowSize(shell_globals.window, &screen_width, &screen_height);
 
     while (SDL_PollEvent(&event))
     {
@@ -92,7 +100,9 @@ static inline void shell_update(void)
             switch(event.window.type)
             {
             case SDL_WINDOWEVENT_RESIZED:
-                render_handle_screen_resize(event.window.data1, event.window.data2);
+                screen_width = event.window.data1;
+                screen_height = event.window.data2;
+                render_handle_screen_resize(screen_width, screen_height);
                 break;
             }
             break;
@@ -103,6 +113,12 @@ static inline void shell_update(void)
         
         case SDL_KEYUP:
             input_set_key_down(event.key.keysym.scancode, false);
+            break;
+        
+        case SDL_MOUSEMOTION:
+            input_set_mouse_motion(
+                (float)event.motion.xrel / (float)screen_width,
+                (float)event.motion.yrel / (float)screen_height);
             break;
             
         case SDL_QUIT:

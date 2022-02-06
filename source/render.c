@@ -23,7 +23,7 @@ struct render_camera
     float near_clip;
     float far_clip;
     vec3 position;
-    vec3 target;
+    vec2 rotation;
     vec3 up;
     mat4 mvp;
 };
@@ -111,6 +111,7 @@ void render_initialize(void)
     render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/asdf.dds");
 
     render_load_obj_file("../assets/models/cube_sphere.obj");
+    render_load_obj_file("../assets/models/monkey.obj");
 }
 
 void render_dispose(void)
@@ -152,8 +153,8 @@ void render_update(float delta_time)
 
             // Bind the lighting uniforms
             glUniform1fv(glGetUniformLocation(render_globals.program, "ambient_amount"), 1, (const GLfloat[]){0.1f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "light_position"), 1, (const GLfloat[]){1.2f, 1.0f, 2.0f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "light_color"), 1, (const GLfloat[]){0.4f, 0.6, 0.8f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "light_position"), 1, (const vec3){1.2f, 1.0f, 2.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "light_color"), 1, (const vec3){0.4f, 0.6, 0.8f});
 
             // Draw the geometry
             glBindVertexArray(mesh->vertex_array);
@@ -178,39 +179,79 @@ static void render_camera_initialize(void)
     render_globals.camera.near_clip = 0.1f;
     render_globals.camera.far_clip = 1000.0f;
     memcpy(render_globals.camera.position, (vec3){1.0f, 1.0f, 2.0f}, sizeof(vec3));
-    memcpy(render_globals.camera.target, (vec3){0.0f, 0.0f, 0.0f}, sizeof(vec3));
+    memcpy(render_globals.camera.rotation, (vec2){-90.0f, 0.0f}, sizeof(vec2));
     memcpy(render_globals.camera.up, (vec3){0.0f, 1.0f, 0.0f}, sizeof(vec3));
 }
 
 static void render_camera_update(float delta_time)
 {
-    vec3 camera_reverse;
-    glm_vec3_sub(render_globals.camera.position, render_globals.camera.target, camera_reverse);
-    glm_vec3_normalize(camera_reverse);
+    if (input_is_key_down(SDL_SCANCODE_LEFT))
+    {
+        render_globals.camera.rotation[0] += 1.0f;
+    }
+    else if (input_is_key_down(SDL_SCANCODE_RIGHT))
+    {
+        render_globals.camera.rotation[0] -= 1.0f;
+    }
+
+    if (input_is_key_down(SDL_SCANCODE_UP))
+    {
+        render_globals.camera.rotation[1] += 1.0f;
+    }
+    else if (input_is_key_down(SDL_SCANCODE_DOWN))
+    {
+        render_globals.camera.rotation[1] -= 1.0f;
+    }
+
+    vec2 mouse_motion;
+    input_get_mouse_motion(&mouse_motion[0], &mouse_motion[1]);
+    
+    mouse_motion[0] *= 2.0f;
+    mouse_motion[1] = -mouse_motion[1];
+
+    glm_vec2_scale(mouse_motion, 100.0f, mouse_motion);
+    glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
+
+    if (render_globals.camera.rotation[1] > 89.0f)
+        render_globals.camera.rotation[1] = 89.0f;
+    else if (render_globals.camera.rotation[1] < -89.0f)
+        render_globals.camera.rotation[1] = -89.0f;
+
+    float yaw_radians = glm_rad(render_globals.camera.rotation[0]);
+    float pitch_radians = glm_rad(render_globals.camera.rotation[1]);
+    float pitch_radians_cosine = cosf(pitch_radians);
+
+    vec3 camera_forward =
+    {
+        cosf(yaw_radians) * pitch_radians_cosine,
+        sinf(pitch_radians),
+        sinf(yaw_radians) * pitch_radians_cosine,
+    };
+    glm_vec3_normalize(camera_forward);
 
     vec3 camera_right;
-    glm_vec3_cross(render_globals.camera.up, camera_reverse, camera_right);
+    glm_vec3_cross(render_globals.camera.up, camera_forward, camera_right);
     glm_normalize(camera_right);
 
     vec3 camera_up;
-    glm_vec3_cross(camera_reverse, camera_right, camera_up);
+    glm_vec3_cross(camera_forward, camera_right, camera_up);
 
     vec3 move_amount = GLM_VEC3_ZERO_INIT;
 
-    if (input_is_key_down(SDL_SCANCODE_S))
+    if (input_is_key_down(SDL_SCANCODE_W))
     {
-        glm_vec3_add(move_amount, camera_reverse, move_amount);
+        glm_vec3_add(move_amount, camera_forward, move_amount);
     }
-    else if (input_is_key_down(SDL_SCANCODE_W))
+    else if (input_is_key_down(SDL_SCANCODE_S))
     {
-        glm_vec3_sub(move_amount, camera_reverse, move_amount);
+        glm_vec3_sub(move_amount, camera_forward, move_amount);
     }
 
-    if (input_is_key_down(SDL_SCANCODE_D))
+    if (input_is_key_down(SDL_SCANCODE_A))
     {
         glm_vec3_add(move_amount, camera_right, move_amount);
     }
-    else if (input_is_key_down(SDL_SCANCODE_A))
+    else if (input_is_key_down(SDL_SCANCODE_D))
     {
         glm_vec3_sub(move_amount, camera_right, move_amount);
     }
@@ -232,7 +273,9 @@ static void render_camera_update(float delta_time)
     glm_vec3_scale(move_amount, 5.0f * delta_time, move_amount);
 
     glm_vec3_add(render_globals.camera.position, move_amount, render_globals.camera.position);
-    glm_vec3_add(render_globals.camera.target, move_amount, render_globals.camera.target);
+    
+    vec3 camera_target;
+    glm_vec3_add(render_globals.camera.position, camera_forward, camera_target);
 
     mat4 model;
     glm_mat4_identity(model);
@@ -240,7 +283,7 @@ static void render_camera_update(float delta_time)
     mat4 view;
     glm_lookat(
         render_globals.camera.position,
-        render_globals.camera.target,
+        camera_target,
         render_globals.camera.up,
         view);
     
