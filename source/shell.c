@@ -89,9 +89,6 @@ static inline void shell_update(void)
     
     SDL_Event event;
 
-    int screen_width, screen_height;
-    SDL_GetWindowSize(shell_globals.window, &screen_width, &screen_height);
-
     while (SDL_PollEvent(&event))
     {
         switch (event.type)
@@ -100,9 +97,7 @@ static inline void shell_update(void)
             switch(event.window.type)
             {
             case SDL_WINDOWEVENT_RESIZED:
-                screen_width = event.window.data1;
-                screen_height = event.window.data2;
-                render_handle_screen_resize(screen_width, screen_height);
+                render_handle_screen_resize(event.window.data1, event.window.data2);
                 break;
             }
             break;
@@ -116,9 +111,7 @@ static inline void shell_update(void)
             break;
         
         case SDL_MOUSEMOTION:
-            input_set_mouse_motion(
-                (float)event.motion.xrel * 0.01f,
-                (float)event.motion.yrel * 0.01f);
+            input_set_mouse_motion(event.motion.xrel * 0.01f, event.motion.yrel * 0.01f);
             break;
             
         case SDL_QUIT:
