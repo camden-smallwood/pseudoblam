@@ -16,9 +16,10 @@ uniform light_data light;
 struct material_data
 {
     sampler2D diffuse_texture;
-    float ambient_amount;
+    sampler2D specular_texture;
     float specular_amount;
     float specular_shininess;
+    float ambient_amount;
 };
 
 uniform material_data material;
@@ -44,8 +45,8 @@ void main()
     // specular lighting
     vec3 camera_direction = normalize(camera_position - frag_position);
     vec3 camera_direction_reflected = reflect(-light_direction, normal);
-    float specular_strength = pow(max(dot(camera_direction, camera_direction_reflected), 0.0), material.specular_shininess);
-    vec3 specular = material.specular_amount * specular_strength * light.specular_color;
+    float specular_amount = pow(max(dot(camera_direction, camera_direction_reflected), 0.0), material.specular_shininess);
+    vec3 specular = material.specular_amount * specular_amount * light.specular_color * vec3(texture(material.specular_texture, frag_texcoord));
 
     out_color = vec4(ambient + diffuse + specular, 1.0);
 }

@@ -80,6 +80,7 @@ struct
 
     GLuint phong_program;
     GLuint diffuse_texture;
+    GLuint specular_texture;
 } render_globals;
 
 /* ---------- private prototypes */
@@ -115,6 +116,7 @@ void render_initialize(void)
 
     render_globals.phong_program = render_load_shader_program("../assets/shaders/phong.vs", "../assets/shaders/phong.fs");
     render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/asdf.dds");
+    render_globals.specular_texture = render_load_dds_file_as_texture2d("../assets/textures/white.dds");
 
     render_load_obj_file("../assets/models/cube_sphere.obj");
     render_load_obj_file("../assets/models/monkey.obj");
@@ -166,9 +168,9 @@ void render_update(float delta_time)
             glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light.specular_color"), 1, (const vec3){0, 0, 1});
 
             // Bind the material uniforms
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
             glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
             glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_shininess"), 1, (const GLfloat[]){32.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
 
             // Activate and bind the material texture(s)
             glActiveTexture(GL_TEXTURE0);
@@ -176,6 +178,13 @@ void render_update(float delta_time)
 
             // Register the material texture unit(s) in the shader
             glUniform1i(glGetUniformLocation(render_globals.phong_program, "material.diffuse_texture"), 0);
+
+            // Activate and bind the material texture(s)
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, render_globals.specular_texture);
+
+            // Register the material texture unit(s) in the shader
+            glUniform1i(glGetUniformLocation(render_globals.phong_program, "material.specular_texture"), 1);
 
             // Draw the geometry
             glBindVertexArray(mesh->vertex_array);
@@ -211,7 +220,7 @@ static void render_camera_update(float delta_time)
     input_get_mouse_motion(&mouse_motion[0], &mouse_motion[1]);
     
     mouse_motion[1] = -mouse_motion[1];
-    glm_vec2_scale(mouse_motion, render_globals.camera.look_sensitivity, mouse_motion);
+    glm_vec2_scale(mouse_motion, 100.0f * render_globals.camera.look_sensitivity * delta_time, mouse_motion);
     glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
 
     if (render_globals.camera.rotation[1] > 89.0f)
