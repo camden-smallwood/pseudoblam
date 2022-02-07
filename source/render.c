@@ -45,7 +45,7 @@ struct
     int model_count;
     struct render_model *models;
 
-    GLuint phong_program;
+    GLuint program;
     GLuint diffuse_texture;
     GLuint specular_texture;
 } render_globals;
@@ -87,7 +87,7 @@ void render_initialize(void)
 
     render_camera_initialize();
 
-    render_globals.phong_program = render_load_shader_program("../assets/shaders/phong.vs", "../assets/shaders/phong.fs");
+    render_globals.program = render_load_shader_program("../assets/shaders/blinnphong.vs", "../assets/shaders/blinnphong.fs");
     render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/asdf.dds");
     render_globals.specular_texture = render_load_dds_file_as_texture2d("../assets/textures/white.dds");
 
@@ -123,77 +123,77 @@ void render_update(float delta_ticks)
             struct render_mesh *mesh = model->meshes + mesh_index;
 
             // Bind the shader
-            glUseProgram(render_globals.phong_program);
+            glUseProgram(render_globals.program);
 
             // Bind the camera position
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "camera_position"), 1, (const GLfloat *)render_globals.camera.position);
+            glUniform3fv(glGetUniformLocation(render_globals.program, "camera_position"), 1, (const GLfloat *)render_globals.camera.position);
 
             // Bind the camera model/view/projection matrices
-            glUniformMatrix4fv(glGetUniformLocation(render_globals.phong_program, "model"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.model);
-            glUniformMatrix4fv(glGetUniformLocation(render_globals.phong_program, "view"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.view);
-            glUniformMatrix4fv(glGetUniformLocation(render_globals.phong_program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "model"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.model);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "view"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.view);
+            glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
 
             // Bind the lighting uniforms
-            glUniform1uiv(glGetUniformLocation(render_globals.phong_program, "directional_light_count"), 1, (const GLuint[]){1});
+            glUniform1uiv(glGetUniformLocation(render_globals.program, "directional_light_count"), 1, (const GLuint[]){1});
             
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "directional_lights[0].position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "directional_lights[0].direction"), 1, (const vec3){-0.2f, -1.0f, -0.3f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "directional_lights[0].diffuse_color"), 1, (const vec3){1, 0, 0});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "directional_lights[0].ambient_color"), 1, (const vec3){0, 1, 0});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "directional_lights[0].specular_color"), 1, (const vec3){0, 0, 1});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].direction"), 1, (const vec3){-0.2f, -1.0f, -0.3f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].diffuse_color"), 1, (const vec3){1, 0, 0});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].ambient_color"), 1, (const vec3){0, 1, 0});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].specular_color"), 1, (const vec3){0, 0, 1});
 
-            glUniform1uiv(glGetUniformLocation(render_globals.phong_program, "point_light_count"), 1, (const GLuint[]){4});
+            glUniform1uiv(glGetUniformLocation(render_globals.program, "point_light_count"), 1, (const GLuint[]){4});
             
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[0].position"), 1, (const vec3){0.7f, 0.2f, 2.0f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[0].constant"), 1, (const GLfloat[]){1.0f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[0].linear"), 1, (const GLfloat[]){0.09f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[0].quadratic"), 1, (const GLfloat[]){0.032f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[0].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[0].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[0].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[0].position"), 1, (const vec3){0.7f, 0.2f, 2.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[0].constant"), 1, (const GLfloat[]){1.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[0].linear"), 1, (const GLfloat[]){0.09f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[0].quadratic"), 1, (const GLfloat[]){0.032f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[0].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[0].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[0].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
 
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[1].position"), 1, (const vec3){2.3f, -3.3f, -4.0f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[1].constant"), 1, (const GLfloat[]){1.0f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[1].linear"), 1, (const GLfloat[]){0.09f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[1].quadratic"), 1, (const GLfloat[]){0.032f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[1].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[1].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[1].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[1].position"), 1, (const vec3){2.3f, -3.3f, -4.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[1].constant"), 1, (const GLfloat[]){1.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[1].linear"), 1, (const GLfloat[]){0.09f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[1].quadratic"), 1, (const GLfloat[]){0.032f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[1].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[1].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[1].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
 
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[2].position"), 1, (const vec3){-4.0f, 2.0f, -12.0f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[2].constant"), 1, (const GLfloat[]){1.0f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[2].linear"), 1, (const GLfloat[]){0.09f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[2].quadratic"), 1, (const GLfloat[]){0.032f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[2].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[2].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[2].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[2].position"), 1, (const vec3){-4.0f, 2.0f, -12.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[2].constant"), 1, (const GLfloat[]){1.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[2].linear"), 1, (const GLfloat[]){0.09f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[2].quadratic"), 1, (const GLfloat[]){0.032f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[2].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[2].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[2].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
 
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[3].position"), 1, (const vec3){0.0f, 0.0f, -3.0});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[3].constant"), 1, (const GLfloat[]){1.0f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[3].linear"), 1, (const GLfloat[]){0.09f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "point_lights[3].quadratic"), 1, (const GLfloat[]){0.032f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[3].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[3].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "point_lights[3].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[3].position"), 1, (const vec3){0.0f, 0.0f, -3.0});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[3].constant"), 1, (const GLfloat[]){1.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[3].linear"), 1, (const GLfloat[]){0.09f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[3].quadratic"), 1, (const GLfloat[]){0.032f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[3].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[3].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[3].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
 
             // Bind the material uniforms
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_shininess"), 1, (const GLfloat[]){5});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "material.specular_shininess"), 1, (const GLfloat[]){32});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
 
             // Activate and bind the material texture(s)
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
 
             // Register the material texture unit(s) in the shader
-            glUniform1i(glGetUniformLocation(render_globals.phong_program, "material.diffuse_texture"), 0);
+            glUniform1i(glGetUniformLocation(render_globals.program, "material.diffuse_texture"), 0);
 
             // Activate and bind the material texture(s)
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, render_globals.specular_texture);
 
             // Register the material texture unit(s) in the shader
-            glUniform1i(glGetUniformLocation(render_globals.phong_program, "material.specular_texture"), 1);
+            glUniform1i(glGetUniformLocation(render_globals.program, "material.specular_texture"), 1);
 
             // Draw the geometry
             glBindVertexArray(mesh->vertex_array);
@@ -216,7 +216,7 @@ static void render_camera_initialize(void)
     render_globals.camera.horizontal_fov = 90.0f;
     render_globals.camera.vertical_fov = 0.0f;
     render_globals.camera.aspect_ratio = 1.0f;
-    render_globals.camera.near_clip = 0.1f;
+    render_globals.camera.near_clip = 0.01f;
     render_globals.camera.far_clip = 1000.0f;
     memcpy(render_globals.camera.position, (vec3){3, 2, 3}, sizeof(vec3));
     memcpy(render_globals.camera.rotation, (vec2){-130, -35}, sizeof(vec2));
@@ -542,7 +542,7 @@ static void render_load_obj_file(
         glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(struct render_vertex), vertices, GL_STATIC_DRAW);
 
         // Describe the position attribute for each vertex in the mesh's vertex buffer
-        GLuint position_location = glGetAttribLocation(render_globals.phong_program, "position");
+        GLuint position_location = glGetAttribLocation(render_globals.program, "position");
         glEnableVertexAttribArray(position_location);
         glVertexAttribPointer(
             position_location, 3, GL_FLOAT, GL_FALSE,
@@ -550,7 +550,7 @@ static void render_load_obj_file(
             (const void *)offsetof(struct render_vertex, position));
 
         // Describe the normal attribute for each vertex in the mesh's vertex buffer
-        GLuint normal_location = glGetAttribLocation(render_globals.phong_program, "normal");
+        GLuint normal_location = glGetAttribLocation(render_globals.program, "normal");
         glEnableVertexAttribArray(normal_location);
         glVertexAttribPointer(
             normal_location, 3, GL_FLOAT, GL_FALSE,
@@ -558,7 +558,7 @@ static void render_load_obj_file(
             (const void *)offsetof(struct render_vertex, normal));
 
         // Describe the texcoord attribute for each vertex in the mesh's vertex buffer
-        GLuint texcoord_location = glGetAttribLocation(render_globals.phong_program, "texcoord");
+        GLuint texcoord_location = glGetAttribLocation(render_globals.program, "texcoord");
         glEnableVertexAttribArray(texcoord_location);
         glVertexAttribPointer(
             texcoord_location, 2, GL_FLOAT, GL_FALSE,

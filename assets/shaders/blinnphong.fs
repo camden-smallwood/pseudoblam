@@ -40,11 +40,9 @@ uniform point_light_data point_lights[MAXIMUM_POINT_LIGHTS];
 
 vec3 calculate_light(
     material_data material,
-    vec3 frag_position,
     vec2 frag_texcoord,
     vec3 normal,
     vec3 camera_direction,
-    vec3 position,
     vec3 light_direction,
     vec3 diffuse_color,
     vec3 ambient_color,
@@ -62,8 +60,8 @@ vec3 calculate_light(
     vec3 diffuse = diffuse_color * diffuse_amount * diffuse_texture * attenuation;
 
     // specular shading
-    vec3 light_direction_reflected = reflect(-light_direction, normal);
-    float specular_amount = pow(max(dot(camera_direction, light_direction_reflected), 0.0), material.specular_shininess);
+    vec3 light_halfway_direction = normalize(light_direction + camera_direction);
+    float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
     vec3 specular = material.specular_amount * specular_color * specular_amount * specular_texture * attenuation;
 
     return ambient + diffuse + specular;
@@ -81,11 +79,9 @@ vec3 calculate_directional_light(
 
     return calculate_light(
         material,
-        frag_position,
         frag_texcoord,
         normal,
         camera_direction,
-        light.position,
         light_direction,
         light.diffuse_color,
         light.ambient_color,
@@ -107,11 +103,9 @@ vec3 calculate_point_light(
 
     return calculate_light(
         material,
-        frag_position,
         frag_texcoord,
         normal,
         camera_direction,
-        light.position,
         light_direction,
         light.diffuse_color,
         light.ambient_color,
