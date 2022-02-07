@@ -20,8 +20,10 @@ struct render_camera
 {
     float look_sensitivity;
     float movement_speed;
-    float field_of_view;
+    float horizontal_fov;
+    float vertical_fov;
     float aspect_ratio;
+    float inverse_aspect_ratio;
     float near_clip;
     float far_clip;
     vec3 position;
@@ -126,6 +128,9 @@ void render_dispose(void)
 void render_handle_screen_resize(int width, int height)
 {
     render_globals.camera.aspect_ratio = (float)width / (float)height;
+
+    float inverse_aspect_ratio = (float)height / (float)width;
+    render_globals.camera.vertical_fov = 2.0f * atanf(tanf(glm_rad(render_globals.camera.horizontal_fov) / 2.0f) * inverse_aspect_ratio);
 }
 
 void render_update(float delta_time)
@@ -154,20 +159,23 @@ void render_update(float delta_time)
             glUniformMatrix4fv(glGetUniformLocation(render_globals.phong_program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
 
             // Bind the lighting uniforms
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light_position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light_color"), 1, (const vec3){0.9f, 0.8, 0.2f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "ambient_color"), 1, (const vec3){0, 1, 0});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "ambient_amount"), 1, (const GLfloat[]){0.1f});
-            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "specular_color"), 1, (const vec3){0, 0, 1});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "specular_amount"), 1, (const GLfloat[]){0.5f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "specular_shininess"), 1, (const GLfloat[]){32.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light.position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light.direction"), 1, (const vec3){-0.2f, -1.0f, -0.3f});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light.diffuse_color"), 1, (const vec3){1, 0, 0});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light.ambient_color"), 1, (const vec3){0, 1, 0});
+            glUniform3fv(glGetUniformLocation(render_globals.phong_program, "light.specular_color"), 1, (const vec3){0, 0, 1});
 
-            // Activate and bind the texture(s)
+            // Bind the material uniforms
+            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
+            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
+            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_shininess"), 1, (const GLfloat[]){32.0f});
+
+            // Activate and bind the material texture(s)
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
 
-            // Register the texture unit(s) in the shader
-            glUniform1i(glGetUniformLocation(render_globals.phong_program, "diffuse_texture"), 0);
+            // Register the material texture unit(s) in the shader
+            glUniform1i(glGetUniformLocation(render_globals.phong_program, "material.diffuse_texture"), 0);
 
             // Draw the geometry
             glBindVertexArray(mesh->vertex_array);
@@ -175,8 +183,6 @@ void render_update(float delta_time)
             for (int part_index = 0; part_index < mesh->part_count; part_index++)
             {
                 struct render_mesh_part *part = mesh->parts + part_index;
-
-                // Draw the geometry
                 glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
             }
         }
@@ -189,7 +195,8 @@ static void render_camera_initialize(void)
 {
     render_globals.camera.look_sensitivity = 5.0f;
     render_globals.camera.movement_speed = 5.0f;
-    render_globals.camera.field_of_view = 90.0f;
+    render_globals.camera.horizontal_fov = 90.0f;
+    render_globals.camera.vertical_fov = 0.0f;
     render_globals.camera.aspect_ratio = 1.0f;
     render_globals.camera.near_clip = 0.1f;
     render_globals.camera.far_clip = 1000.0f;
@@ -282,7 +289,7 @@ static void render_camera_update(float delta_time)
         render_globals.camera.view);
     
     glm_perspective(
-        render_globals.camera.field_of_view / 2.0f,
+        render_globals.camera.vertical_fov,
         render_globals.camera.aspect_ratio,
         render_globals.camera.near_clip,
         render_globals.camera.far_clip,
