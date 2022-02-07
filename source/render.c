@@ -23,7 +23,6 @@ struct render_camera
     float horizontal_fov;
     float vertical_fov;
     float aspect_ratio;
-    float inverse_aspect_ratio;
     float near_clip;
     float far_clip;
     vec3 position;
@@ -169,7 +168,7 @@ void render_update(float delta_time)
 
             // Bind the material uniforms
             glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
-            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_shininess"), 1, (const GLfloat[]){32.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.specular_shininess"), 1, (const GLfloat[]){5});
             glUniform1fv(glGetUniformLocation(render_globals.phong_program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
 
             // Activate and bind the material texture(s)
@@ -209,9 +208,10 @@ static void render_camera_initialize(void)
     render_globals.camera.aspect_ratio = 1.0f;
     render_globals.camera.near_clip = 0.1f;
     render_globals.camera.far_clip = 1000.0f;
-    memcpy(render_globals.camera.position, (vec3){1.0f, 1.0f, 2.0f}, sizeof(vec3));
-    memcpy(render_globals.camera.rotation, (vec2){-90.0f, 0.0f}, sizeof(vec2));
-    memcpy(render_globals.camera.up, (vec3){0.0f, 1.0f, 0.0f}, sizeof(vec3));
+    memcpy(render_globals.camera.position, (vec3){3, 2, 3}, sizeof(vec3));
+    memcpy(render_globals.camera.rotation, (vec2){-130, -35}, sizeof(vec2));
+    memcpy(render_globals.camera.up, (vec3){0, 1, 0}, sizeof(vec3));
+    glm_mat4_identity(render_globals.camera.model);
 }
 
 static void render_camera_update(float delta_time)
@@ -276,20 +276,16 @@ static void render_camera_update(float delta_time)
         glm_vec3_sub(movement, up, movement);
     }
 
-    if (input_is_key_down(SDL_SCANCODE_LSHIFT))
+    if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
     {
         glm_vec3_scale(movement, 2.0f, movement);
     }
 
     glm_vec3_scale(movement, render_globals.camera.movement_speed * delta_time, movement);
-
     glm_vec3_add(render_globals.camera.position, movement, render_globals.camera.position);
     
     vec3 camera_target;
     glm_vec3_add(render_globals.camera.position, forward, camera_target);
-
-    glm_mat4_identity(
-        render_globals.camera.model);
 
     glm_lookat(
         render_globals.camera.position,
