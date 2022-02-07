@@ -72,6 +72,8 @@ struct render_vertex
 
 struct
 {
+    bool tab_pressed;
+
     struct render_camera camera;
 
     int model_count;
@@ -85,7 +87,7 @@ struct
 /* ---------- private prototypes */
 
 static void render_camera_initialize(void);
-static void render_camera_update(float delta_time);
+static void render_camera_update(float delta_ticks);
 
 static GLuint render_compile_shader_source(GLenum shader_type, const char *shader_source);
 static GLuint render_load_and_compile_shader_file(GLenum shader_type, const char *file_path);
@@ -108,8 +110,14 @@ void render_initialize(void)
     const GLubyte *version = glGetString(GL_VERSION);
     printf("GL Version: %s\n", version);
 
+    // Enable depth testing
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
+    
+    // Enable backface culling
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     render_camera_initialize();
 
@@ -134,9 +142,9 @@ void render_handle_screen_resize(int width, int height)
     render_globals.camera.vertical_fov = 2.0f * atanf(tanf(glm_rad(render_globals.camera.horizontal_fov) / 2.0f) * inverse_aspect_ratio);
 }
 
-void render_update(float delta_time)
+void render_update(float delta_ticks)
 {
-    render_camera_update(delta_time);
+    render_camera_update(delta_ticks);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
@@ -202,7 +210,7 @@ void render_update(float delta_time)
 static void render_camera_initialize(void)
 {
     render_globals.camera.look_sensitivity = 5.0f;
-    render_globals.camera.movement_speed = 5.0f;
+    render_globals.camera.movement_speed = 1.0f;
     render_globals.camera.horizontal_fov = 90.0f;
     render_globals.camera.vertical_fov = 0.0f;
     render_globals.camera.aspect_ratio = 1.0f;
@@ -214,15 +222,16 @@ static void render_camera_initialize(void)
     glm_mat4_identity(render_globals.camera.model);
 }
 
-static void render_camera_update(float delta_time)
+static void render_camera_update(float delta_ticks)
 {
     vec2 mouse_motion;
     input_get_mouse_motion(&mouse_motion[0], &mouse_motion[1]);
     
     mouse_motion[1] = -mouse_motion[1];
-    glm_vec2_scale(mouse_motion, 100.0f * render_globals.camera.look_sensitivity * delta_time, mouse_motion);
+    glm_vec2_scale(mouse_motion, 100.0f * render_globals.camera.look_sensitivity * delta_ticks, mouse_motion);
     glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
 
+    // Clamp camera rotation pitch angle between -89 and 89 degrees to prevent flipping
     if (render_globals.camera.rotation[1] > 89.0f)
         render_globals.camera.rotation[1] = 89.0f;
     else if (render_globals.camera.rotation[1] < -89.0f)
@@ -249,39 +258,49 @@ static void render_camera_update(float delta_time)
 
     vec3 movement = {0.0f, 0.0f, 0.0f};
 
+    // Forwards and backwards camera movement
     if (input_is_key_down(SDL_SCANCODE_W))
-    {
         glm_vec3_add(movement, forward, movement);
-    }
     else if (input_is_key_down(SDL_SCANCODE_S))
-    {
         glm_vec3_sub(movement, forward, movement);
-    }
 
+    // Horizontal camera movement
     if (input_is_key_down(SDL_SCANCODE_A))
-    {
         glm_vec3_add(movement, right, movement);
-    }
     else if (input_is_key_down(SDL_SCANCODE_D))
-    {
         glm_vec3_sub(movement, right, movement);
-    }
 
+    // Vertical camera movement
     if (input_is_key_down(SDL_SCANCODE_R))
-    {
         glm_vec3_add(movement, up, movement);
-    }
     else if (input_is_key_down(SDL_SCANCODE_F))
-    {
         glm_vec3_sub(movement, up, movement);
-    }
 
+    // Double movement amount if either shift key is down
     if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
-    {
         glm_vec3_scale(movement, 2.0f, movement);
+    
+    if (input_is_key_down(SDL_SCANCODE_TAB))
+    {
+        render_globals.tab_pressed = true;
     }
+    else if (render_globals.tab_pressed)
+    {
+        render_globals.tab_pressed = false;
 
-    glm_vec3_scale(movement, render_globals.camera.movement_speed * delta_time, movement);
+        if (render_globals.camera.movement_speed == 1.0f)
+            render_globals.camera.movement_speed = 5.0f;
+        else if (render_globals.camera.movement_speed == 5.0f)
+            render_globals.camera.movement_speed = 10.0f;
+        else if (render_globals.camera.movement_speed == 10.0f)
+            render_globals.camera.movement_speed = 20.0f;
+        else if (render_globals.camera.movement_speed == 20.0f)
+            render_globals.camera.movement_speed = 100.0f;
+        else
+            render_globals.camera.movement_speed = 1.0f;
+    }
+        
+    glm_vec3_scale(movement, render_globals.camera.movement_speed * delta_ticks, movement);
     glm_vec3_add(render_globals.camera.position, movement, render_globals.camera.position);
     
     vec3 camera_target;
@@ -405,6 +424,9 @@ GLuint render_load_dds_file_as_texture2d(
 
     glBindTexture(GL_TEXTURE_2D, texture_id);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     for (unsigned int
         block_size = (format == GL_COMPRESSED_RGBA_S3TC_DXT1_EXT) ? 8 : 16,
