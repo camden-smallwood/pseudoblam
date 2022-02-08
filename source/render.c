@@ -77,6 +77,9 @@ void render_initialize(void)
     const GLubyte *version = glGetString(GL_VERSION);
     printf("GL Version: %s\n", version);
 
+    // Enable multisampling
+    glEnable(GL_MULTISAMPLE);
+
     // Enable depth testing
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
