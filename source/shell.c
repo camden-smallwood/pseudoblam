@@ -11,7 +11,10 @@ struct
     SDL_Window *window;
     SDL_GLContext gl_context;
     SDL_Event event;
-    uint64_t last_update;
+    uint64_t start_time;
+    uint64_t last_update_time;
+    uint64_t last_fps_display_time;
+    uint64_t total_frames;
 } static shell_globals;
 
 /* ---------- private prototypes */
@@ -47,6 +50,7 @@ static inline void shell_initialize(void)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetSwapInterval(0);
 
     const int screen_width = 1280;
     const int screen_height = 720;
@@ -58,8 +62,11 @@ static inline void shell_initialize(void)
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
     input_initialize();
+    
     render_initialize();
     render_handle_screen_resize(screen_width, screen_height);
+    
+    shell_globals.start_time = SDL_GetTicks64();
 }
 
 static inline void shell_dispose(void)
@@ -78,12 +85,26 @@ static inline void shell_update(void)
 {
     uint64_t ticks = SDL_GetTicks64();
 
-    if (!shell_globals.last_update)
+    if (!shell_globals.last_update_time)
     {
-        shell_globals.last_update = ticks;
+        shell_globals.last_update_time = ticks;
     }
 
-    float delta_time = (ticks - shell_globals.last_update) / 1000.0f;
+    if ((ticks - shell_globals.last_fps_display_time) >= 1000)
+    {
+        float fps = shell_globals.total_frames / ((ticks - shell_globals.start_time) / 1000.f);
+        if(fps > 2000000)
+            fps = 0;
+        
+        char fps_string[256];
+        snprintf(fps_string, sizeof(fps_string), "fps: %f", fps);
+        
+        SDL_SetWindowTitle(shell_globals.window, fps_string);
+
+        shell_globals.last_fps_display_time = ticks;
+    }
+
+    float delta_time = (ticks - shell_globals.last_update_time) / 1000.0f;
 
     input_set_mouse_motion(0.0f, 0.0f);
     
@@ -123,5 +144,6 @@ static inline void shell_update(void)
 
     SDL_GL_SwapWindow(shell_globals.window);
 
-    shell_globals.last_update = ticks;
+    shell_globals.last_update_time = ticks;
+    shell_globals.total_frames++;
 }

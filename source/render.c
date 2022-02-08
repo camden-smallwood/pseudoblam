@@ -48,6 +48,7 @@ struct
     GLuint program;
     GLuint diffuse_texture;
     GLuint specular_texture;
+    GLuint normal_texture;
 } render_globals;
 
 /* ---------- private prototypes */
@@ -88,8 +89,9 @@ void render_initialize(void)
     render_camera_initialize();
 
     render_globals.program = render_load_shader_program("../assets/shaders/blinnphong.vs", "../assets/shaders/blinnphong.fs");
-    render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/asdf.dds");
+    render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
     render_globals.specular_texture = render_load_dds_file_as_texture2d("../assets/textures/white.dds");
+    render_globals.normal_texture = render_load_dds_file_as_texture2d("../assets/textures/bricks_normal.dds");
 
     render_load_obj_file("../assets/models/cube_sphere.obj");
     render_load_obj_file("../assets/models/monkey.obj");
@@ -134,13 +136,13 @@ void render_update(float delta_ticks)
             glUniformMatrix4fv(glGetUniformLocation(render_globals.program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
 
             // Bind the lighting uniforms
-            glUniform1uiv(glGetUniformLocation(render_globals.program, "directional_light_count"), 1, (const GLuint[]){1});
+            // glUniform1uiv(glGetUniformLocation(render_globals.program, "directional_light_count"), 1, (const GLuint[]){1});
             
-            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].direction"), 1, (const vec3){-0.2f, -1.0f, -0.3f});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].diffuse_color"), 1, (const vec3){1, 0, 0});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].ambient_color"), 1, (const vec3){0, 1, 0});
-            glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].specular_color"), 1, (const vec3){0, 0, 1});
+            // glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
+            // glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].direction"), 1, (const vec3){-0.2f, -1.0f, -0.3f});
+            // glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].diffuse_color"), 1, (const vec3){1, 0, 0});
+            // glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].ambient_color"), 1, (const vec3){0, 1, 0});
+            // glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].specular_color"), 1, (const vec3){0, 0, 1});
 
             glUniform1uiv(glGetUniformLocation(render_globals.program, "point_light_count"), 1, (const GLuint[]){4});
             
@@ -184,16 +186,15 @@ void render_update(float delta_ticks)
             // Activate and bind the material texture(s)
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
-
-            // Register the material texture unit(s) in the shader
             glUniform1i(glGetUniformLocation(render_globals.program, "material.diffuse_texture"), 0);
 
-            // Activate and bind the material texture(s)
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, render_globals.specular_texture);
-
-            // Register the material texture unit(s) in the shader
             glUniform1i(glGetUniformLocation(render_globals.program, "material.specular_texture"), 1);
+
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, render_globals.normal_texture);
+            glUniform1i(glGetUniformLocation(render_globals.program, "material.normal_texture"), 2);
 
             // Draw the geometry
             glBindVertexArray(mesh->vertex_array);

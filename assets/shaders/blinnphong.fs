@@ -6,6 +6,7 @@ struct material_data
 {
     sampler2D diffuse_texture;
     sampler2D specular_texture;
+    sampler2D normal_texture;
     float specular_amount;
     float specular_shininess;
     float ambient_amount;
@@ -121,7 +122,8 @@ out vec4 out_color;
 
 void main()
 {
-    vec3 normal = normalize(frag_normal);
+    // vec3 normal = normalize(frag_normal);
+    vec3 normal = normalize(texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0);
     vec3 camera_direction = normalize(camera_position - frag_position);
 
     vec3 result = vec3(0.0);
