@@ -117,13 +117,14 @@ vec3 calculate_point_light(
 in vec3 frag_position;
 in vec3 frag_normal;
 in vec2 frag_texcoord;
+in mat3 frag_tbn;
 
 out vec4 out_color;
 
 void main()
 {
     // vec3 normal = normalize(frag_normal);
-    vec3 normal = normalize(texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0);
+    vec3 normal = normalize(frag_tbn * (texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0));
     vec3 camera_direction = normalize(camera_position - frag_position);
 
     vec3 result = vec3(0.0);
