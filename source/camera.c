@@ -12,7 +12,7 @@ void camera_initialize(struct camera_data *camera)
 
     camera->look_sensitivity = 5.0f;
     camera->movement_speed = 1.0f;
-    camera->horizontal_fov = 74.0f;
+    camera->horizontal_fov = 90.0f;
     camera->vertical_fov = 0.0f;
     camera->aspect_ratio = 1.0f;
     camera->near_clip = 0.01f;

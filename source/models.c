@@ -11,30 +11,42 @@
 
 /* ---------- private prototypes */
 
-static void render_model_process_assimp_node(
-    struct render_model *model,
+static void model_import_assimp_node(
     const char *directory_path,
-    const struct aiScene *scene,
-    const struct aiNode *node);
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    struct model_data *out_model);
 
-static void render_model_process_assimp_metadata(
-    struct render_model *model,
+static void model_import_assimp_metadata(
     const char *directory_path,
-    const struct aiScene *scene,
-    const struct aiNode *node,
-    const struct aiMetadata *metadata);
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    const struct aiMetadata *in_metadata,
+    struct model_data *out_model);
 
-static void render_model_process_assimp_mesh(
-    struct render_model *model,
-    struct render_mesh *render_mesh,
+static void model_import_assimp_mesh(
     const char *directory_path,
-    const struct aiScene *scene,
-    const struct aiNode *node,
-    const struct aiMesh *mesh);
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    const struct aiMesh *in_mesh,
+    struct model_data *out_model,
+    struct model_mesh *out_mesh);
+
+static void model_import_assimp_material(
+    const char *directory_path,
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    const struct aiMesh *in_mesh,
+    const struct aiMaterial *in_material,
+    struct model_data *out_model,
+    struct model_mesh *out_mesh,
+    struct model_mesh_part *out_part);
 
 /* ---------- public code */
 
-void render_model_load_file(struct render_model *model, const char *file_path)
+void model_import_from_file(
+    struct model_data *model,
+    const char *file_path)
 {
     assert(model);
     assert(file_path);
@@ -89,7 +101,7 @@ void render_model_load_file(struct render_model *model, const char *file_path)
 
     memset(model, 0, sizeof(*model));
 
-    render_model_process_assimp_node(model, directory_path, scene, scene->mRootNode);
+    model_import_assimp_node(directory_path, scene, scene->mRootNode, model);
 
     //
     // Clean up
@@ -102,65 +114,56 @@ void render_model_load_file(struct render_model *model, const char *file_path)
 
 /* ---------- private code */
 
-static void render_model_process_assimp_node(
-    struct render_model *model,
+static void model_import_assimp_node(
     const char *directory_path,
-    const struct aiScene *scene,
-    const struct aiNode *node)
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    struct model_data *out_model)
 {
     printf("node \"%s\" has:\n"
         "\tparent node: %s\n"
         "\tmesh count: %i\n"
         "\tchild count: %i\n",
-        node->mName.data,
-        node->mParent ? node->mParent->mName.data : "<none>",
-        node->mNumMeshes,
-        node->mNumChildren);
+        in_node->mName.data,
+        in_node->mParent ? in_node->mParent->mName.data : "<none>",
+        in_node->mNumMeshes,
+        in_node->mNumChildren);
     
-    render_model_process_assimp_metadata(model, directory_path, scene, node, node->mMetaData);
+    model_import_assimp_metadata(directory_path, in_scene, in_node, in_node->mMetaData, out_model);
 
-    struct render_mesh mesh;
+    struct model_mesh mesh;
     memset(&mesh, 0, sizeof(mesh));
 
-    for (unsigned int mesh_index = 0; mesh_index < node->mNumMeshes; mesh_index++)
+    for (unsigned int mesh_index = 0; mesh_index < in_node->mNumMeshes; mesh_index++)
     {
-        render_model_process_assimp_mesh(model, &mesh, directory_path, scene, node, scene->mMeshes[node->mMeshes[mesh_index]]);
+        model_import_assimp_mesh(directory_path, in_scene, in_node, in_scene->mMeshes[in_node->mMeshes[mesh_index]], out_model, &mesh);
     }
     
     if (mesh.vertices)
     {
-        // Create and bind the mesh's vertex array
-        glGenVertexArrays(1, &mesh.vertex_array);
-        glBindVertexArray(mesh.vertex_array);
-
-        // Create, bind and fill the mesh's vertex buffer
-        glGenBuffers(1, &mesh.vertex_buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, mesh.vertex_buffer);
-        glBufferData(GL_ARRAY_BUFFER, mesh.vertex_count * sizeof(struct render_vertex), mesh.vertices, GL_STATIC_DRAW);
-
-        mempush(&model->mesh_count, (void **)&model->meshes, &mesh, sizeof(mesh), realloc);
+        mempush(&out_model->mesh_count, (void **)&out_model->meshes, &mesh, sizeof(mesh), realloc);
     }
 
-    for (unsigned int child_index = 0; child_index < node->mNumChildren; child_index++)
+    for (unsigned int child_index = 0; child_index < in_node->mNumChildren; child_index++)
     {
-        render_model_process_assimp_node(model, directory_path, scene, node->mChildren[child_index]);
+        model_import_assimp_node(directory_path, in_scene, in_node->mChildren[child_index], out_model);
     }
 }
 
-static void render_model_process_assimp_metadata(
-    struct render_model *model,
+static void model_import_assimp_metadata(
     const char *directory_path,
-    const struct aiScene *scene,
-    const struct aiNode *node,
-    const struct aiMetadata *metadata)
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    const struct aiMetadata *in_metadata,
+    struct model_data *out_model)
 {
-    if (!metadata)
+    if (!in_metadata)
         return;
 
-    for (unsigned int property_index = 0; property_index < metadata->mNumProperties; property_index++)
+    for (unsigned int property_index = 0; property_index < in_metadata->mNumProperties; property_index++)
     {
-        struct aiString *key = metadata->mKeys + property_index;
-        struct aiMetadataEntry *value = metadata->mValues + property_index;
+        struct aiString *key = in_metadata->mKeys + property_index;
+        struct aiMetadataEntry *value = in_metadata->mValues + property_index;
 
         char *value_string = NULL;
         
@@ -198,7 +201,7 @@ static void render_model_process_assimp_metadata(
             break;
 
         case AI_AIMETADATA:
-            render_model_process_assimp_metadata(model, directory_path, scene, node, (const struct aiMetadata *)value->mData);
+            model_import_assimp_metadata(directory_path, in_scene, in_node, (const struct aiMetadata *)value->mData, out_model);
             break;
 
         default:
@@ -211,66 +214,80 @@ static void render_model_process_assimp_metadata(
     }
 }
 
-static void render_model_process_assimp_mesh(
-    struct render_model *render_model,
-    struct render_mesh *render_mesh,
+static void model_import_assimp_mesh(
     const char *directory_path,
-    const struct aiScene *scene,
-    const struct aiNode *node,
-    const struct aiMesh *mesh)
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    const struct aiMesh *in_mesh,
+    struct model_data *out_model,
+    struct model_mesh *out_mesh)
 {
-    assert(render_model);
-    assert(render_mesh);
-    assert(directory_path);
-    assert(scene);
-    assert(node);
-    assert(mesh);
+    printf("mesh in node \"%s\" has:\n", in_node->mName.data);
 
-    printf("mesh in node \"%s\" has:\n", node->mName.data);
-
-    struct render_mesh_part part =
+    struct model_mesh_part part =
     {
         .material_index = -1, // TODO
-        .vertex_index = render_mesh->vertex_count,
+        .vertex_index = out_mesh->vertex_count,
         .vertex_count = 0,
     };
 
-    for(unsigned int face_index = 0; face_index < mesh->mNumFaces; face_index++)
+    for(unsigned int face_index = 0; face_index < in_mesh->mNumFaces; face_index++)
     {
-        struct aiFace face = mesh->mFaces[face_index];
+        struct aiFace face = in_mesh->mFaces[face_index];
 
         for(unsigned int index_index = 0; index_index < face.mNumIndices; index_index++)
         {
             int vertex_index = face.mIndices[index_index];
 
-            struct aiVector3D position = mesh->mVertices[vertex_index];
-            struct aiVector3D normal = mesh->mNormals[vertex_index];
-            struct aiVector3D texcoord = mesh->mTextureCoords[0] ? mesh->mTextureCoords[0][vertex_index] : (struct aiVector3D){0, 0, 0};
-            struct aiVector3D tangent = mesh->mTangents[vertex_index];
-            struct aiVector3D bitangent = mesh->mBitangents[vertex_index];
+            struct aiVector3D position = in_mesh->mVertices[vertex_index];
+            struct aiVector3D normal = in_mesh->mNormals[vertex_index];
+            struct aiVector3D texcoord = in_mesh->mTextureCoords[0] ? in_mesh->mTextureCoords[0][vertex_index] : (struct aiVector3D){0, 0, 0};
+            struct aiVector3D tangent = in_mesh->mTangents[vertex_index];
+            struct aiVector3D bitangent = in_mesh->mBitangents[vertex_index];
 
-            struct render_vertex vertex;
+            struct model_vertex vertex;
             memcpy(&vertex.position, (vec3){position.x, position.y, position.z}, sizeof(vec3));
             memcpy(&vertex.normal, (vec3){normal.x, normal.y, normal.z}, sizeof(vec3));
             memcpy(&vertex.texcoord, (vec2){texcoord.x, texcoord.y}, sizeof(vec2));
             memcpy(&vertex.tangent, (vec3){tangent.x, tangent.y, tangent.z}, sizeof(vec3));
             memcpy(&vertex.bitangent, (vec3){bitangent.x, bitangent.y, bitangent.z}, sizeof(vec3));
 
-            mempush(&render_mesh->vertex_count, (void **)&render_mesh->vertices, &vertex, sizeof(vertex), realloc);
+            mempush(&out_mesh->vertex_count, (void **)&out_mesh->vertices, &vertex, sizeof(vertex), realloc);
         }
 
         part.vertex_count += face.mNumIndices;
     }
     
-    mempush(&render_mesh->part_count, (void **)&render_mesh->parts, &part, sizeof(part), realloc);
+    mempush(&out_mesh->part_count, (void **)&out_mesh->parts, &part, sizeof(part), realloc);
 
-    struct aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+    struct aiMaterial *material = in_scene->mMaterials[in_mesh->mMaterialIndex];
+    model_import_assimp_material(directory_path, in_scene, in_node, in_mesh, material, out_model, out_mesh, &part);
+}
 
-    printf("material has %i properties:\n", material->mNumProperties);
+static void model_import_assimp_material(
+    const char *directory_path,
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    const struct aiMesh *in_mesh,
+    const struct aiMaterial *in_material,
+    struct model_data *out_model,
+    struct model_mesh *out_mesh,
+    struct model_mesh_part *out_part)
+{
+    assert(directory_path);
+    assert(in_scene);
+    assert(in_node);
+    assert(in_mesh);
+    assert(in_material);
+    assert(out_model);
+    assert(out_mesh);
+    assert(out_part);
 
-    for (unsigned int property_index = 0; property_index < material->mNumProperties; property_index++)
+    printf("material has %i properties:\n", in_material->mNumProperties);
+
+    for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
     {
-        struct aiMaterialProperty *property = material->mProperties[property_index];
+        struct aiMaterialProperty *property = in_material->mProperties[property_index];
         
         char *value_string = NULL;
 

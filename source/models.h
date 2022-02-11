@@ -3,46 +3,46 @@
 
 /* ---------- types */
 
-struct render_model
+struct model_data
 {
     int material_count;
     int mesh_count;
-    struct render_material *materials;
-    struct render_mesh *meshes;
+    struct model_material *materials;
+    struct model_mesh *meshes;
 };
 
-struct render_material
+struct model_material
 {
     unsigned int program;
     int texture_count;
-    struct render_texture *textures;
+    struct model_material_texture *textures;
 };
 
-struct render_texture
+struct model_material_texture
 {
     unsigned int id;
 };
 
-struct render_mesh
+struct model_mesh
 {
     unsigned int vertex_array;
     unsigned int vertex_buffer;
     
     int vertex_count;
-    struct render_vertex *vertices;
+    struct model_vertex *vertices;
 
     int part_count;
-    struct render_mesh_part *parts;
+    struct model_mesh_part *parts;
 };
 
-struct render_mesh_part
+struct model_mesh_part
 {
     int material_index;
     int vertex_index;
     int vertex_count;
 };
 
-struct render_vertex
+struct model_vertex
 {
     vec3 position;
     vec3 normal;
@@ -53,4 +53,4 @@ struct render_vertex
 
 /* ---------- prototypes/MODELS.C */
 
-void render_model_load_file(struct render_model *model, const char *file_path);
+void model_import_from_file(struct model_data *model, const char *file_path);

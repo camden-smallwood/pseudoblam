@@ -11,7 +11,6 @@
 #include "common.h"
 #include "input.h"
 #include "dds.h"
-#include "obj.h"
 #include "models.h"
 #include "camera.h"
 #include "render.h"
@@ -22,10 +21,16 @@ struct
 {
     bool tab_pressed;
 
+    int screen_width;
+    int screen_height;
+
     struct camera_data camera;
 
     int model_count;
-    struct render_model *models;
+    struct model_data *models;
+
+    GLuint hdr_buffer;
+    GLuint render_buffer;
 
     GLuint program;
     GLuint diffuse_texture;
@@ -79,71 +84,78 @@ void render_initialize(void)
     render_globals.specular_texture = render_load_dds_file_as_texture2d("../assets/textures/white.dds");
     render_globals.normal_texture = render_load_dds_file_as_texture2d("../assets/textures/bricks_normal.dds");
 
-    struct render_model model;
+    struct model_data model;
 
-    render_model_load_file(&model, "../assets/models/assault_rifle.dae");
     render_globals.weapon_model_index = render_globals.model_count;
+
+    model_import_from_file(&model, "../assets/models/assault_rifle.dae");
     mempush(&render_globals.model_count, (void **)&render_globals.models, &model, sizeof(model), realloc);
 
-    render_model_load_file(&model, "../assets/models/cube_sphere.obj");
+    model_import_from_file(&model, "../assets/models/cube_sphere.obj");
     mempush(&render_globals.model_count, (void **)&render_globals.models, &model, sizeof(model), realloc);
 
-    render_model_load_file(&model, "../assets/models/monkey.obj");
+    model_import_from_file(&model, "../assets/models/monkey.obj");
     mempush(&render_globals.model_count, (void **)&render_globals.models, &model, sizeof(model), realloc);
 
     for (int model_index = 0; model_index < render_globals.model_count; model_index++)
     {
-        struct render_model *model = render_globals.models + model_index;
+        struct model_data *model = render_globals.models + model_index;
             
         for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
         {
-            struct render_mesh *mesh = model->meshes + mesh_index;
+            struct model_mesh *mesh = model->meshes + mesh_index;
 
-            if (!(mesh->vertex_array && mesh->vertex_buffer))
+            if (!mesh->vertices)
                 continue;
-            
+
+            // Create and bind the mesh's vertex array
+            glGenVertexArrays(1, &mesh->vertex_array);
             glBindVertexArray(mesh->vertex_array);
+
+            // Create, bind and fill the mesh's vertex buffer
+            glGenBuffers(1, &mesh->vertex_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
+            glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * sizeof(struct model_vertex), mesh->vertices, GL_STATIC_DRAW);
 
             // Describe the position attribute for each vertex in the mesh's vertex buffer
             GLuint position_location = glGetAttribLocation(render_globals.program, "position");
             glEnableVertexAttribArray(position_location);
             glVertexAttribPointer(
                 position_location, 3, GL_FLOAT, GL_FALSE,
-                sizeof(struct render_vertex),
-                (const void *)offsetof(struct render_vertex, position));
+                sizeof(struct model_vertex),
+                (const void *)offsetof(struct model_vertex, position));
 
             // Describe the normal attribute for each vertex in the mesh's vertex buffer
             GLuint normal_location = glGetAttribLocation(render_globals.program, "normal");
             glEnableVertexAttribArray(normal_location);
             glVertexAttribPointer(
                 normal_location, 3, GL_FLOAT, GL_FALSE,
-                sizeof(struct render_vertex),
-                (const void *)offsetof(struct render_vertex, normal));
+                sizeof(struct model_vertex),
+                (const void *)offsetof(struct model_vertex, normal));
 
             // Describe the texcoord attribute for each vertex in the mesh's vertex buffer
             GLuint texcoord_location = glGetAttribLocation(render_globals.program, "texcoord");
             glEnableVertexAttribArray(texcoord_location);
             glVertexAttribPointer(
                 texcoord_location, 2, GL_FLOAT, GL_FALSE,
-                sizeof(struct render_vertex),
-                (const void *)offsetof(struct render_vertex, texcoord));
+                sizeof(struct model_vertex),
+                (const void *)offsetof(struct model_vertex, texcoord));
 
             // Describe the tangent attribute for each vertex in the mesh's vertex buffer
             GLuint tangent_location = glGetAttribLocation(render_globals.program, "tangent");
             glEnableVertexAttribArray(tangent_location);
             glVertexAttribPointer(
                 tangent_location, 3, GL_FLOAT, GL_FALSE,
-                sizeof(struct render_vertex),
-                (const void *)offsetof(struct render_vertex, tangent));
+                sizeof(struct model_vertex),
+                (const void *)offsetof(struct model_vertex, tangent));
 
             // Describe the bitangent attribute for each vertex in the mesh's vertex buffer
             GLuint bitangent_location = glGetAttribLocation(render_globals.program, "bitangent");
             glEnableVertexAttribArray(bitangent_location);
             glVertexAttribPointer(
                 bitangent_location, 3, GL_FLOAT, GL_FALSE,
-                sizeof(struct render_vertex),
-                (const void *)offsetof(struct render_vertex, bitangent));
+                sizeof(struct model_vertex),
+                (const void *)offsetof(struct model_vertex, bitangent));
         }
     }
 }
@@ -202,10 +214,15 @@ void render_update(float delta_ticks)
     {
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
-        glm_rotate(model_matrix, -1.66f, (vec3){0, 1, 0});
-        glm_translate(model_matrix, (vec3){-0.33f, 0.75f, 0.75f});
-        glm_mat4_mul(model_matrix, render_globals.camera.view, model_matrix);
-        glm_mat4_inv(model_matrix, model_matrix);
+        glm_scale_uni(model_matrix, 0.25f);
+        glm_rotate(model_matrix, 1.4f, (vec3){0, 1, 0});
+        glm_rotate(model_matrix, -0.05f, (vec3){0, 0, 1});
+        glm_translate(model_matrix, (vec3){0.6f, -0.725f, 0.3f});
+
+        mat4 inverted_view;
+        glm_mat4_inv(render_globals.camera.view, inverted_view);
+        glm_mat4_mul(inverted_view, model_matrix, model_matrix);
+
         render_model(render_globals.weapon_model_index, model_matrix);
     }
 }
@@ -214,11 +231,11 @@ void render_update(float delta_ticks)
 
 static void render_model(int model_index, mat4 model_matrix)
 {
-    struct render_model *model = render_globals.models + model_index;
+    struct model_data *model = render_globals.models + model_index;
 
     for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
     {
-        struct render_mesh *mesh = model->meshes + mesh_index;
+        struct model_mesh *mesh = model->meshes + mesh_index;
 
         // Bind the shader
         glUseProgram(render_globals.program);
@@ -236,7 +253,7 @@ static void render_model(int model_index, mat4 model_matrix)
         
         glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].position"), 1, (const vec3){1.2f, 3.0f, 2.0f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].direction"), 1, (const vec3){-0.2f, -1.0f, -0.3f});
-        glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
+        glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].diffuse_color"), 1, (const vec3){0.8f, 0.2f, 0.1f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
 
@@ -246,7 +263,7 @@ static void render_model(int model_index, mat4 model_matrix)
         glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[0].constant"), 1, (const GLfloat[]){1.0f});
         glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[0].linear"), 1, (const GLfloat[]){0.09f});
         glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[0].quadratic"), 1, (const GLfloat[]){0.032f});
-        glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[0].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
+        glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[0].diffuse_color"), 1, (const vec3){0.1f, 0.8f, 0.2f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[0].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[0].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
 
@@ -254,7 +271,7 @@ static void render_model(int model_index, mat4 model_matrix)
         glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[1].constant"), 1, (const GLfloat[]){1.0f});
         glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[1].linear"), 1, (const GLfloat[]){0.09f});
         glUniform1fv(glGetUniformLocation(render_globals.program, "point_lights[1].quadratic"), 1, (const GLfloat[]){0.032f});
-        glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[1].diffuse_color"), 1, (const vec3){0.8f, 0.8f, 0.8f});
+        glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[1].diffuse_color"), 1, (const vec3){0.1f, 0.2f, 0.8f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[1].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "point_lights[1].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
 
@@ -276,7 +293,7 @@ static void render_model(int model_index, mat4 model_matrix)
 
         // Bind the material uniforms
         glUniform1fv(glGetUniformLocation(render_globals.program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
-        glUniform1fv(glGetUniformLocation(render_globals.program, "material.specular_shininess"), 1, (const GLfloat[]){10});
+        glUniform1fv(glGetUniformLocation(render_globals.program, "material.specular_shininess"), 1, (const GLfloat[]){32});
         glUniform1fv(glGetUniformLocation(render_globals.program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
 
         // Activate and bind the material texture(s)
@@ -297,7 +314,7 @@ static void render_model(int model_index, mat4 model_matrix)
 
         for (int part_index = 0; part_index < mesh->part_count; part_index++)
         {
-            struct render_mesh_part *part = mesh->parts + part_index;
+            struct model_mesh_part *part = mesh->parts + part_index;
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
         }
     }
