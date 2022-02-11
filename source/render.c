@@ -98,7 +98,7 @@ void render_initialize(void)
     struct model_iterator iterator;
     model_iterator_new(&iterator);
 
-    for (int model_index = 0; (model_index = model_iterator_next(&iterator)) != -1; )
+    while (model_iterator_next(&iterator) != -1)
     {
         for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
         {
@@ -207,9 +207,9 @@ void render_update(float delta_ticks)
     struct model_iterator iterator;
     model_iterator_new(&iterator);
 
-    for (int model_index = 0; (model_index = model_iterator_next(&iterator)) != -1;)
+    while (model_iterator_next(&iterator) != -1)
     {
-        if (model_index == render_globals.weapon_model_index)
+        if (iterator.index == render_globals.weapon_model_index)
             continue;
         
         mat4 model_matrix;
