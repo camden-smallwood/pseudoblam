@@ -15,6 +15,15 @@
 #include "camera.h"
 #include "render.h"
 
+/* ---------- private structures */
+
+struct object_data
+{
+    int model_index;
+    vec3 position;
+    vec3 rotation;
+};
+
 /* ---------- private variables */
 
 struct
@@ -26,12 +35,6 @@ struct
 
     struct camera_data camera;
 
-    int model_count;
-    struct model_data *models;
-
-    GLuint hdr_buffer;
-    GLuint render_buffer;
-
     GLuint program;
     GLuint diffuse_texture;
     GLuint specular_texture;
@@ -42,13 +45,13 @@ struct
 
 /* ---------- private prototypes */
 
-static void render_model(int model_index, mat4 model_matrix);
+static void render_model(struct model_data *model, mat4 model_matrix);
 
 static GLuint render_compile_shader_source(GLenum shader_type, const char *shader_source);
-static GLuint render_load_and_compile_shader_file(GLenum shader_type, const char *file_path);
-static GLuint render_load_shader_program(const char *vertex_shader_path, const char *fragment_shader_path);
+static GLuint render_import_and_compile_shader_file(GLenum shader_type, const char *file_path);
+static GLuint render_import_shader_program(const char *vertex_shader_path, const char *fragment_shader_path);
 
-static GLuint render_load_dds_file_as_texture2d(const char *file_path);
+static GLuint render_import_dds_file_as_texture2d(const char *file_path);
 
 /* ---------- public code */
 
@@ -77,33 +80,29 @@ void render_initialize(void)
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
+    models_initialize();
+
     camera_initialize(&render_globals.camera);
 
-    render_globals.program = render_load_shader_program("../assets/shaders/generic.vs", "../assets/shaders/blinnphong.fs");
-    render_globals.diffuse_texture = render_load_dds_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
-    render_globals.specular_texture = render_load_dds_file_as_texture2d("../assets/textures/white.dds");
-    render_globals.normal_texture = render_load_dds_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.program = render_import_shader_program("../assets/shaders/generic.vs", "../assets/shaders/blinnphong.fs");
 
-    struct model_data model;
+    render_globals.diffuse_texture = render_import_dds_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
+    render_globals.specular_texture = render_import_dds_file_as_texture2d("../assets/textures/white.dds");
+    render_globals.normal_texture = render_import_dds_file_as_texture2d("../assets/textures/bricks_normal.dds");
 
-    render_globals.weapon_model_index = render_globals.model_count;
+    render_globals.weapon_model_index = model_import_from_file("../assets/models/assault_rifle.dae");
+    
+    model_import_from_file("../assets/models/cube_sphere.obj");
+    model_import_from_file("../assets/models/monkey.obj");
 
-    model_import_from_file(&model, "../assets/models/assault_rifle.dae");
-    mempush(&render_globals.model_count, (void **)&render_globals.models, &model, sizeof(model), realloc);
+    struct model_iterator iterator;
+    model_iterator_new(&iterator);
 
-    model_import_from_file(&model, "../assets/models/cube_sphere.obj");
-    mempush(&render_globals.model_count, (void **)&render_globals.models, &model, sizeof(model), realloc);
-
-    model_import_from_file(&model, "../assets/models/monkey.obj");
-    mempush(&render_globals.model_count, (void **)&render_globals.models, &model, sizeof(model), realloc);
-
-    for (int model_index = 0; model_index < render_globals.model_count; model_index++)
+    for (int model_index = 0; (model_index = model_iterator_next(&iterator)) != -1; )
     {
-        struct model_data *model = render_globals.models + model_index;
-            
-        for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
+        for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
         {
-            struct model_mesh *mesh = model->meshes + mesh_index;
+            struct model_mesh *mesh = iterator.data->meshes + mesh_index;
 
             if (!mesh->vertices)
                 continue;
@@ -162,11 +161,16 @@ void render_initialize(void)
 
 void render_dispose(void)
 {
-    // TODO
+    models_dispose();
+    
+    // TODO: finish
 }
 
 void render_handle_screen_resize(int width, int height)
 {
+    render_globals.screen_width = width;
+    render_globals.screen_height = height;
+
     render_globals.camera.aspect_ratio = (float)width / (float)height;
 
     float inverse_aspect_ratio = (float)height / (float)width;
@@ -200,14 +204,17 @@ void render_update(float delta_ticks)
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    for (int model_index = 0; model_index < render_globals.model_count; model_index++)
+    struct model_iterator iterator;
+    model_iterator_new(&iterator);
+
+    for (int model_index = 0; (model_index = model_iterator_next(&iterator)) != -1;)
     {
         if (model_index == render_globals.weapon_model_index)
             continue;
         
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
-        render_model(model_index, model_matrix);
+        render_model(iterator.data, model_matrix);
     }
 
     if (render_globals.weapon_model_index != -1)
@@ -223,16 +230,14 @@ void render_update(float delta_ticks)
         glm_mat4_inv(render_globals.camera.view, inverted_view);
         glm_mat4_mul(inverted_view, model_matrix, model_matrix);
 
-        render_model(render_globals.weapon_model_index, model_matrix);
+        render_model(model_get_data(render_globals.weapon_model_index), model_matrix);
     }
 }
 
 /* ---------- private code */
 
-static void render_model(int model_index, mat4 model_matrix)
+static void render_model(struct model_data *model, mat4 model_matrix)
 {
-    struct model_data *model = render_globals.models + model_index;
-
     for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
     {
         struct model_mesh *mesh = model->meshes + mesh_index;
@@ -346,7 +351,7 @@ static GLuint render_compile_shader_source(
     return result;
 }
 
-static GLuint render_load_and_compile_shader_file(
+static GLuint render_import_and_compile_shader_file(
     GLenum shader_type,
     const char *file_path)
 {
@@ -365,12 +370,12 @@ static GLuint render_load_and_compile_shader_file(
     return render_compile_shader_source(shader_type, file_data);
 }
 
-static GLuint render_load_shader_program(
+static GLuint render_import_shader_program(
     const char *vertex_shader_path,
     const char *fragment_shader_path)
 {
-    GLuint vertex_shader = render_load_and_compile_shader_file(GL_VERTEX_SHADER, vertex_shader_path);
-    GLuint fragment_shader = render_load_and_compile_shader_file(GL_FRAGMENT_SHADER, fragment_shader_path);
+    GLuint vertex_shader = render_import_and_compile_shader_file(GL_VERTEX_SHADER, vertex_shader_path);
+    GLuint fragment_shader = render_import_and_compile_shader_file(GL_FRAGMENT_SHADER, fragment_shader_path);
 
     GLuint program = glCreateProgram();
 
@@ -386,7 +391,7 @@ static GLuint render_load_shader_program(
     return program;
 }
 
-GLuint render_load_dds_file_as_texture2d(
+GLuint render_import_dds_file_as_texture2d(
     const char *file_path)
 {
     struct dds_data dds;

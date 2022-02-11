@@ -51,6 +51,23 @@ struct model_vertex
     vec3 bitangent;
 };
 
+struct model_iterator
+{
+    struct model_data *data;
+    int index;
+};
+
 /* ---------- prototypes/MODELS.C */
 
-void model_import_from_file(struct model_data *model, const char *file_path);
+void models_initialize(void);
+void models_dispose(void);
+
+int model_new(void);
+void model_delete(int model_index);
+
+struct model_data *model_get_data(int model_index);
+
+void model_iterator_new(struct model_iterator *iterator);
+int model_iterator_next(struct model_iterator *iterator);
+
+int model_import_from_file(const char *file_path);

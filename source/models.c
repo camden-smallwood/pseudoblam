@@ -9,6 +9,14 @@
 #include "common.h"
 #include "models.h"
 
+/* ---------- public variables */
+
+struct
+{
+    int model_count;
+    struct model_data *models;
+} static model_globals;
+
 /* ---------- private prototypes */
 
 static void model_import_assimp_node(
@@ -44,11 +52,100 @@ static void model_import_assimp_material(
 
 /* ---------- public code */
 
-void model_import_from_file(
-    struct model_data *model,
+void models_initialize(void)
+{
+    memset(&model_globals, 0, sizeof(model_globals));
+}
+
+void models_dispose(void)
+{
+    for (int model_index = 0; model_index < model_globals.model_count; model_index++)
+    {
+        struct model_data *model = model_globals.models + model_index;
+
+        for (int material_index = 0; material_index < model->material_count; material_index++)
+        {
+            struct model_material *material = model->materials + material_index;
+
+            for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
+            {
+                struct model_material_texture *texture = material->textures + texture_index;
+                assert(texture);
+
+                // TODO
+            }
+        }
+
+        for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
+        {
+            struct model_mesh *mesh = model->meshes + mesh_index;
+            
+            free(mesh->vertices);
+            free(mesh->parts);
+        }
+
+        free(model->materials);
+        free(model->meshes);
+    }
+
+    free(model_globals.models);
+}
+
+int model_new(void)
+{
+    struct model_data model;
+    memset(&model, 0, sizeof(model));
+    
+    int model_index = model_globals.model_count;
+    mempush(&model_globals.model_count, (void **)&model_globals.models, &model, sizeof(model), realloc);
+    
+    return model_index;
+}
+
+void model_delete(
+    int model_index)
+{
+    assert(model_index >= 0 && model_index < model_globals.model_count);
+    // TODO
+}
+
+struct model_data *model_get_data(
+    int model_index)
+{
+    assert(model_index >= 0 && model_index < model_globals.model_count);
+    return model_globals.models + model_index;
+}
+
+void model_iterator_new(
+    struct model_iterator *iterator)
+{
+    assert(iterator);
+
+    iterator->data = NULL;
+    iterator->index = -1;
+}
+
+int model_iterator_next(
+    struct model_iterator *iterator)
+{
+    assert(iterator);
+
+    if (++iterator->index >= model_globals.model_count)
+    {
+        iterator->data = NULL;
+        iterator->index = -1;
+        return -1;
+    }
+
+    int model_index = iterator->index;
+    iterator->data = model_globals.models + model_index;
+    
+    return model_index;
+}
+
+int model_import_from_file(
     const char *file_path)
 {
-    assert(model);
     assert(file_path);
 
     //
@@ -68,7 +165,7 @@ void model_import_from_file(
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
         fprintf(stderr, "ERROR: failed to import \"%s\"\n", file_path);
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     //
@@ -99,17 +196,18 @@ void model_import_from_file(
     // Process the root scene node
     //
 
-    memset(model, 0, sizeof(*model));
-
+    int model_index = model_new();
+    struct model_data *model = model_get_data(model_index);
     model_import_assimp_node(directory_path, scene, scene->mRootNode, model);
 
     //
     // Clean up
     //
 
-    free(directory_path);
-    
     aiReleaseImport(scene);
+    free(directory_path);
+
+    return model_index;
 }
 
 /* ---------- private code */
