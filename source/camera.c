@@ -1,5 +1,7 @@
 #include <assert.h>
+#include <math.h>
 #include <string.h>
+#include <cglm/cglm.h>
 #include <SDL_keycode.h>
 #include "camera.h"
 #include "input.h"
@@ -22,6 +24,16 @@ void camera_initialize(struct camera_data *camera)
     memcpy(camera->up, (vec3){0, 1, 0}, sizeof(vec3));
 }
 
+void camera_handle_screen_resize(struct camera_data *camera, int width, int height)
+{
+    assert(camera);
+    
+    camera->aspect_ratio = (float)width / (float)height;
+
+    float inverse_aspect_ratio = (float)height / (float)width;
+    camera->vertical_fov = 2.0f * atanf(tanf(glm_rad(camera->horizontal_fov) / 2.0f) * inverse_aspect_ratio);
+}
+
 void camera_update(struct camera_data *camera, float delta_ticks)
 {
     vec2 mouse_motion;
@@ -41,50 +53,75 @@ void camera_update(struct camera_data *camera, float delta_ticks)
     float pitch_radians = glm_rad(camera->rotation[1]);
     float pitch_radians_cosine = cosf(pitch_radians);
 
-    vec3 forward =
-    {
+    memcpy(camera->forward, (vec3){
         cosf(yaw_radians) * pitch_radians_cosine,
         sinf(pitch_radians),
         sinf(yaw_radians) * pitch_radians_cosine,
-    };
-    glm_vec3_normalize(forward);
+    }, sizeof(vec3));
+    glm_vec3_normalize(camera->forward);
 
     vec3 right;
-    glm_vec3_cross(camera->up, forward, right);
+    glm_vec3_cross(camera->up, camera->forward, right);
     glm_normalize(right);
 
     vec3 up;
-    glm_vec3_cross(forward, right, up);
+    glm_vec3_cross(camera->forward, right, up);
 
     vec3 movement = {0.0f, 0.0f, 0.0f};
+    int movement_inputs = 0;
 
     // Forwards and backwards camera movement
     if (input_is_key_down(SDL_SCANCODE_W))
-        glm_vec3_add(movement, forward, movement);
+    {
+        glm_vec3_add(movement, camera->forward, movement);
+        movement_inputs++;
+    }
     else if (input_is_key_down(SDL_SCANCODE_S))
-        glm_vec3_sub(movement, forward, movement);
+    {
+        glm_vec3_sub(movement, camera->forward, movement);
+        movement_inputs++;
+    }
 
     // Horizontal camera movement
     if (input_is_key_down(SDL_SCANCODE_A))
+    {
         glm_vec3_add(movement, right, movement);
+        movement_inputs++;
+    }
     else if (input_is_key_down(SDL_SCANCODE_D))
+    {
         glm_vec3_sub(movement, right, movement);
+        movement_inputs++;
+    }
 
     // Vertical camera movement
     if (input_is_key_down(SDL_SCANCODE_R))
+    {
         glm_vec3_add(movement, up, movement);
+        movement_inputs++;
+    }
     else if (input_is_key_down(SDL_SCANCODE_F))
+    {
         glm_vec3_sub(movement, up, movement);
+        movement_inputs++;
+    }
+
+    // Normalize the movement amount using the number of movement inputs
+    glm_vec3_scale(movement, 1.0f / (movement_inputs ? movement_inputs : 1), movement);
 
     // Double movement amount if either shift key is down
     if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
         glm_vec3_scale(movement, 2.0f, movement);
     
+    // Scale the movement amount by the camera's movement speed per tick
     glm_vec3_scale(movement, camera->movement_speed * delta_ticks, movement);
+    
+    // Add the movement amount to the camera's position
     glm_vec3_add(camera->position, movement, camera->position);
     
+    // Calculate the camera's target position
     vec3 camera_target;
-    glm_vec3_add(camera->position, forward, camera_target);
+    glm_vec3_add(camera->position, camera->forward, camera_target);
 
     glm_lookat(
         camera->position,

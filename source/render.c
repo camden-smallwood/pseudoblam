@@ -29,6 +29,8 @@ struct object_data
 struct
 {
     bool tab_pressed;
+    bool h_pressed;
+    bool headlight_on;
 
     int screen_width;
     int screen_height;
@@ -171,10 +173,7 @@ void render_handle_screen_resize(int width, int height)
     render_globals.screen_width = width;
     render_globals.screen_height = height;
 
-    render_globals.camera.aspect_ratio = (float)width / (float)height;
-
-    float inverse_aspect_ratio = (float)height / (float)width;
-    render_globals.camera.vertical_fov = 2.0f * atanf(tanf(glm_rad(render_globals.camera.horizontal_fov) / 2.0f) * inverse_aspect_ratio);
+    camera_handle_screen_resize(&render_globals.camera, width, height);
 }
 
 void render_update(float delta_ticks)
@@ -200,6 +199,16 @@ void render_update(float delta_ticks)
             render_globals.camera.movement_speed = 1.0f;
     }
     
+    if (input_is_key_down(SDL_SCANCODE_H))
+    {
+        render_globals.h_pressed = true;
+    }
+    else if (render_globals.h_pressed)
+    {
+        render_globals.h_pressed = false;
+        render_globals.headlight_on = !render_globals.headlight_on;
+    }
+
     camera_update(&render_globals.camera, delta_ticks);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -261,6 +270,23 @@ static void render_model(struct model_data *model, mat4 model_matrix)
         glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].diffuse_color"), 1, (const vec3){0.8f, 0.2f, 0.1f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
         glUniform3fv(glGetUniformLocation(render_globals.program, "directional_lights[0].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
+
+        int spot_light_count = render_globals.headlight_on ? 1 : 0;
+        glUniform1uiv(glGetUniformLocation(render_globals.program, "spot_light_count"), 1, (const GLuint[]){spot_light_count});
+        
+        if (render_globals.headlight_on)
+        {
+            glUniform3fv(glGetUniformLocation(render_globals.program, "spot_lights[0].position"), 1, render_globals.camera.position);
+            glUniform3fv(glGetUniformLocation(render_globals.program, "spot_lights[0].direction"), 1, render_globals.camera.forward);
+            glUniform1fv(glGetUniformLocation(render_globals.program, "spot_lights[0].constant"), 1, (const GLfloat[]){1.0f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "spot_lights[0].linear"), 1, (const GLfloat[]){0.09f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "spot_lights[0].quadratic"), 1, (const GLfloat[]){0.032f});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "spot_lights[0].inner_cutoff"), 1, (const GLfloat[]){cosf(glm_rad(12.5f))});
+            glUniform1fv(glGetUniformLocation(render_globals.program, "spot_lights[0].outer_cutoff"), 1, (const GLfloat[]){cosf(glm_rad(15.0f))});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "spot_lights[0].diffuse_color"), 1, (const vec3){1, 1, 1});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "spot_lights[0].ambient_color"), 1, (const vec3){0.05f, 0.05f, 0.05f});
+            glUniform3fv(glGetUniformLocation(render_globals.program, "spot_lights[0].specular_color"), 1, (const vec3){1.0f, 1.0f, 1.0f});
+        }
 
         glUniform1uiv(glGetUniformLocation(render_globals.program, "point_light_count"), 1, (const GLuint[]){4});
         

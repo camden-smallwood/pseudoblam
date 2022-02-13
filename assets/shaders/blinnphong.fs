@@ -39,6 +39,23 @@ struct point_light_data
 uniform uint point_light_count;
 uniform point_light_data point_lights[MAXIMUM_POINT_LIGHTS];
 
+struct spot_light_data
+{
+    vec3 position;
+    vec3 direction;
+    float constant;
+    float linear;
+    float quadratic;
+    float inner_cutoff;
+    float outer_cutoff;
+    vec3 diffuse_color;
+    vec3 ambient_color;
+    vec3 specular_color;
+};
+#define MAXIMUM_SPOT_LIGHTS 16
+uniform uint spot_light_count;
+uniform spot_light_data spot_lights[MAXIMUM_SPOT_LIGHTS];
+
 vec3 calculate_light(
     material_data material,
     vec2 frag_texcoord,
@@ -114,6 +131,33 @@ vec3 calculate_point_light(
         light_attenuation);
 }
 
+vec3 calculate_spot_light(
+    spot_light_data light,
+    material_data material,
+    vec3 frag_position,
+    vec2 frag_texcoord,
+    vec3 normal,
+    vec3 camera_direction)
+{
+    vec3 light_direction = normalize(light.position - frag_position);
+    float light_distance = length(light.position - frag_position);
+    float light_attenuation = 1.0 / (light.constant + light.linear * light_distance + light.quadratic * (light_distance * light_distance));
+    float light_theta = dot(light_direction, normalize(-light.direction)); 
+    float light_epsilon = light.inner_cutoff - light.outer_cutoff;
+    float light_intensity = clamp((light_theta - light.outer_cutoff) / light_epsilon, 0.0, 1.0);
+
+    return calculate_light(
+        material,
+        frag_texcoord,
+        normal,
+        camera_direction,
+        light_direction,
+        light.diffuse_color,
+        light.ambient_color,
+        light.specular_color,
+        light_attenuation * light_intensity);
+}
+
 in vec3 frag_position;
 in vec3 frag_normal;
 in vec2 frag_texcoord;
@@ -134,6 +178,9 @@ void main()
     
     for (uint i = 0; i < point_light_count; i++)
         result += calculate_point_light(point_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+    
+    for (uint i = 0; i < spot_light_count; i++)
+        result += calculate_spot_light(spot_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
 
     out_color = vec4(result, 1.0);
 }
