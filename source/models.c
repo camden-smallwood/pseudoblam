@@ -21,6 +21,7 @@ struct
 
 static void model_import_assimp_node(
     const char *directory_path,
+    enum vertex_type vertex_type,
     const struct aiScene *in_scene,
     const struct aiNode *in_node,
     struct model_data *out_model);
@@ -34,6 +35,7 @@ static void model_import_assimp_metadata(
 
 static void model_import_assimp_mesh(
     const char *directory_path,
+    enum vertex_type vertex_type,
     const struct aiScene *in_scene,
     const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
@@ -80,7 +82,7 @@ void models_dispose(void)
         {
             struct model_mesh *mesh = model->meshes + mesh_index;
             
-            free(mesh->vertices);
+            free(mesh->vertex_data);
             free(mesh->parts);
         }
 
@@ -144,6 +146,7 @@ int model_iterator_next(
 }
 
 int model_import_from_file(
+    enum vertex_type vertex_type,
     const char *file_path)
 {
     assert(file_path);
@@ -157,10 +160,11 @@ int model_import_from_file(
         aiProcess_CalcTangentSpace |
         aiProcess_JoinIdenticalVertices |
         aiProcess_Triangulate |
+        aiProcess_ValidateDataStructure |
+        aiProcess_PopulateArmatureData |
         aiProcess_SortByPType |
         aiProcess_FindDegenerates |
-        aiProcess_FindInvalidData |
-        aiProcess_ValidateDataStructure);
+        aiProcess_FindInvalidData);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
@@ -198,7 +202,7 @@ int model_import_from_file(
 
     int model_index = model_new();
     struct model_data *model = model_get_data(model_index);
-    model_import_assimp_node(directory_path, scene, scene->mRootNode, model);
+    model_import_assimp_node(directory_path, vertex_type, scene, scene->mRootNode, model);
 
     //
     // Clean up
@@ -214,6 +218,7 @@ int model_import_from_file(
 
 static void model_import_assimp_node(
     const char *directory_path,
+    enum vertex_type vertex_type,
     const struct aiScene *in_scene,
     const struct aiNode *in_node,
     struct model_data *out_model)
@@ -232,19 +237,30 @@ static void model_import_assimp_node(
     struct model_mesh mesh;
     memset(&mesh, 0, sizeof(mesh));
 
+    mesh.vertex_type = _vertex_type_rigid;
+
     for (unsigned int mesh_index = 0; mesh_index < in_node->mNumMeshes; mesh_index++)
     {
-        model_import_assimp_mesh(directory_path, in_scene, in_node, in_scene->mMeshes[in_node->mMeshes[mesh_index]], out_model, &mesh);
+        struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
+
+        model_import_assimp_mesh(
+            directory_path,
+            mesh.vertex_type,
+            in_scene,
+            in_node,
+            in_mesh,
+            out_model,
+            &mesh);
     }
     
-    if (mesh.vertices)
+    if (mesh.vertex_data)
     {
         mempush(&out_model->mesh_count, (void **)&out_model->meshes, &mesh, sizeof(mesh), realloc);
     }
 
     for (unsigned int child_index = 0; child_index < in_node->mNumChildren; child_index++)
     {
-        model_import_assimp_node(directory_path, in_scene, in_node->mChildren[child_index], out_model);
+        model_import_assimp_node(directory_path, vertex_type, in_scene, in_node->mChildren[child_index], out_model);
     }
 }
 
@@ -314,13 +330,16 @@ static void model_import_assimp_metadata(
 
 static void model_import_assimp_mesh(
     const char *directory_path,
+    enum vertex_type vertex_type,
     const struct aiScene *in_scene,
     const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
     struct model_data *out_model,
     struct model_mesh *out_mesh)
 {
-    printf("mesh in node \"%s\" has:\n", in_node->mName.data);
+    printf("%s mesh in node \"%s\" has:\n", vertex_type == _vertex_type_rigid ? "rigid" : "skinned", in_node->mName.data);
+
+    printf("\tbones: %i,\n", in_mesh->mNumBones);
 
     struct model_mesh_part part =
     {
@@ -343,14 +362,38 @@ static void model_import_assimp_mesh(
             struct aiVector3D tangent = in_mesh->mTangents[vertex_index];
             struct aiVector3D bitangent = in_mesh->mBitangents[vertex_index];
 
-            struct model_vertex vertex;
-            memcpy(&vertex.position, (vec3){position.x, position.y, position.z}, sizeof(vec3));
-            memcpy(&vertex.normal, (vec3){normal.x, normal.y, normal.z}, sizeof(vec3));
-            memcpy(&vertex.texcoord, (vec2){texcoord.x, texcoord.y}, sizeof(vec2));
-            memcpy(&vertex.tangent, (vec3){tangent.x, tangent.y, tangent.z}, sizeof(vec3));
-            memcpy(&vertex.bitangent, (vec3){bitangent.x, bitangent.y, bitangent.z}, sizeof(vec3));
-
-            mempush(&out_mesh->vertex_count, (void **)&out_mesh->vertices, &vertex, sizeof(vertex), realloc);
+            switch (vertex_type)
+            {
+            case _vertex_type_rigid:
+                {
+                    struct vertex_rigid vertex;
+                    memcpy(&vertex.position, (vec3){position.x, position.y, position.z}, sizeof(vec3));
+                    memcpy(&vertex.normal, (vec3){normal.x, normal.y, normal.z}, sizeof(vec3));
+                    memcpy(&vertex.texcoord, (vec2){texcoord.x, texcoord.y}, sizeof(vec2));
+                    memcpy(&vertex.tangent, (vec3){tangent.x, tangent.y, tangent.z}, sizeof(vec3));
+                    memcpy(&vertex.bitangent, (vec3){bitangent.x, bitangent.y, bitangent.z}, sizeof(vec3));
+                    mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
+                }
+                break;
+            
+            case _vertex_type_skinned:
+                {
+                    struct vertex_skinned vertex;
+                    memcpy(&vertex.position, (vec3){position.x, position.y, position.z}, sizeof(vec3));
+                    memcpy(&vertex.normal, (vec3){normal.x, normal.y, normal.z}, sizeof(vec3));
+                    memcpy(&vertex.texcoord, (vec2){texcoord.x, texcoord.y}, sizeof(vec2));
+                    memcpy(&vertex.tangent, (vec3){tangent.x, tangent.y, tangent.z}, sizeof(vec3));
+                    memcpy(&vertex.bitangent, (vec3){bitangent.x, bitangent.y, bitangent.z}, sizeof(vec3));
+                    memset(vertex.bone_indices, 0, sizeof(vertex.bone_indices));
+                    memset(vertex.bone_weights, 0, sizeof(vertex.bone_weights));
+                    mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
+                }
+                break;
+            
+            default:
+                fprintf(stderr, "ERROR: unhandled vertex type %i\n", vertex_type);
+                exit(EXIT_FAILURE);
+            }
         }
 
         part.vertex_count += face.mNumIndices;

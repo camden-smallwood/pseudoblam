@@ -53,11 +53,14 @@ void camera_update(struct camera_data *camera, float delta_ticks)
     float pitch_radians = glm_rad(camera->rotation[1]);
     float pitch_radians_cosine = cosf(pitch_radians);
 
-    memcpy(camera->forward, (vec3){
-        cosf(yaw_radians) * pitch_radians_cosine,
-        sinf(pitch_radians),
-        sinf(yaw_radians) * pitch_radians_cosine,
-    }, sizeof(vec3));
+    memcpy(
+        camera->forward,
+        (vec3){
+            cosf(yaw_radians) * pitch_radians_cosine,
+            sinf(pitch_radians),
+            sinf(yaw_radians) * pitch_radians_cosine,
+        },
+        sizeof(vec3));
     glm_vec3_normalize(camera->forward);
 
     vec3 right;
@@ -71,36 +74,36 @@ void camera_update(struct camera_data *camera, float delta_ticks)
     int movement_inputs = 0;
 
     // Forwards and backwards camera movement
-    if (input_is_key_down(SDL_SCANCODE_W))
+    if (input_is_key_down(SDL_SCANCODE_W) && !input_is_key_down(SDL_SCANCODE_S))
     {
         glm_vec3_add(movement, camera->forward, movement);
         movement_inputs++;
     }
-    else if (input_is_key_down(SDL_SCANCODE_S))
+    else if (input_is_key_down(SDL_SCANCODE_S) && !input_is_key_down(SDL_SCANCODE_W))
     {
         glm_vec3_sub(movement, camera->forward, movement);
         movement_inputs++;
     }
 
     // Horizontal camera movement
-    if (input_is_key_down(SDL_SCANCODE_A))
+    if (input_is_key_down(SDL_SCANCODE_A) && !input_is_key_down(SDL_SCANCODE_D))
     {
         glm_vec3_add(movement, right, movement);
         movement_inputs++;
     }
-    else if (input_is_key_down(SDL_SCANCODE_D))
+    else if (input_is_key_down(SDL_SCANCODE_D) && !input_is_key_down(SDL_SCANCODE_A))
     {
         glm_vec3_sub(movement, right, movement);
         movement_inputs++;
     }
 
     // Vertical camera movement
-    if (input_is_key_down(SDL_SCANCODE_R))
+    if (input_is_key_down(SDL_SCANCODE_R) && !input_is_key_down(SDL_SCANCODE_F))
     {
         glm_vec3_add(movement, up, movement);
         movement_inputs++;
     }
-    else if (input_is_key_down(SDL_SCANCODE_F))
+    else if (input_is_key_down(SDL_SCANCODE_F) && !input_is_key_down(SDL_SCANCODE_R))
     {
         glm_vec3_sub(movement, up, movement);
         movement_inputs++;

@@ -92,10 +92,10 @@ void render_initialize(void)
     render_globals.specular_texture = render_import_dds_file_as_texture2d("../assets/textures/white.dds");
     render_globals.normal_texture = render_import_dds_file_as_texture2d("../assets/textures/bricks_normal.dds");
 
-    render_globals.weapon_model_index = model_import_from_file("../assets/models/assault_rifle.dae");
+    render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.dae");
     
-    model_import_from_file("../assets/models/cube_sphere.obj");
-    model_import_from_file("../assets/models/monkey.obj");
+    model_import_from_file(_vertex_type_rigid, "../assets/models/cube_sphere.obj");
+    model_import_from_file(_vertex_type_rigid, "../assets/models/monkey.obj");
 
     struct model_iterator iterator;
     model_iterator_new(&iterator);
@@ -106,8 +106,10 @@ void render_initialize(void)
         {
             struct model_mesh *mesh = iterator.data->meshes + mesh_index;
 
-            if (!mesh->vertices)
+            if (!mesh->vertex_data)
                 continue;
+            
+            const struct vertex_definition *vertex_definition = vertex_definition_get(mesh->vertex_type);
 
             // Create and bind the mesh's vertex array
             glGenVertexArrays(1, &mesh->vertex_array);
@@ -116,47 +118,9 @@ void render_initialize(void)
             // Create, bind and fill the mesh's vertex buffer
             glGenBuffers(1, &mesh->vertex_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
-            glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * sizeof(struct model_vertex), mesh->vertices, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
 
-            // Describe the position attribute for each vertex in the mesh's vertex buffer
-            GLuint position_location = glGetAttribLocation(render_globals.program, "position");
-            glEnableVertexAttribArray(position_location);
-            glVertexAttribPointer(
-                position_location, 3, GL_FLOAT, GL_FALSE,
-                sizeof(struct model_vertex),
-                (const void *)offsetof(struct model_vertex, position));
-
-            // Describe the normal attribute for each vertex in the mesh's vertex buffer
-            GLuint normal_location = glGetAttribLocation(render_globals.program, "normal");
-            glEnableVertexAttribArray(normal_location);
-            glVertexAttribPointer(
-                normal_location, 3, GL_FLOAT, GL_FALSE,
-                sizeof(struct model_vertex),
-                (const void *)offsetof(struct model_vertex, normal));
-
-            // Describe the texcoord attribute for each vertex in the mesh's vertex buffer
-            GLuint texcoord_location = glGetAttribLocation(render_globals.program, "texcoord");
-            glEnableVertexAttribArray(texcoord_location);
-            glVertexAttribPointer(
-                texcoord_location, 2, GL_FLOAT, GL_FALSE,
-                sizeof(struct model_vertex),
-                (const void *)offsetof(struct model_vertex, texcoord));
-
-            // Describe the tangent attribute for each vertex in the mesh's vertex buffer
-            GLuint tangent_location = glGetAttribLocation(render_globals.program, "tangent");
-            glEnableVertexAttribArray(tangent_location);
-            glVertexAttribPointer(
-                tangent_location, 3, GL_FLOAT, GL_FALSE,
-                sizeof(struct model_vertex),
-                (const void *)offsetof(struct model_vertex, tangent));
-
-            // Describe the bitangent attribute for each vertex in the mesh's vertex buffer
-            GLuint bitangent_location = glGetAttribLocation(render_globals.program, "bitangent");
-            glEnableVertexAttribArray(bitangent_location);
-            glVertexAttribPointer(
-                bitangent_location, 3, GL_FLOAT, GL_FALSE,
-                sizeof(struct model_vertex),
-                (const void *)offsetof(struct model_vertex, bitangent));
+            vertex_type_bind_attributes(mesh->vertex_type, render_globals.program);
         }
     }
 }

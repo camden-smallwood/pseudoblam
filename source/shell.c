@@ -4,6 +4,15 @@
 #include "input.h"
 #include "render.h"
 
+/* ---------- types */
+
+struct shell_component
+{
+    const char *name;
+    void(*initialize)(void);
+    void(*dispose)(void);
+};
+
 /* ---------- private variables */
 
 struct
@@ -11,10 +20,8 @@ struct
     SDL_Window *window;
     SDL_GLContext gl_context;
     SDL_Event event;
-    uint64_t start_time;
-    uint64_t last_update_time;
-    uint64_t last_fps_display_time;
-    uint64_t total_frames;
+    uint64_t frame_rate;
+    uint64_t last_frame_time;
 } static shell_globals;
 
 /* ---------- private prototypes */
@@ -69,8 +76,8 @@ static inline void shell_initialize(void)
     
     render_initialize();
     render_handle_screen_resize(screen_width, screen_height);
-    
-    shell_globals.start_time = SDL_GetTicks64();
+
+    shell_globals.frame_rate = 60;
 }
 
 static inline void shell_dispose(void)
@@ -87,28 +94,14 @@ static inline void shell_dispose(void)
 
 static inline void shell_update(void)
 {
-    uint64_t ticks = SDL_GetTicks64();
+    uint64_t frame_time = SDL_GetTicks64();
 
-    if (!shell_globals.last_update_time)
+    if (!shell_globals.last_frame_time)
     {
-        shell_globals.last_update_time = ticks;
+        shell_globals.last_frame_time = frame_time;
     }
 
-    if ((ticks - shell_globals.last_fps_display_time) >= 1000)
-    {
-        float fps = shell_globals.total_frames / ((ticks - shell_globals.start_time) / 1000.f);
-        if(fps > 2000000)
-            fps = 0;
-        
-        char fps_string[256];
-        snprintf(fps_string, sizeof(fps_string), "fps: %f", fps);
-        
-        SDL_SetWindowTitle(shell_globals.window, fps_string);
-
-        shell_globals.last_fps_display_time = ticks;
-    }
-
-    float delta_time = (ticks - shell_globals.last_update_time) / 1000.0f;
+    float delta_time = (frame_time - shell_globals.last_frame_time) / 1000.0f;
 
     input_set_mouse_motion(0.0f, 0.0f);
     
@@ -148,6 +141,12 @@ static inline void shell_update(void)
 
     SDL_GL_SwapWindow(shell_globals.window);
 
-    shell_globals.last_update_time = ticks;
-    shell_globals.total_frames++;
+    uint64_t end_ticks = SDL_GetTicks64();
+
+    if ((1000 / shell_globals.frame_rate) > (end_ticks - shell_globals.last_frame_time))
+    {
+        SDL_Delay((1000 / shell_globals.frame_rate) - (end_ticks - shell_globals.last_frame_time));
+    }
+
+    shell_globals.last_frame_time = frame_time;
 }
