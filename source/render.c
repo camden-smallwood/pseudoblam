@@ -27,10 +27,6 @@ RENDER.C
 
 struct
 {
-    bool tab_pressed;
-    bool h_pressed;
-    bool headlight_on;
-
     int screen_width;
     int screen_height;
 
@@ -43,7 +39,11 @@ struct
     GLuint normal_texture;
 
     int weapon_model_index;
-} render_globals;
+
+    bool tab_pressed;
+    bool h_pressed;
+    bool headlight_on;
+} static render_globals;
 
 /* ---------- private prototypes */
 
