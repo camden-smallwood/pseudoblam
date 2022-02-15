@@ -1,8 +1,18 @@
+/*
+SHELL.C
+    Main application code.
+*/
+
+/* ---------- headers */
+
 #include <stdint.h>
 #include <stdlib.h>
+
 #include <SDL.h>
+
 #include "input.h"
 #include "render.h"
+#include "text.h"
 
 /* ---------- private types */
 
@@ -33,6 +43,13 @@ static const struct shell_component shell_components[] =
         render_handle_screen_resize,
         render_update,
     },
+    {
+        "text",
+        text_initialize,
+        text_dispose,
+        NULL,
+        NULL,
+    }
 };
 
 enum
@@ -103,17 +120,27 @@ static inline void shell_initialize(void)
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
     for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
+    {
         if (shell_components[i].initialize)
+        {
+            printf("initializing %s component...\n", shell_components[i].name);
             shell_components[i].initialize();
+        }
+    }
 
-    render_handle_screen_resize(screen_width, screen_height);
+    shell_handle_screen_resize(screen_width, screen_height);
 }
 
 static inline void shell_dispose(void)
 {
     for (int i = NUMBER_OF_SHELL_COMPONENTS - 1; i >= 0; i--)
+    {
         if (shell_components[i].dispose)
+        {
+            printf("dispoing %s component...\n", shell_components[i].name);
             shell_components[i].dispose();
+        }
+    }
 
     SDL_GL_DeleteContext(shell_globals.gl_context);
     SDL_DestroyWindow(shell_globals.window);

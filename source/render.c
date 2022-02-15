@@ -15,15 +15,6 @@
 #include "camera.h"
 #include "render.h"
 
-/* ---------- private structures */
-
-struct object_data
-{
-    int model_index;
-    vec3 position;
-    vec3 rotation;
-};
-
 /* ---------- private variables */
 
 struct
@@ -142,27 +133,7 @@ void render_handle_screen_resize(int width, int height)
 
 void render_update(float delta_ticks)
 {
-    // Cycle through camera speed intervals when the tab key is pressed and released
-    if (input_is_key_down(SDL_SCANCODE_TAB))
-    {
-        render_globals.tab_pressed = true;
-    }
-    else if (render_globals.tab_pressed)
-    {
-        render_globals.tab_pressed = false;
-
-        if (render_globals.camera.movement_speed == 1.0f)
-            render_globals.camera.movement_speed = 5.0f;
-        else if (render_globals.camera.movement_speed == 5.0f)
-            render_globals.camera.movement_speed = 10.0f;
-        else if (render_globals.camera.movement_speed == 10.0f)
-            render_globals.camera.movement_speed = 20.0f;
-        else if (render_globals.camera.movement_speed == 20.0f)
-            render_globals.camera.movement_speed = 100.0f;
-        else
-            render_globals.camera.movement_speed = 1.0f;
-    }
-    
+    // Toggle the headlight on or off
     if (input_is_key_down(SDL_SCANCODE_H))
     {
         render_globals.h_pressed = true;
@@ -173,6 +144,21 @@ void render_update(float delta_ticks)
         render_globals.headlight_on = !render_globals.headlight_on;
     }
 
+    // Cycle through camera speed intervals when the tab key is pressed and then released
+    if (input_is_key_down(SDL_SCANCODE_TAB))
+    {
+        render_globals.tab_pressed = true;
+    }
+    else if (render_globals.tab_pressed)
+    {
+        render_globals.tab_pressed = false;
+        
+        if (render_globals.camera.movement_speed < 100.0f)
+            render_globals.camera.movement_speed *= 2.0f;
+        else
+            render_globals.camera.movement_speed = 1.0f;
+    }
+    
     camera_update(&render_globals.camera, delta_ticks);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
