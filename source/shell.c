@@ -11,6 +11,7 @@ SHELL.C
 #include <SDL.h>
 
 #include "input.h"
+#include "lights.h"
 #include "models.h"
 #include "render.h"
 #include "shaders.h"
@@ -35,6 +36,13 @@ static const struct shell_component shell_components[] =
         "input",
         input_initialize,
         input_dispose,
+        NULL,
+        NULL,
+    },
+    {
+        "lights",
+        lights_initialize,
+        lights_dispose,
         NULL,
         NULL,
     },

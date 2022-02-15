@@ -1,7 +1,16 @@
+/*
+SHADERS.C
+    Shader management code.
+*/
+
+/* ---------- headers */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <GL/glew.h>
+
 #include "common.h"
 #include "shaders.h"
 

@@ -181,7 +181,7 @@ void render_update(float delta_ticks)
     {
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
-        glm_scale_uni(model_matrix, 0.25f);
+        glm_scale_uni(model_matrix, 0.2f);
         glm_rotate(model_matrix, 1.4f, (vec3){0, 1, 0});
         glm_rotate(model_matrix, -0.05f, (vec3){0, 0, 1});
         glm_translate(model_matrix, (vec3){0.6f, -0.725f, 0.3f});
