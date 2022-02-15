@@ -99,6 +99,7 @@ void render_initialize(void)
     
     model_import_from_file(_vertex_type_rigid, "../assets/models/cube_sphere.obj");
     model_import_from_file(_vertex_type_rigid, "../assets/models/monkey.obj");
+    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.obj");
     
     struct model_iterator iterator;
     model_iterator_new(&iterator);
@@ -146,12 +147,14 @@ void render_initialize(void)
     light->outer_cutoff = 15.0f;
     
     light = light_get_data(light_new());
-    light->type = _light_type_directional;
+    light->type = _light_type_point;
     memcpy(light->position, (const vec3){1.2f, 3.0f, 2.0f}, sizeof(vec3));
-    memcpy(light->direction, (const vec3){-0.2f, -1.0f, -0.3f}, sizeof(vec3));
     memcpy(light->diffuse_color, (const vec3){0.8f, 0.2f, 0.1f}, sizeof(vec3));
     memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
     memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
+    light->constant = 1.0f;
+    light->linear = 0.09f;
+    light->quadratic = 0.032f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
