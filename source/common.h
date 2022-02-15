@@ -5,7 +5,7 @@
 /* ---------- macros */
 
 #define BIT(bit_index) (1u << (bit_index))
-#define TEST_BIT(bits, bit_index) ((bits) & BIT(bit_index))
+#define TEST_BIT(bits, bit_index) (((bits) & BIT(bit_index)) != 0)
 #define SET_BIT(bits, bit_index, value) ((bits) = ((value) ? ((bits) | BIT(bit_index)) : ((bits) ^ BIT(bit_index))))
 
 #define BIT_VECTOR_LENGTH_IN_WORDS(bit_count) (((bit_count) + (WORD_BIT - 1)) / WORD_BIT)

@@ -13,9 +13,9 @@ SHELL.C
 #include "input.h"
 #include "lights.h"
 #include "models.h"
-#include "render.h"
 #include "shaders.h"
 #include "text.h"
+#include "render.h"
 
 /* ---------- private types */
 
@@ -61,19 +61,19 @@ static const struct shell_component shell_components[] =
         NULL,
     },
     {
+        "text",
+        text_initialize,
+        text_dispose,
+        NULL,
+        NULL,
+    },
+    {
         "render",
         render_initialize,
         render_dispose,
         render_handle_screen_resize,
         render_update,
     },
-    {
-        "text",
-        text_initialize,
-        text_dispose,
-        NULL,
-        NULL,
-    }
 };
 
 enum
@@ -176,8 +176,12 @@ static inline void shell_dispose(void)
 static inline void shell_handle_screen_resize(int width, int height)
 {
     for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
+    {
         if (shell_components[i].handle_screen_resize)
+        {
             shell_components[i].handle_screen_resize(width, height);
+        }
+    }
 }
 
 static inline void shell_update(void)
@@ -226,15 +230,21 @@ static inline void shell_update(void)
     }
 
     for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
+    {
         if (shell_components[i].update)
+        {
             shell_components[i].update(delta_ticks);
+        }
+    }
     
     SDL_GL_SwapWindow(shell_globals.window);
 
     uint64_t end_ticks = SDL_GetTicks64();
 
     if ((1000 / shell_globals.frame_rate) > (end_ticks - shell_globals.last_frame_time))
+    {
         SDL_Delay((1000 / shell_globals.frame_rate) - (end_ticks - shell_globals.last_frame_time));
+    }
 
     shell_globals.last_frame_time = frame_time;
 }

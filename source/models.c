@@ -1,11 +1,14 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <assimp/cimport.h>
 #include <assimp/material.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+
 #include <GL/glew.h>
+
 #include "common.h"
 #include "models.h"
 
