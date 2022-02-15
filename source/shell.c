@@ -11,7 +11,9 @@ SHELL.C
 #include <SDL.h>
 
 #include "input.h"
+#include "models.h"
 #include "render.h"
+#include "shaders.h"
 #include "text.h"
 
 /* ---------- private types */
@@ -33,6 +35,20 @@ static const struct shell_component shell_components[] =
         "input",
         input_initialize,
         input_dispose,
+        NULL,
+        NULL,
+    },
+    {
+        "models",
+        models_initialize,
+        models_dispose,
+        NULL,
+        NULL,
+    },
+    {
+        "shaders",
+        shaders_initialize,
+        shaders_dispose,
         NULL,
         NULL,
     },
@@ -137,7 +153,7 @@ static inline void shell_dispose(void)
     {
         if (shell_components[i].dispose)
         {
-            printf("dispoing %s component...\n", shell_components[i].name);
+            printf("disposing %s component...\n", shell_components[i].name);
             shell_components[i].dispose();
         }
     }

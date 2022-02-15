@@ -14,7 +14,7 @@ struct model_data
 
 struct model_material
 {
-    unsigned int program;
+    int shader_index;
     int texture_count;
     struct model_material_texture *textures;
 };

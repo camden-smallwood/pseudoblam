@@ -51,5 +51,3 @@ struct vertex_definition
 /* ---------- prototypes/VERTICES.C */
 
 const struct vertex_definition *vertex_definition_get(enum vertex_type type);
-
-void vertex_type_bind_attributes(enum vertex_type type, GLuint program);
