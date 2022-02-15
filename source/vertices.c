@@ -1,5 +1,7 @@
 #include "vertices.h"
 
+/* ---------- private constants */
+
 static const struct vertex_attribute_definition vertex_rigid_attributes[] =
 {
     { GL_FLOAT, 3, GL_FALSE, "position", offsetof(struct vertex_rigid, position) },
@@ -45,6 +47,8 @@ static const struct vertex_definition vertex_definitions[NUMBER_OF_VERTEX_TYPES]
         .attributes = vertex_skinned_attributes,
     },
 };
+
+/* ---------- public code */
 
 const struct vertex_definition *vertex_definition_get(enum vertex_type type)
 {
