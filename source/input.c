@@ -6,8 +6,8 @@
 
 struct
 {
-    float mouse_motion_x;
-    float mouse_motion_y;
+    int mouse_motion_x;
+    int mouse_motion_y;
     unsigned int key_bit_vector[BIT_VECTOR_LENGTH_IN_WORDS(SDL_NUM_SCANCODES)];
 } static input_globals;
 
@@ -33,7 +33,7 @@ void input_set_key_down(int key_code, bool down)
     BIT_VECTOR_SET_BIT(input_globals.key_bit_vector, key_code, down);
 }
 
-void input_get_mouse_motion(float *out_x, float *out_y)
+void input_get_mouse_motion(int *out_x, int *out_y)
 {
     if (out_x)
         *out_x = input_globals.mouse_motion_x;
@@ -42,7 +42,7 @@ void input_get_mouse_motion(float *out_x, float *out_y)
         *out_y = input_globals.mouse_motion_y;
 }
 
-void input_set_mouse_motion(float x, float y)
+void input_set_mouse_motion(int x, int y)
 {
     input_globals.mouse_motion_x = x;
     input_globals.mouse_motion_y = y;

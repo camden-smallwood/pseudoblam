@@ -36,11 +36,16 @@ void camera_handle_screen_resize(struct camera_data *camera, int width, int heig
 
 void camera_update(struct camera_data *camera, float delta_ticks)
 {
-    vec2 mouse_motion;
-    input_get_mouse_motion(&mouse_motion[0], &mouse_motion[1]);
+    ivec2 mouse_motion_int;
+    input_get_mouse_motion(&mouse_motion_int[0], &mouse_motion_int[1]);
     
-    mouse_motion[1] = -mouse_motion[1];
-    glm_vec2_scale(mouse_motion, 100.0f * camera->look_sensitivity * delta_ticks, mouse_motion);
+    vec2 mouse_motion =
+    {
+        (float)mouse_motion_int[0],
+        (float)-mouse_motion_int[1]
+    };
+    glm_vec2_scale(mouse_motion, 0.01f, mouse_motion);
+    glm_vec2_scale(mouse_motion, camera->look_sensitivity, mouse_motion);
     glm_vec2_add(camera->rotation, mouse_motion, camera->rotation);
 
     // Clamp camera rotation pitch angle between -89 and 89 degrees to prevent flipping

@@ -89,7 +89,9 @@ struct
     SDL_GLContext gl_context;
     SDL_Event event;
     uint64_t frame_rate;
+    uint64_t frame_count;
     uint64_t last_frame_time;
+    uint64_t last_fps_display_time;
 } static shell_globals;
 
 /* ---------- private prototypes */
@@ -100,6 +102,11 @@ static inline void shell_handle_screen_resize(int width, int height);
 static inline void shell_update(void);
 
 /* ---------- public code */
+
+void shell_get_window_size(int *out_width, int *out_height)
+{
+    SDL_GetWindowSize(shell_globals.window, out_width, out_height);
+}
 
 int main(void)
 {
@@ -130,15 +137,15 @@ static inline void shell_initialize(void)
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 16);
 
-    SDL_GL_SetSwapInterval(0);
-
     const int screen_width = 1280;
     const int screen_height = 720;
 
     shell_globals.window = SDL_CreateWindow("asdf", 0, 0, screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     shell_globals.gl_context = SDL_GL_CreateContext(shell_globals.window);
     
-    shell_globals.frame_rate = 60;
+    shell_globals.frame_rate = 120;
+
+    SDL_GL_SetSwapInterval(0);
 
     SDL_CaptureMouse(SDL_TRUE);
     SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -186,14 +193,26 @@ static inline void shell_handle_screen_resize(int width, int height)
 
 static inline void shell_update(void)
 {
-    uint64_t frame_time = SDL_GetTicks64();
+    uint64_t frame_start_time = SDL_GetPerformanceCounter();
 
     if (!shell_globals.last_frame_time)
     {
-        shell_globals.last_frame_time = frame_time;
+        shell_globals.last_frame_time = frame_start_time;
     }
 
-    float delta_ticks = (frame_time - shell_globals.last_frame_time) / 1000.0f;
+    if (((double)(frame_start_time - shell_globals.last_fps_display_time) / (double)SDL_GetPerformanceFrequency()) >= 1.0)
+    {
+        char fps_string[256];
+        snprintf(fps_string, sizeof(fps_string), "fps: %llu", shell_globals.frame_count);
+
+        SDL_SetWindowTitle(shell_globals.window, fps_string);
+
+        shell_globals.last_fps_display_time = SDL_GetPerformanceCounter();
+        shell_globals.frame_count = 0;
+    }
+
+    double delta_ticks = ((double)(frame_start_time - shell_globals.last_frame_time) / (double)SDL_GetPerformanceFrequency());
+    // printf("elapsed frame time: %lf\n", delta_ticks);
 
     input_set_mouse_motion(0.0f, 0.0f);
     
@@ -221,7 +240,7 @@ static inline void shell_update(void)
             break;
         
         case SDL_MOUSEMOTION:
-            input_set_mouse_motion(event.motion.xrel * 0.01f, event.motion.yrel * 0.01f);
+            input_set_mouse_motion(event.motion.xrel, event.motion.yrel);
             break;
             
         case SDL_QUIT:
@@ -239,12 +258,8 @@ static inline void shell_update(void)
     
     SDL_GL_SwapWindow(shell_globals.window);
 
-    uint64_t end_ticks = SDL_GetTicks64();
+    while (((double)(SDL_GetPerformanceCounter() - frame_start_time) / (double)SDL_GetPerformanceFrequency()) < (1.0 / (double)shell_globals.frame_rate));
 
-    if ((1000 / shell_globals.frame_rate) > (end_ticks - shell_globals.last_frame_time))
-    {
-        SDL_Delay((1000 / shell_globals.frame_rate) - (end_ticks - shell_globals.last_frame_time));
-    }
-
-    shell_globals.last_frame_time = frame_time;
+    shell_globals.last_frame_time = frame_start_time;
+    shell_globals.frame_count++;
 }
