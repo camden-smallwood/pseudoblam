@@ -7,6 +7,11 @@ enum material_flags
 {
     _material_is_two_sided_bit,
     _material_enable_wireframe_bit,
+    _material_use_base_color_texture_bit,
+    _material_use_metalness_texture_bit,
+    _material_use_diffuse_roughness_texture_bit,
+    _materual_use_emissive_texture_bit,
+    _materual_use_ambient_occlusion_texture_bit,
     NUMBER_OF_MATERIAL_FLAGS
 };
 
@@ -24,6 +29,13 @@ enum material_shading_model
     _material_shading_model_fresnel,
     _material_shading_model_pbr_brdf,
     NUMBER_OF_MATERIAL_SHADING_MODELS
+};
+
+enum material_blending_mode
+{
+    _material_blending_mode_default,
+    _material_blending_mode_additive,
+    NUMBER_OF_MATERIAL_BLENDING_MODES
 };
 
 enum material_texture_usage
@@ -55,18 +67,18 @@ enum material_texture_usage
 
 /* ---------- structures */
 
-struct material_data
+struct material_texture
+{
+    enum material_texture_usage usage;
+    unsigned int id;
+};
+
+struct material_base_properties
 {
     char *name;
 
     enum material_shading_model shading_model;
-    /* TODO: blend_func */
-
-    unsigned int flags;
-    int shader_index;
-
-    int texture_count;
-    struct material_texture *textures;
+    enum material_blending_mode blending_mode;
 
     float opacity;
     float transparency_factor;
@@ -85,6 +97,7 @@ struct material_data
 
     char *global_background_image;
     char *global_shaderlang;
+
     char *shader_vertex;
     char *shader_fragment;
     char *shader_geo;
@@ -93,10 +106,81 @@ struct material_data
     char *shader_compute;
 };
 
-struct material_texture
+struct material_pbr_properties
 {
-    enum material_texture_usage usage;
-    unsigned int id;
+    vec3 base_color;
+    int base_color_texture_index;
+
+    float metallic_factor;
+    int metallic_texture_index;
+
+    float roughness_factor;
+    int roughness_texture_index;
+
+    float anisotropy_factor;
+};
+
+struct material_specular_properties
+{
+    float specular_factor;
+    float glossiness_factor;
+};
+
+struct material_sheen_properties
+{
+    float sheen_color_factor;
+    int sheen_color_texture_index;
+
+    float sheen_roughness_factor;
+    int sheen_roughness_texture_index;
+};
+
+struct material_clearcoat_properties
+{
+    float clearcoat_factor;
+    int clearcoat_texture_index;
+
+    float clearcoat_roughness_factor;
+    int clearcoat_roughness_texture_index;
+
+    int clearcoat_normal_texture_index;
+};
+
+struct material_transmission_properties
+{
+    float transmission_factor;
+    int transmission_texture_index;
+};
+
+struct material_volume_properties
+{
+    float volume_thickness_factor;
+    int volume_thickness_texture_index;
+
+    float volume_attenuation_distance;
+    vec3 volume_attenuation_color;
+};
+
+struct material_emissive_properties
+{
+    float emissive_intensity;
+};
+
+struct material_data
+{
+    int shader_index;
+
+    int texture_count;
+    struct material_texture *textures;
+
+    struct material_base_properties base_properties;
+    struct material_pbr_properties pbr_properties;
+    struct material_specular_properties specular_properties;
+    struct material_sheen_properties sheen_properties;
+    struct material_clearcoat_properties clearcoat_properties;
+    struct material_transmission_properties transmission_properties;
+    struct material_volume_properties volume_properties;
+    struct material_emissive_properties emissive_properties;
 };
 
 /* ---------- prototypes/MATERIALS.C */
