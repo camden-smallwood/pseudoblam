@@ -386,6 +386,9 @@ static void model_import_assimp_material(
     const struct aiMaterial *in_material,
     struct model_data *out_model)
 {
+    struct material_data material;
+    memset(&material, 0, sizeof(material));
+
     printf("material has %i properties:\n", in_material->mNumProperties);
 
     for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
@@ -425,16 +428,15 @@ static void model_import_assimp_material(
         free(value_string);
     }
 
-    struct material_data material;
-    memset(&material, 0, sizeof(material));
-
     for (int texture_usage = 0; texture_usage < NUMBER_OF_MATERIAL_TEXTURE_USAGES; texture_usage++)
     {
-        if (aiGetMaterialTextureCount(in_material, texture_usage))
+        int texture_count = aiGetMaterialTextureCount(in_material, texture_usage);
+
+        for (int texture_index = 0; texture_index < texture_count; texture_index++)
         {
             struct aiString path;
 
-            if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_usage, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL))
+            if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_usage, texture_index, &path, NULL, NULL, NULL, NULL, NULL, NULL))
             {
                 struct material_texture texture =
                 {
