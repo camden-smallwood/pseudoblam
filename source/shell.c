@@ -143,7 +143,7 @@ static inline void shell_initialize(void)
     shell_globals.window = SDL_CreateWindow("asdf", 0, 0, screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     shell_globals.gl_context = SDL_GL_CreateContext(shell_globals.window);
     
-    shell_globals.frame_rate = 120;
+    shell_globals.frame_rate = 60;
 
     SDL_GL_SetSwapInterval(0);
 
@@ -258,7 +258,7 @@ static inline void shell_update(void)
     
     SDL_GL_SwapWindow(shell_globals.window);
 
-    while (((double)(SDL_GetPerformanceCounter() - frame_start_time) / (double)SDL_GetPerformanceFrequency()) < (1.0 / (double)shell_globals.frame_rate));
+    while (((double)(SDL_GetPerformanceCounter() - frame_start_time) / (double)SDL_GetPerformanceFrequency()) < (1.0 / (double)(shell_globals.frame_rate - 1)));
 
     shell_globals.last_frame_time = frame_start_time;
     shell_globals.frame_count++;
