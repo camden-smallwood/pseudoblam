@@ -58,8 +58,6 @@ struct render_globals
 
 static void render_model(struct model_data *model, mat4 model_matrix);
 
-static GLuint render_import_dds_file_as_texture2d(const char *file_path);
-
 /* ---------- public code */
 
 void render_initialize(void)
@@ -91,15 +89,14 @@ void render_initialize(void)
 
     render_globals.blinn_phong_shader = shader_new("../assets/shaders/generic.vs", "../assets/shaders/blinnphong.fs");
 
-    render_globals.diffuse_texture = render_import_dds_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
-    render_globals.specular_texture = render_import_dds_file_as_texture2d("../assets/textures/white.dds");
-    render_globals.normal_texture = render_import_dds_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
+    render_globals.specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
+    render_globals.normal_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
 
     render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.dae");
     
-    model_import_from_file(_vertex_type_rigid, "../assets/models/cube_sphere.obj");
-    model_import_from_file(_vertex_type_rigid, "../assets/models/monkey.obj");
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.obj");
+    model_import_from_file(_vertex_type_rigid, "../assets/models/cube.fbx");
     
     struct model_iterator iterator;
     model_iterator_new(&iterator);
@@ -375,97 +372,61 @@ static void render_model(struct model_data *model, mat4 model_matrix)
         glUniform1uiv(glGetUniformLocation(blinn_phong_shader->program, "point_light_count"), 1, (const GLuint[]){light_counts[_light_type_point]});
         glUniform1uiv(glGetUniformLocation(blinn_phong_shader->program, "spot_light_count"), 1, (const GLuint[]){light_counts[_light_type_spot]});
 
-        // Bind the material uniforms
-        glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
-        glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_shininess"), 1, (const GLfloat[]){32});
-        glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
-
-        // Activate and bind the material's diffuse texture
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
-        glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_texture"), 0);
-
-        // Activate and bind the material's specular texture
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, render_globals.specular_texture);
-        glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), 1);
-
-        // Activate and bind the material's normal texture
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, render_globals.normal_texture);
-        glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), 2);
-
         // Draw the geometry
         glBindVertexArray(mesh->vertex_array);
 
         for (int part_index = 0; part_index < mesh->part_count; part_index++)
         {
             struct model_mesh_part *part = mesh->parts + part_index;
+            struct model_material *material = model->materials + part->material_index;
+
+            // Bind the material uniforms
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_shininess"), 1, (const GLfloat[]){32});
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
+
+            // Activate and bind the material's diffuse texture
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
+            glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_texture"), 0);
+
+            // Activate and bind the material's specular texture
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, render_globals.specular_texture);
+            glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), 1);
+
+            // Activate and bind the material's normal texture
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, render_globals.normal_texture);
+            glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), 2);
+            
+            for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
+            {
+                struct model_material_texture *texture = material->textures + texture_index;
+
+                switch (texture->usage)
+                {
+                case _model_material_diffuse_texture:
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, texture->id);
+                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_texture"), 0);
+                    break;
+
+                case _model_material_specular_texture:
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, texture->id);
+                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), 1);
+                    break;
+
+                case _model_material_normal_texture:
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, texture->id);
+                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), 2);
+                    break;
+                }
+            }
+
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
         }
     }
-}
-
-GLuint render_import_dds_file_as_texture2d(
-    const char *file_path)
-{
-    struct dds_data dds;
-    
-    if (!dds_from_file(&dds, file_path))
-    {
-        fprintf(stderr, "ERROR: failed to load dds as texture2d\n");
-        return 0;
-    }
-
-    GLenum format;
-
-    switch (dds.header.fourcc)
-    {
-    case _dds_fourcc_dxt1:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-        break;
-
-    case _dds_fourcc_dxt3:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
-        break;
-
-    case _dds_fourcc_dxt5:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-        break;
-
-    default:
-        fprintf(stderr, "ERROR: unsupported DDS format: %u\n", dds.header.fourcc);
-        dds_dispose(&dds);
-        return 0;
-    }
-
-    GLuint texture_id;
-    glGenTextures(1, &texture_id);
-
-    glBindTexture(GL_TEXTURE_2D, texture_id);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    for (unsigned int
-        block_size = (format == GL_COMPRESSED_RGBA_S3TC_DXT1_EXT) ? 8 : 16,
-        width = dds.header.width,
-        height = dds.header.height,
-        offset = 0,
-        level = 0,
-        size;
-        
-        size = ((width + 3) / 4) * ((height + 3) / 4) * block_size,
-        (level < dds.header.mip_map_count) && (width || height);
-        
-        glCompressedTexImage2D(GL_TEXTURE_2D, level, format, width, height, 0, size, dds.data + offset),
-        width = width > 1 ? width / 2 : 1,
-        height = height > 1 ? height / 2 : 1,
-        offset += size,
-        level++);
-
-    dds_dispose(&dds);
-
-    return texture_id;
 }

@@ -19,8 +19,16 @@ struct model_material
     struct model_material_texture *textures;
 };
 
+enum model_material_texture_usage
+{
+    _model_material_diffuse_texture,
+    _model_material_specular_texture,
+    _model_material_normal_texture,
+};
+
 struct model_material_texture
 {
+    enum model_material_texture_usage usage;
     unsigned int id;
 };
 

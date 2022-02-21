@@ -10,6 +10,7 @@
 #include <GL/glew.h>
 
 #include "common.h"
+#include "dds.h"
 #include "models.h"
 
 /* ---------- public variables */
@@ -37,23 +38,14 @@ static void model_import_assimp_metadata(
     struct model_data *out_model);
 
 static void model_import_assimp_mesh(
-    const char *directory_path,
     enum vertex_type vertex_type,
-    const struct aiScene *in_scene,
     const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
-    struct model_data *out_model,
     struct model_mesh *out_mesh);
 
 static void model_import_assimp_material(
-    const char *directory_path,
-    const struct aiScene *in_scene,
-    const struct aiNode *in_node,
-    const struct aiMesh *in_mesh,
     const struct aiMaterial *in_material,
-    struct model_data *out_model,
-    struct model_mesh *out_mesh,
-    struct model_mesh_part *out_part);
+    struct model_data *out_model);
 
 /* ---------- public code */
 
@@ -154,10 +146,6 @@ int model_import_from_file(
 {
     assert(file_path);
 
-    //
-    // Attempt to load the scene
-    //
-
     const struct aiScene *scene = aiImportFile(
         file_path,
         aiProcess_CalcTangentSpace |
@@ -174,10 +162,6 @@ int model_import_from_file(
         fprintf(stderr, "ERROR: failed to import \"%s\"\n", file_path);
         return -1;
     }
-
-    //
-    // Get the path of the folder containing the scene
-    //
 
     char *directory_path;
 
@@ -199,17 +183,16 @@ int model_import_from_file(
         directory_path = strdup("./");
     }
 
-    //
-    // Process the root scene node
-    //
-
     int model_index = model_new();
     struct model_data *model = model_get_data(model_index);
-    model_import_assimp_node(directory_path, vertex_type, scene, scene->mRootNode, model);
 
-    //
-    // Clean up
-    //
+    for (unsigned int material_index = 0; material_index < scene->mNumMaterials; material_index++)
+    {
+        struct aiMaterial *material = scene->mMaterials[material_index];
+        model_import_assimp_material(material, model);
+    }
+
+    model_import_assimp_node(directory_path, vertex_type, scene, scene->mRootNode, model);
 
     aiReleaseImport(scene);
     free(directory_path);
@@ -247,12 +230,9 @@ static void model_import_assimp_node(
         struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
 
         model_import_assimp_mesh(
-            directory_path,
             mesh.vertex_type,
-            in_scene,
             in_node,
             in_mesh,
-            out_model,
             &mesh);
     }
     
@@ -332,12 +312,9 @@ static void model_import_assimp_metadata(
 }
 
 static void model_import_assimp_mesh(
-    const char *directory_path,
     enum vertex_type vertex_type,
-    const struct aiScene *in_scene,
     const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
-    struct model_data *out_model,
     struct model_mesh *out_mesh)
 {
     printf("%s mesh in node \"%s\" has:\n", vertex_type == _vertex_type_rigid ? "rigid" : "skinned", in_node->mName.data);
@@ -346,7 +323,7 @@ static void model_import_assimp_mesh(
 
     struct model_mesh_part part =
     {
-        .material_index = -1, // TODO
+        .material_index = in_mesh->mMaterialIndex,
         .vertex_index = out_mesh->vertex_count,
         .vertex_count = 0,
     };
@@ -403,35 +380,42 @@ static void model_import_assimp_mesh(
     }
     
     mempush(&out_mesh->part_count, (void **)&out_mesh->parts, &part, sizeof(part), realloc);
-
-    struct aiMaterial *material = in_scene->mMaterials[in_mesh->mMaterialIndex];
-    model_import_assimp_material(directory_path, in_scene, in_node, in_mesh, material, out_model, out_mesh, &part);
 }
 
 static void model_import_assimp_material(
-    const char *directory_path,
-    const struct aiScene *in_scene,
-    const struct aiNode *in_node,
-    const struct aiMesh *in_mesh,
     const struct aiMaterial *in_material,
-    struct model_data *out_model,
-    struct model_mesh *out_mesh,
-    struct model_mesh_part *out_part)
+    struct model_data *out_model)
 {
-    assert(directory_path);
-    assert(in_scene);
-    assert(in_node);
-    assert(in_mesh);
-    assert(in_material);
-    assert(out_model);
-    assert(out_mesh);
-    assert(out_part);
-
     printf("material has %i properties:\n", in_material->mNumProperties);
+
+    struct model_material material;
+    memset(&material, 0, sizeof(material));
 
     for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
     {
         struct aiMaterialProperty *property = in_material->mProperties[property_index];
+
+        if (strcmp("$raw.DiffuseColor|file", property->mKey.data) == 0)
+        {
+            struct model_material_texture texture =
+            {
+                .usage = _model_material_diffuse_texture,
+                .id = dds_import_file_as_texture2d(((struct aiString *)property->mData)->data),
+            };
+            
+            mempush(&material.texture_count, (void **)&material.textures, &texture, sizeof(texture), realloc);
+        }
+        
+        if (strcmp("$raw.NormalMap|file", property->mKey.data) == 0)
+        {
+            struct model_material_texture texture =
+            {
+                .usage = _model_material_normal_texture,
+                .id = dds_import_file_as_texture2d(((struct aiString *)property->mData)->data),
+            };
+            
+            mempush(&material.texture_count, (void **)&material.textures, &texture, sizeof(texture), realloc);
+        }
         
         char *value_string = NULL;
 
@@ -465,4 +449,6 @@ static void model_import_assimp_material(
         printf("\t%s: %s\n", property->mKey.data, value_string);
         free(value_string);
     }
+
+    mempush(&out_model->material_count, (void **)&out_model->materials, &material, sizeof(material), realloc);
 }
