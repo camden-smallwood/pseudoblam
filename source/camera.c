@@ -19,9 +19,9 @@ void camera_initialize(struct camera_data *camera)
     camera->aspect_ratio = 1.0f;
     camera->near_clip = 0.01f;
     camera->far_clip = 1000.0f;
-    memcpy(camera->position, (vec3){3, 2, 3}, sizeof(vec3));
-    memcpy(camera->rotation, (vec2){-130, -35}, sizeof(vec2));
-    memcpy(camera->up, (vec3){0, 1, 0}, sizeof(vec3));
+    glm_vec3_copy((vec3){3, 2, 3}, camera->position);
+    glm_vec3_copy((vec2){-130, -35}, camera->rotation);
+    glm_vec3_copy((vec3){0, 1, 0}, camera->up);
 }
 
 void camera_handle_screen_resize(struct camera_data *camera, int width, int height)
@@ -58,14 +58,13 @@ void camera_update(struct camera_data *camera, float delta_ticks)
     float pitch_radians = glm_rad(camera->rotation[1]);
     float pitch_radians_cosine = cosf(pitch_radians);
 
-    memcpy(
-        camera->forward,
+    glm_vec3_copy(
         (vec3){
             cosf(yaw_radians) * pitch_radians_cosine,
             sinf(pitch_radians),
             sinf(yaw_radians) * pitch_radians_cosine,
         },
-        sizeof(vec3));
+        camera->forward);
     glm_vec3_normalize(camera->forward);
 
     vec3 right;

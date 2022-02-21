@@ -1,5 +1,6 @@
 #pragma once
 #include <cglm/cglm.h>
+#include "materials.h"
 #include "vertices.h"
 
 /* ---------- types */
@@ -8,28 +9,8 @@ struct model_data
 {
     int material_count;
     int mesh_count;
-    struct model_material *materials;
+    struct material_data *materials;
     struct model_mesh *meshes;
-};
-
-struct model_material
-{
-    int shader_index;
-    int texture_count;
-    struct model_material_texture *textures;
-};
-
-enum model_material_texture_usage
-{
-    _model_material_diffuse_texture,
-    _model_material_specular_texture,
-    _model_material_normal_texture,
-};
-
-struct model_material_texture
-{
-    enum model_material_texture_usage usage;
-    unsigned int id;
 };
 
 struct model_mesh

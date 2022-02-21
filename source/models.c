@@ -62,11 +62,11 @@ void models_dispose(void)
 
         for (int material_index = 0; material_index < model->material_count; material_index++)
         {
-            struct model_material *material = model->materials + material_index;
+            struct material_data *material = model->materials + material_index;
 
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {
-                struct model_material_texture *texture = material->textures + texture_index;
+                struct material_texture *texture = material->textures + texture_index;
                 assert(texture);
 
                 // TODO
@@ -347,11 +347,11 @@ static void model_import_assimp_mesh(
             case _vertex_type_rigid:
                 {
                     struct vertex_rigid vertex;
-                    memcpy(&vertex.position, (vec3){position.x, position.y, position.z}, sizeof(vec3));
-                    memcpy(&vertex.normal, (vec3){normal.x, normal.y, normal.z}, sizeof(vec3));
-                    memcpy(&vertex.texcoord, (vec2){texcoord.x, texcoord.y}, sizeof(vec2));
-                    memcpy(&vertex.tangent, (vec3){tangent.x, tangent.y, tangent.z}, sizeof(vec3));
-                    memcpy(&vertex.bitangent, (vec3){bitangent.x, bitangent.y, bitangent.z}, sizeof(vec3));
+                    glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
+                    glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
+                    glm_vec2_copy((vec2){texcoord.x, texcoord.y}, vertex.texcoord);
+                    glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
+                    glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
                     mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
                 }
                 break;
@@ -359,11 +359,11 @@ static void model_import_assimp_mesh(
             case _vertex_type_skinned:
                 {
                     struct vertex_skinned vertex;
-                    memcpy(&vertex.position, (vec3){position.x, position.y, position.z}, sizeof(vec3));
-                    memcpy(&vertex.normal, (vec3){normal.x, normal.y, normal.z}, sizeof(vec3));
-                    memcpy(&vertex.texcoord, (vec2){texcoord.x, texcoord.y}, sizeof(vec2));
-                    memcpy(&vertex.tangent, (vec3){tangent.x, tangent.y, tangent.z}, sizeof(vec3));
-                    memcpy(&vertex.bitangent, (vec3){bitangent.x, bitangent.y, bitangent.z}, sizeof(vec3));
+                    glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
+                    glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
+                    glm_vec2_copy((vec2){texcoord.x, texcoord.y}, vertex.texcoord);
+                    glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
+                    glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
                     memset(vertex.bone_indices, 0, sizeof(vertex.bone_indices));
                     memset(vertex.bone_weights, 0, sizeof(vertex.bone_weights));
                     mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
@@ -388,35 +388,10 @@ static void model_import_assimp_material(
 {
     printf("material has %i properties:\n", in_material->mNumProperties);
 
-    struct model_material material;
-    memset(&material, 0, sizeof(material));
-
     for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
     {
         struct aiMaterialProperty *property = in_material->mProperties[property_index];
 
-        if (strcmp("$raw.DiffuseColor|file", property->mKey.data) == 0)
-        {
-            struct model_material_texture texture =
-            {
-                .usage = _model_material_diffuse_texture,
-                .id = dds_import_file_as_texture2d(((struct aiString *)property->mData)->data),
-            };
-            
-            mempush(&material.texture_count, (void **)&material.textures, &texture, sizeof(texture), realloc);
-        }
-        
-        if (strcmp("$raw.NormalMap|file", property->mKey.data) == 0)
-        {
-            struct model_material_texture texture =
-            {
-                .usage = _model_material_normal_texture,
-                .id = dds_import_file_as_texture2d(((struct aiString *)property->mData)->data),
-            };
-            
-            mempush(&material.texture_count, (void **)&material.textures, &texture, sizeof(texture), realloc);
-        }
-        
         char *value_string = NULL;
 
         switch (property->mType)
@@ -448,6 +423,28 @@ static void model_import_assimp_material(
         
         printf("\t%s: %s\n", property->mKey.data, value_string);
         free(value_string);
+    }
+
+    struct material_data material;
+    memset(&material, 0, sizeof(material));
+
+    for (int texture_usage = 0; texture_usage < NUMBER_OF_MATERIAL_TEXTURE_USAGES; texture_usage++)
+    {
+        if (aiGetMaterialTextureCount(in_material, texture_usage))
+        {
+            struct aiString path;
+
+            if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_usage, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL))
+            {
+                struct material_texture texture =
+                {
+                    .usage = texture_usage,
+                    .id = dds_import_file_as_texture2d(path.data),
+                };
+                
+                mempush(&material.texture_count, (void **)&material.textures, &texture, sizeof(texture), realloc);
+            }
+        }
     }
 
     mempush(&out_model->material_count, (void **)&out_model->materials, &material, sizeof(material), realloc);

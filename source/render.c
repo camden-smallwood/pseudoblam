@@ -132,11 +132,11 @@ void render_initialize(void)
     light = light_get_data(render_globals.headlight_light_index);
     light->type = _light_type_spot;
     SET_BIT(light->flags, _light_is_hidden_bit, true);
-    memcpy(light->position, render_globals.camera.position, sizeof(vec3));
-    memcpy(light->direction, render_globals.camera.forward, sizeof(vec3));
-    memcpy(light->diffuse_color, (const vec3){1, 1, 1}, sizeof(vec3));
-    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
-    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
+    glm_vec3_copy(render_globals.camera.position, light->position);
+    glm_vec3_copy(render_globals.camera.forward, light->direction);
+    glm_vec3_copy((vec3){1, 1, 1}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
@@ -145,50 +145,50 @@ void render_initialize(void)
     
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    memcpy(light->position, (const vec3){1.2f, 3.0f, 2.0f}, sizeof(vec3));
-    memcpy(light->diffuse_color, (const vec3){0.8f, 0.2f, 0.1f}, sizeof(vec3));
-    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
-    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
+    glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
+    glm_vec3_copy((vec3){0.8f, 0.2f, 0.1f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    memcpy(light->position, (const vec3){0.7f, 0.2f, 2.0f}, sizeof(vec3));
-    memcpy(light->diffuse_color, (const vec3){0.1f, 0.8f, 0.2f}, sizeof(vec3));
-    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
-    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
+    glm_vec3_copy((vec3){0.7f, 0.2f, 2.0f}, light->position);
+    glm_vec3_copy((vec3){0.1f, 0.8f, 0.2f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    memcpy(light->position, (const vec3){2.3f, -3.3f, -4.0f}, sizeof(vec3));
-    memcpy(light->diffuse_color, (const vec3){0.1f, 0.2f, 0.8f}, sizeof(vec3));
-    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
-    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
+    glm_vec3_copy((vec3){2.3f, -3.3f, -4.0f}, light->position);
+    glm_vec3_copy((vec3){0.1f, 0.2f, 0.8f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    memcpy(light->position, (const vec3){-4.0f, 2.0f, -12.0f}, sizeof(vec3));
-    memcpy(light->diffuse_color, (const vec3){0.8f, 0.8f, 0.8f}, sizeof(vec3));
-    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
-    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
+    glm_vec3_copy((vec3){-4.0f, 2.0f, -12.0f}, light->position);
+    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    memcpy(light->position, (const vec3){0.0f, 0.0f, -3.0}, sizeof(vec3));
-    memcpy(light->diffuse_color, (const vec3){0.8f, 0.8f, 0.8f}, sizeof(vec3));
-    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
-    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
+    glm_vec3_copy((vec3){0.0f, 0.0f, -3.0}, light->position);
+    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
@@ -242,8 +242,8 @@ void render_update(float delta_ticks)
 
     // Update the headlight position
     struct light_data *headlight = light_get_data(render_globals.headlight_light_index);
-    memcpy(headlight->position, render_globals.camera.position, sizeof(vec3));
-    memcpy(headlight->direction, render_globals.camera.forward, sizeof(vec3));
+    glm_vec3_copy(render_globals.camera.position, headlight->position);
+    glm_vec3_copy(render_globals.camera.forward, headlight->direction);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -378,7 +378,7 @@ static void render_model(struct model_data *model, mat4 model_matrix)
         for (int part_index = 0; part_index < mesh->part_count; part_index++)
         {
             struct model_mesh_part *part = mesh->parts + part_index;
-            struct model_material *material = model->materials + part->material_index;
+            struct material_data *material = model->materials + part->material_index;
 
             // Bind the material uniforms
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
@@ -402,27 +402,31 @@ static void render_model(struct model_data *model, mat4 model_matrix)
             
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {
-                struct model_material_texture *texture = material->textures + texture_index;
+                struct material_texture *texture = material->textures + texture_index;
 
                 switch (texture->usage)
                 {
-                case _model_material_diffuse_texture:
+                case _material_texture_usage_diffuse:
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, texture->id);
                     glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_texture"), 0);
                     break;
 
-                case _model_material_specular_texture:
+                case _material_texture_usage_specular:
                     glActiveTexture(GL_TEXTURE1);
                     glBindTexture(GL_TEXTURE_2D, texture->id);
                     glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), 1);
                     break;
 
-                case _model_material_normal_texture:
+                case _material_texture_usage_normals:
                     glActiveTexture(GL_TEXTURE2);
                     glBindTexture(GL_TEXTURE_2D, texture->id);
                     glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), 2);
                     break;
+
+                default:
+                    fprintf(stderr, "ERROR: unhandled texture usage - \"%s\"\n", material_texture_usage_to_string(texture->usage));
+                    exit(EXIT_FAILURE);
                 }
             }
 
