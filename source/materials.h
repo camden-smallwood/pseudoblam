@@ -1,6 +1,30 @@
 #pragma once
+#include <cglm/cglm.h>
 
 /* ---------- constants */
+
+enum material_flags
+{
+    _material_is_two_sided_bit,
+    _material_enable_wireframe_bit,
+    NUMBER_OF_MATERIAL_FLAGS
+};
+
+enum material_shading_model
+{
+    _material_shading_model_flat,
+    _material_shading_model_gouraud,
+    _material_shading_model_phong,
+    _material_shading_model_blinn,
+    _material_shading_model_toon,
+    _material_shading_model_oren_nayar,
+    _material_shading_model_minnaert,
+    _material_shading_model_cook_torrance,
+    _material_shading_model_no_shading,
+    _material_shading_model_fresnel,
+    _material_shading_model_pbr_brdf,
+    NUMBER_OF_MATERIAL_SHADING_MODELS
+};
 
 enum material_texture_usage
 {
@@ -33,9 +57,40 @@ enum material_texture_usage
 
 struct material_data
 {
+    char *name;
+
+    enum material_shading_model shading_model;
+    /* TODO: blend_func */
+
+    unsigned int flags;
     int shader_index;
+
     int texture_count;
     struct material_texture *textures;
+
+    float opacity;
+    float transparency_factor;
+    float bump_scaling;
+    float shininess;
+    float reflectivity;
+    float shininess_strength;
+    float refracti;
+
+    vec3 color_diffuse;
+    vec3 color_ambient;
+    vec3 color_specular;
+    vec3 color_emissive;
+    vec3 color_transparent;
+    vec3 color_reflective;
+
+    char *global_background_image;
+    char *global_shaderlang;
+    char *shader_vertex;
+    char *shader_fragment;
+    char *shader_geo;
+    char *shader_tesselation;
+    char *shader_primitive;
+    char *shader_compute;
 };
 
 struct material_texture

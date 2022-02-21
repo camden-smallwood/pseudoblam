@@ -63,14 +63,8 @@ void models_dispose(void)
         for (int material_index = 0; material_index < model->material_count; material_index++)
         {
             struct material_data *material = model->materials + material_index;
-
-            for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
-            {
-                struct material_texture *texture = material->textures + texture_index;
-                assert(texture);
-
-                // TODO
-            }
+            
+            free(material->textures);
         }
 
         for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
