@@ -97,7 +97,7 @@ void render_initialize(void)
 
     render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.dae");
     
-    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.obj");
+    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     model_import_from_file(_vertex_type_rigid, "../assets/models/cube.fbx");
     
     struct model_iterator iterator;
@@ -146,14 +146,17 @@ void render_initialize(void)
     light->outer_cutoff = 15.0f;
     
     light = light_get_data(light_new());
-    light->type = _light_type_point;
+    light->type = _light_type_spot;
     glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
+    glm_vec3_copy((vec3){-0.2f, -1.0f, -0.3f}, light->direction);
     glm_vec3_copy((vec3){0.8f, 0.2f, 0.1f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
+    light->inner_cutoff = 30.0f;
+    light->outer_cutoff = 36.0f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
@@ -392,26 +395,8 @@ static void render_model(struct model_data *model, mat4 model_matrix)
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_color"), 1, material->base_properties.color_ambient);
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
 
-            // Activate and bind the material's diffuse texture
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, render_globals.diffuse_texture);
-            glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_texture"), 0);
+            // TODO: determine required default textures ahead of time
 
-            // Activate and bind the material's specular texture
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, render_globals.specular_texture);
-            glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), 1);
-
-            // Activate and bind the material's normal texture
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, render_globals.normal_texture);
-            glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), 2);
-
-            // Activate and bind the material's normal texture
-            glActiveTexture(GL_TEXTURE3);
-            glBindTexture(GL_TEXTURE_2D, render_globals.emissive_texture);
-            glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.emissive_texture"), 3);
-            
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {
                 struct material_texture *texture = material->textures + texture_index;
@@ -429,12 +414,12 @@ static void render_model(struct model_data *model, mat4 model_matrix)
                     glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), texture_index);
                     break;
 
-                case _material_texture_usage_normals:
-                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), texture_index);
-                    break;
-                
                 case _material_texture_usage_emissive:
                     glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.emissive_texture"), texture_index);
+                    break;
+
+                case _material_texture_usage_normals:
+                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), texture_index);
                     break;
 
                 default:
@@ -444,6 +429,12 @@ static void render_model(struct model_data *model, mat4 model_matrix)
             }
 
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
+
+            for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
+            {
+                glActiveTexture(GL_TEXTURE0 + texture_index);
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
         }
     }
 }

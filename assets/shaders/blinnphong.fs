@@ -12,12 +12,12 @@ struct material_data
     float specular_amount;
     float specular_shininess;
 
-    sampler2D normal_texture;
-
     vec3 ambient_color;
     float ambient_amount;
 
     sampler2D emissive_texture;
+
+    sampler2D normal_texture;
 };
 uniform material_data material;
 
@@ -88,7 +88,13 @@ vec3 calculate_light(
     // specular shading
     vec3 light_halfway_direction = normalize(light_direction + camera_direction);
     float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
-    vec3 specular = material.specular_amount * (material.specular_color + light_specular_color) * specular_amount * specular_texture * light_attenuation;
+    
+    vec3 specular;
+
+    if (dot(normal, light_halfway_direction) < 0.0) // light source on the wrong side?
+        specular = vec3(0.0, 0.0, 0.0); // no specular reflection
+    else
+        specular = (material.specular_color + light_specular_color) * specular_texture * specular_amount * material.specular_amount * light_attenuation;
 
     // emissive
     vec3 emissive = vec3(texture(material.emissive_texture, frag_texcoord));
