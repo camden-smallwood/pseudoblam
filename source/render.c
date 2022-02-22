@@ -381,8 +381,13 @@ static void render_model(struct model_data *model, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
 
             // Bind the material uniforms
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_amount"), 1, (const GLfloat[]){0.5f});
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_shininess"), 1, (const GLfloat[]){32});
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_color"), 1, material->base_properties.color_diffuse);
+
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_color"), 1, material->base_properties.color_specular);
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_amount"), 1, (const GLfloat[]){material->specular_properties.specular_factor});
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_shininess"), 1, (const GLfloat[]){material->specular_properties.glossiness_factor});
+
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_color"), 1, material->base_properties.color_ambient);
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
 
             // Activate and bind the material's diffuse texture

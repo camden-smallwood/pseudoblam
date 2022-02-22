@@ -603,8 +603,8 @@ static void material_import_assimp_specular_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    out_material->specular_properties.specular_factor = material_get_assimp_float(in_material, AI_MATKEY_SPECULAR_FACTOR, 1.0f);
-    out_material->specular_properties.glossiness_factor = material_get_assimp_float(in_material, AI_MATKEY_GLOSSINESS_FACTOR, 1.0f);
+    out_material->specular_properties.specular_factor = material_get_assimp_float(in_material, AI_MATKEY_SPECULAR_FACTOR, 0.5f);
+    out_material->specular_properties.glossiness_factor = material_get_assimp_float(in_material, AI_MATKEY_GLOSSINESS_FACTOR, 32.0f);
 }
 
 static void material_import_assimp_sheen_properties(

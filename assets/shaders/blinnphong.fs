@@ -4,11 +4,17 @@ uniform vec3 camera_position;
 
 struct material_data
 {
+    vec3 diffuse_color;
     sampler2D diffuse_texture;
+    
+    vec3 specular_color;
     sampler2D specular_texture;
-    sampler2D normal_texture;
     float specular_amount;
     float specular_shininess;
+
+    sampler2D normal_texture;
+
+    vec3 ambient_color;
     float ambient_amount;
 };
 uniform material_data material;
@@ -62,25 +68,25 @@ vec3 calculate_light(
     vec3 normal,
     vec3 camera_direction,
     vec3 light_direction,
-    vec3 diffuse_color,
-    vec3 ambient_color,
-    vec3 specular_color,
-    float attenuation)
+    vec3 light_diffuse_color,
+    vec3 light_ambient_color,
+    vec3 light_specular_color,
+    float light_attenuation)
 {
     vec3 diffuse_texture = vec3(texture(material.diffuse_texture, frag_texcoord));
     vec3 specular_texture = vec3(texture(material.specular_texture, frag_texcoord));
 
     // ambient shading
-    vec3 ambient = material.ambient_amount * ambient_color * attenuation;
+    vec3 ambient = material.ambient_amount * (material.ambient_color + light_ambient_color) * light_attenuation;
 
     // diffuse shading
     float diffuse_amount = max(dot(normal, light_direction), 0.0);
-    vec3 diffuse = diffuse_color * diffuse_amount * diffuse_texture * attenuation;
+    vec3 diffuse = (material.diffuse_color + light_diffuse_color) * diffuse_amount * diffuse_texture * light_attenuation;
 
     // specular shading
     vec3 light_halfway_direction = normalize(light_direction + camera_direction);
     float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
-    vec3 specular = material.specular_amount * specular_color * specular_amount * specular_texture * attenuation;
+    vec3 specular = material.specular_amount * (material.specular_color + light_specular_color) * specular_amount * specular_texture * light_attenuation;
 
     return ambient + diffuse + specular;
 }
