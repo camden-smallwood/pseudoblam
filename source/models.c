@@ -603,68 +603,65 @@ static void material_import_assimp_specular_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    assert(in_material);
-    assert(out_material);
-
-    // TODO
+    out_material->specular_properties.specular_factor = material_get_assimp_float(in_material, AI_MATKEY_SPECULAR_FACTOR, 1.0f);
+    out_material->specular_properties.glossiness_factor = material_get_assimp_float(in_material, AI_MATKEY_GLOSSINESS_FACTOR, 1.0f);
 }
 
 static void material_import_assimp_sheen_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    assert(in_material);
-    assert(out_material);
+    out_material->sheen_properties.color_factor = material_get_assimp_float(in_material, AI_MATKEY_SHEEN_COLOR_FACTOR, 1.0f);
+    out_material->sheen_properties.roughness_factor = material_get_assimp_float(in_material, AI_MATKEY_SHEEN_ROUGHNESS_FACTOR, 0.0f);
 
-    // TODO
+    material_import_assimp_textures(in_material, out_material, aiTextureType_SHEEN, _material_texture_usage_sheen);
 }
 
 static void material_import_assimp_clearcoat_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    assert(in_material);
-    assert(out_material);
+    out_material->clearcoat_properties.clearcoat_factor = material_get_assimp_float(in_material, AI_MATKEY_CLEARCOAT_FACTOR, 1.0f);
+    out_material->clearcoat_properties.roughness_factor = material_get_assimp_float(in_material, AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR, 0.0f);
 
-    // TODO
+    material_import_assimp_textures(in_material, out_material, aiTextureType_CLEARCOAT, _material_texture_usage_clearcoat);
 }
 
 static void material_import_assimp_transmission_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    assert(in_material);
-    assert(out_material);
-
-    // TODO
+    out_material->transmission_properties.transmission_factor = material_get_assimp_float(in_material, AI_MATKEY_TRANSMISSION_FACTOR, 1.0f);
+    
+    material_import_assimp_textures(in_material, out_material, aiTextureType_TRANSMISSION, _material_texture_usage_transmission);
 }
 
 static void material_import_assimp_volume_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    assert(in_material);
-    assert(out_material);
-
-    // TODO
+    out_material->volume_properties.thickness_factor = material_get_assimp_float(in_material, AI_MATKEY_VOLUME_THICKNESS_FACTOR, 1.0f);
+    out_material->volume_properties.attenuation_distance = material_get_assimp_float(in_material, AI_MATKEY_VOLUME_ATTENUATION_DISTANCE, 1.0f);
+    
+    material_get_assimp_vec3(in_material, AI_MATKEY_VOLUME_ATTENUATION_DISTANCE, out_material->volume_properties.attenuation_color, (vec3){0, 0, 0});
+    
+    material_import_assimp_textures(in_material, out_material, aiTextureType_TRANSMISSION, _material_texture_usage_transmission);
 }
 
 static void material_import_assimp_emissive_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    assert(in_material);
-    assert(out_material);
-
-    // TODO
+    if (material_get_assimp_int(in_material, AI_MATKEY_USE_EMISSIVE_MAP, 0))
+        SET_BIT(out_material->emissive_properties.flags, _material_use_emissive_texture_bit, 1);
+    
+    out_material->emissive_properties.intensity = material_get_assimp_float(in_material, AI_MATKEY_EMISSIVE_INTENSITY, 0.0f);
 }
 
 static void material_import_assimp_ambient_occlussion_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    assert(in_material);
-    assert(out_material);
-
-    // TODO
+    if (material_get_assimp_int(in_material, AI_MATKEY_USE_AO_MAP, 0))
+        SET_BIT(out_material->ambient_occlussion_properties.flags, _material_use_ambient_occlussion_texture_bit, 1);
 }
