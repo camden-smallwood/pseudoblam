@@ -416,6 +416,45 @@ static void model_import_assimp_material(
     const struct aiMaterial *in_material,
     struct model_data *out_model)
 {
+    printf("material has %i properties:\n", in_material->mNumProperties);
+
+    for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
+    {
+        struct aiMaterialProperty *property = in_material->mProperties[property_index];
+        
+        char *value_string = NULL;
+
+        switch (property->mType)
+        {
+        case aiPTI_Float:
+            asprintf(&value_string, "%f", *(float *)property->mData);
+            break;
+
+        case aiPTI_Double:
+            asprintf(&value_string, "%lf", *(double *)property->mData);
+            break;
+
+        case aiPTI_String:
+            asprintf(&value_string, "\"%s\"", ((struct aiString *)property->mData)->data);
+            break;
+
+        case aiPTI_Integer:
+            asprintf(&value_string, "%i", *(int *)property->mData);
+            break;
+
+        case aiPTI_Buffer:
+            asprintf(&value_string, "[...]");
+            break;
+        
+        default:
+            asprintf(&value_string, "<unknown>");
+            break;
+        }
+        
+        printf("\t%s: %s\n", property->mKey.data, value_string);
+        free(value_string);
+    }
+
     struct material_data material;
     memset(&material, 0, sizeof(material));
     
@@ -517,7 +556,10 @@ static inline void material_import_assimp_textures(
         };
 
         if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_type, texture_index, &string, NULL, NULL, NULL, NULL, NULL, NULL))
+        {
+            printf("loading \"%s\"...\n", string.data);
             texture.id = dds_import_file_as_texture2d(string.data);
+        }
         
         mempush(&out_material->texture_count, (void **)&out_material->textures, &texture, sizeof(texture), realloc);
     }
@@ -655,7 +697,7 @@ static void material_import_assimp_emissive_properties(
     if (material_get_assimp_int(in_material, AI_MATKEY_USE_EMISSIVE_MAP, 0))
         SET_BIT(out_material->emissive_properties.flags, _material_use_emissive_texture_bit, 1);
     
-    out_material->emissive_properties.intensity = material_get_assimp_float(in_material, AI_MATKEY_EMISSIVE_INTENSITY, 0.0f);
+    out_material->emissive_properties.intensity = material_get_assimp_float(in_material, AI_MATKEY_EMISSIVE_INTENSITY, 1.0f);
 }
 
 static void material_import_assimp_ambient_occlussion_properties(

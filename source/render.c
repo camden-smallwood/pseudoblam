@@ -48,6 +48,7 @@ struct render_globals
     GLuint diffuse_texture;
     GLuint specular_texture;
     GLuint normal_texture;
+    GLuint emissive_texture;
 
     int weapon_model_index;
 
@@ -92,6 +93,7 @@ void render_initialize(void)
     render_globals.diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
     render_globals.specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
     render_globals.normal_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
 
     render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.dae");
     
@@ -404,29 +406,35 @@ static void render_model(struct model_data *model, mat4 model_matrix)
             glActiveTexture(GL_TEXTURE2);
             glBindTexture(GL_TEXTURE_2D, render_globals.normal_texture);
             glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), 2);
+
+            // Activate and bind the material's normal texture
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, render_globals.emissive_texture);
+            glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.emissive_texture"), 3);
             
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {
                 struct material_texture *texture = material->textures + texture_index;
 
+                glActiveTexture(GL_TEXTURE0 + texture_index);
+                glBindTexture(GL_TEXTURE_2D, texture->id);
+
                 switch (texture->usage)
                 {
                 case _material_texture_usage_diffuse:
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, texture->id);
-                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_texture"), 0);
+                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_texture"), texture_index);
                     break;
 
                 case _material_texture_usage_specular:
-                    glActiveTexture(GL_TEXTURE1);
-                    glBindTexture(GL_TEXTURE_2D, texture->id);
-                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), 1);
+                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), texture_index);
                     break;
 
                 case _material_texture_usage_normals:
-                    glActiveTexture(GL_TEXTURE2);
-                    glBindTexture(GL_TEXTURE_2D, texture->id);
-                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), 2);
+                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), texture_index);
+                    break;
+                
+                case _material_texture_usage_emissive:
+                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.emissive_texture"), texture_index);
                     break;
 
                 default:

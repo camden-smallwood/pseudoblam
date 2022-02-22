@@ -16,6 +16,8 @@ struct material_data
 
     vec3 ambient_color;
     float ambient_amount;
+
+    sampler2D emissive_texture;
 };
 uniform material_data material;
 
@@ -88,7 +90,10 @@ vec3 calculate_light(
     float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
     vec3 specular = material.specular_amount * (material.specular_color + light_specular_color) * specular_amount * specular_texture * light_attenuation;
 
-    return ambient + diffuse + specular;
+    // emissive
+    vec3 emissive = vec3(texture(material.emissive_texture, frag_texcoord));
+
+    return ambient + diffuse + specular + emissive;
 }
 
 vec3 calculate_directional_light(
