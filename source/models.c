@@ -47,6 +47,42 @@ static void model_import_assimp_material(
     const struct aiMaterial *in_material,
     struct model_data *out_model);
 
+static void material_import_assimp_base_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
+static void material_import_assimp_pbr_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
+static void material_import_assimp_specular_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
+static void material_import_assimp_sheen_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
+static void material_import_assimp_clearcoat_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
+static void material_import_assimp_transmission_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
+static void material_import_assimp_volume_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
+static void material_import_assimp_emissive_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
+static void material_import_assimp_ambient_occlussion_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material);
+
 /* ---------- public code */
 
 void models_initialize(void)
@@ -382,66 +418,253 @@ static void model_import_assimp_material(
 {
     struct material_data material;
     memset(&material, 0, sizeof(material));
+    
+    material_import_assimp_base_properties(in_material, &material);
+    material_import_assimp_pbr_properties(in_material, &material);
+    material_import_assimp_specular_properties(in_material, &material);
+    material_import_assimp_sheen_properties(in_material, &material);
+    material_import_assimp_clearcoat_properties(in_material, &material);
+    material_import_assimp_transmission_properties(in_material, &material);
+    material_import_assimp_volume_properties(in_material, &material);
+    material_import_assimp_emissive_properties(in_material, &material);
+    material_import_assimp_ambient_occlussion_properties(in_material, &material);
 
-    printf("material has %i properties:\n", in_material->mNumProperties);
+    mempush(
+        &out_model->material_count,
+        (void **)&out_model->materials,
+        &material,
+        sizeof(material),
+        realloc);
+}
 
-    for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
+static inline char *material_get_assimp_string(
+    const struct aiMaterial *in_material,
+    const char *key,
+    int type,
+    int index,
+    const char *default_value)
+{
+    struct aiString string;
+
+    if (AI_SUCCESS == aiGetMaterialString(in_material, key, type, index, &string))
+        return strndup(string.data, sizeof(string.data));
+    
+    return strdup(default_value);
+}
+
+static inline int material_get_assimp_int(
+    const struct aiMaterial *in_material,
+    const char *key,
+    int type,
+    int index,
+    int default_value)
+{
+    int value;
+
+    if (AI_SUCCESS == aiGetMaterialIntegerArray(in_material, key, type, index, &value, NULL))
+        return value;
+    
+    return default_value;
+}
+
+static inline float material_get_assimp_float(
+    const struct aiMaterial *in_material,
+    const char *key,
+    int type,
+    int index,
+    float default_value)
+{
+    float value;
+
+    if (AI_SUCCESS == aiGetMaterialFloatArray(in_material, key, type, index, &value, NULL))
+        return value;
+    
+    return default_value;
+}
+
+static inline void material_get_assimp_vec3(
+    const struct aiMaterial *in_material,
+    const char *key,
+    int type,
+    int index,
+    vec3 out_vec3,
+    vec3 default_value)
+{
+    if (AI_SUCCESS != aiGetMaterialFloatArray(in_material, key, type, index, out_vec3, (unsigned int []){3}))
+        glm_vec3_copy(default_value, out_vec3);
+}
+
+static inline void material_import_assimp_textures(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material,
+    enum aiTextureType texture_type,
+    enum material_texture_usage texture_usage)
+{
+    struct aiString string;
+
+    for (int
+        texture_index = 0,
+        texture_count = aiGetMaterialTextureCount(in_material, texture_type);
+
+        texture_index < texture_count;
+
+        texture_index++)
     {
-        struct aiMaterialProperty *property = in_material->mProperties[property_index];
-
-        char *value_string = NULL;
-
-        switch (property->mType)
+        struct material_texture texture =
         {
-        case aiPTI_Float:
-            asprintf(&value_string, "%f", *(float *)property->mData);
-            break;
+            .usage = texture_usage,
+            .id = 0,
+        };
 
-        case aiPTI_Double:
-            asprintf(&value_string, "%lf", *(double *)property->mData);
-            break;
-
-        case aiPTI_String:
-            asprintf(&value_string, "\"%s\"", ((struct aiString *)property->mData)->data);
-            break;
-
-        case aiPTI_Integer:
-            asprintf(&value_string, "%i", *(int *)property->mData);
-            break;
-
-        case aiPTI_Buffer:
-            asprintf(&value_string, "[...]");
-            break;
+        if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_type, texture_index, &string, NULL, NULL, NULL, NULL, NULL, NULL))
+            texture.id = dds_import_file_as_texture2d(string.data);
         
-        default:
-            asprintf(&value_string, "<unknown>");
-            break;
-        }
-        
-        printf("\t%s: %s\n", property->mKey.data, value_string);
-        free(value_string);
+        mempush(&out_material->texture_count, (void **)&out_material->textures, &texture, sizeof(texture), realloc);
     }
+}
 
-    for (int texture_usage = 0; texture_usage < NUMBER_OF_MATERIAL_TEXTURE_USAGES; texture_usage++)
-    {
-        int texture_count = aiGetMaterialTextureCount(in_material, texture_usage);
+static void material_import_assimp_base_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    out_material->base_properties.name = material_get_assimp_string(in_material, AI_MATKEY_NAME, "");
+    
+    if (material_get_assimp_int(in_material, AI_MATKEY_TWOSIDED, 0))
+        SET_BIT(out_material->base_properties.flags, _material_is_two_sided_bit, 1);
+    
+    if (material_get_assimp_int(in_material, AI_MATKEY_ENABLE_WIREFRAME, 0))
+        SET_BIT(out_material->base_properties.flags, _material_enable_wireframe_bit, 1);
+    
+    out_material->base_properties.shading_model = material_get_assimp_int(in_material, AI_MATKEY_SHADING_MODEL, _material_shading_model_blinn);
+    out_material->base_properties.blending_mode = material_get_assimp_int(in_material, AI_MATKEY_BLEND_FUNC, _material_blending_mode_default);
+    
+    out_material->base_properties.opacity = material_get_assimp_float(in_material, AI_MATKEY_OPACITY, 1.0f);
+    out_material->base_properties.transparency_factor = material_get_assimp_float(in_material, AI_MATKEY_TRANSPARENCYFACTOR, 1.0f);
+    out_material->base_properties.bump_scaling = material_get_assimp_float(in_material, AI_MATKEY_BUMPSCALING, 1.0f);
+    out_material->base_properties.shininess = material_get_assimp_float(in_material, AI_MATKEY_SHININESS, 1.0f);
+    out_material->base_properties.reflectivity = material_get_assimp_float(in_material, AI_MATKEY_REFLECTIVITY, 1.0f);
+    out_material->base_properties.shininess_strength = material_get_assimp_float(in_material, AI_MATKEY_SHININESS_STRENGTH, 1.0f);
+    out_material->base_properties.refracti = material_get_assimp_float(in_material, AI_MATKEY_REFRACTI, 1.0f);
+    
+    material_get_assimp_vec3(in_material, AI_MATKEY_COLOR_DIFFUSE, out_material->base_properties.color_diffuse, (vec3){1, 1, 1});
+    material_get_assimp_vec3(in_material, AI_MATKEY_COLOR_AMBIENT, out_material->base_properties.color_ambient, (vec3){1, 1, 1});
+    material_get_assimp_vec3(in_material, AI_MATKEY_COLOR_SPECULAR, out_material->base_properties.color_specular, (vec3){1, 1, 1});
+    material_get_assimp_vec3(in_material, AI_MATKEY_COLOR_EMISSIVE, out_material->base_properties.color_emissive, (vec3){0, 0, 0});
+    material_get_assimp_vec3(in_material, AI_MATKEY_COLOR_TRANSPARENT, out_material->base_properties.color_transparent, (vec3){0, 0, 0});
+    material_get_assimp_vec3(in_material, AI_MATKEY_COLOR_REFLECTIVE, out_material->base_properties.color_reflective, (vec3){0, 0, 0});
+    
+    out_material->base_properties.global_background_image = material_get_assimp_string(in_material, AI_MATKEY_GLOBAL_BACKGROUND_IMAGE, "");
+    out_material->base_properties.global_shaderlang = material_get_assimp_string(in_material, AI_MATKEY_GLOBAL_SHADERLANG, "");
+    out_material->base_properties.shader_vertex = material_get_assimp_string(in_material, AI_MATKEY_SHADER_VERTEX, "");
+    out_material->base_properties.shader_fragment = material_get_assimp_string(in_material, AI_MATKEY_SHADER_FRAGMENT, "");
+    out_material->base_properties.shader_geo = material_get_assimp_string(in_material, AI_MATKEY_SHADER_GEO, "");
+    out_material->base_properties.shader_tesselation = material_get_assimp_string(in_material, AI_MATKEY_SHADER_TESSELATION, "");
+    out_material->base_properties.shader_primitive = material_get_assimp_string(in_material, AI_MATKEY_SHADER_PRIMITIVE, "");
+    out_material->base_properties.shader_compute = material_get_assimp_string(in_material, AI_MATKEY_SHADER_COMPUTE, "");
+    
+    material_import_assimp_textures(in_material, out_material, aiTextureType_DIFFUSE, _material_texture_usage_diffuse);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_SPECULAR, _material_texture_usage_specular);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_AMBIENT, _material_texture_usage_ambient);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_EMISSIVE, _material_texture_usage_emissive);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_NORMALS, _material_texture_usage_normals);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_HEIGHT, _material_texture_usage_height);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_SHININESS, _material_texture_usage_shininess);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_OPACITY, _material_texture_usage_opacity);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_DISPLACEMENT, _material_texture_usage_displacement);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_LIGHTMAP, _material_texture_usage_lightmap);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_REFLECTION, _material_texture_usage_reflection);
+}
 
-        for (int texture_index = 0; texture_index < texture_count; texture_index++)
-        {
-            struct aiString path;
+static void material_import_assimp_pbr_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    if (material_get_assimp_int(in_material, AI_MATKEY_USE_COLOR_MAP, 0))
+        SET_BIT(out_material->pbr_properties.flags, _material_use_pbr_base_color_texture_bit, 1);
+    
+    material_get_assimp_vec3(in_material, AI_MATKEY_BASE_COLOR, out_material->pbr_properties.base_color, (vec3){1, 1, 1});
+    
+    material_import_assimp_textures(in_material, out_material, aiTextureType_BASE_COLOR, _material_texture_usage_base_color);
 
-            if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_usage, texture_index, &path, NULL, NULL, NULL, NULL, NULL, NULL))
-            {
-                struct material_texture texture =
-                {
-                    .usage = texture_usage,
-                    .id = dds_import_file_as_texture2d(path.data),
-                };
-                
-                mempush(&material.texture_count, (void **)&material.textures, &texture, sizeof(texture), realloc);
-            }
-        }
-    }
+    if (material_get_assimp_int(in_material, AI_MATKEY_USE_METALLIC_MAP, 0))
+        SET_BIT(out_material->pbr_properties.flags, _material_use_pbr_metalness_texture_bit, 1);
+    
+    out_material->pbr_properties.metallic_factor = material_get_assimp_float(in_material, AI_MATKEY_METALLIC_FACTOR, 0.0f);
+    
+    material_import_assimp_textures(in_material, out_material, aiTextureType_METALNESS, _material_texture_usage_metalness);
 
-    mempush(&out_model->material_count, (void **)&out_model->materials, &material, sizeof(material), realloc);
+    if (material_get_assimp_int(in_material, AI_MATKEY_USE_ROUGHNESS_MAP, 0))
+        SET_BIT(out_material->pbr_properties.flags, _material_use_pbr_diffuse_roughness_texture_bit, 1);
+    
+    out_material->pbr_properties.anisotropy_factor = material_get_assimp_float(in_material, AI_MATKEY_ANISOTROPY_FACTOR, 0.0f);
+}
+
+static void material_import_assimp_specular_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    assert(in_material);
+    assert(out_material);
+
+    // TODO
+}
+
+static void material_import_assimp_sheen_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    assert(in_material);
+    assert(out_material);
+
+    // TODO
+}
+
+static void material_import_assimp_clearcoat_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    assert(in_material);
+    assert(out_material);
+
+    // TODO
+}
+
+static void material_import_assimp_transmission_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    assert(in_material);
+    assert(out_material);
+
+    // TODO
+}
+
+static void material_import_assimp_volume_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    assert(in_material);
+    assert(out_material);
+
+    // TODO
+}
+
+static void material_import_assimp_emissive_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    assert(in_material);
+    assert(out_material);
+
+    // TODO
+}
+
+static void material_import_assimp_ambient_occlussion_properties(
+    const struct aiMaterial *in_material,
+    struct material_data *out_material)
+{
+    assert(in_material);
+    assert(out_material);
+
+    // TODO
 }
