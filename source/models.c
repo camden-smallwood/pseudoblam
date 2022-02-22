@@ -379,7 +379,7 @@ static void model_import_assimp_mesh(
                     struct vertex_rigid vertex;
                     glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
                     glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
-                    glm_vec2_copy((vec2){texcoord.x, texcoord.y}, vertex.texcoord);
+                    glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
                     glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
                     glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
                     mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
@@ -391,7 +391,7 @@ static void model_import_assimp_mesh(
                     struct vertex_skinned vertex;
                     glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
                     glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
-                    glm_vec2_copy((vec2){texcoord.x, texcoord.y}, vertex.texcoord);
+                    glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
                     glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
                     glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
                     memset(vertex.bone_indices, 0, sizeof(vertex.bone_indices));

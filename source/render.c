@@ -95,10 +95,10 @@ void render_initialize(void)
     render_globals.normal_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
     render_globals.emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
 
-    render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.dae");
-    
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     model_import_from_file(_vertex_type_rigid, "../assets/models/cube.fbx");
+    
+    render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
     
     struct model_iterator iterator;
     model_iterator_new(&iterator);
@@ -134,11 +134,11 @@ void render_initialize(void)
     light = light_get_data(render_globals.headlight_light_index);
     light->type = _light_type_spot;
     SET_BIT(light->flags, _light_is_hidden_bit, true);
-    glm_vec3_copy(render_globals.camera.position, light->position);
-    glm_vec3_copy(render_globals.camera.forward, light->direction);
-    glm_vec3_copy((vec3){1, 1, 1}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    memcpy(light->position, render_globals.camera.position, sizeof(vec3));
+    memcpy(light->direction, render_globals.camera.forward, sizeof(vec3));
+    memcpy(light->diffuse_color, (const vec3){1, 1, 1}, sizeof(vec3));
+    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
+    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
@@ -146,54 +146,51 @@ void render_initialize(void)
     light->outer_cutoff = 15.0f;
     
     light = light_get_data(light_new());
-    light->type = _light_type_spot;
-    glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
-    glm_vec3_copy((vec3){-0.2f, -1.0f, -0.3f}, light->direction);
-    glm_vec3_copy((vec3){0.8f, 0.2f, 0.1f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
-    light->inner_cutoff = 30.0f;
-    light->outer_cutoff = 36.0f;
-
-    light = light_get_data(light_new());
     light->type = _light_type_point;
-    glm_vec3_copy((vec3){0.7f, 0.2f, 2.0f}, light->position);
-    glm_vec3_copy((vec3){0.1f, 0.8f, 0.2f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    memcpy(light->position, (const vec3){1.2f, 3.0f, 2.0f}, sizeof(vec3));
+    memcpy(light->diffuse_color, (const vec3){0.8f, 0.2f, 0.1f}, sizeof(vec3));
+    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
+    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    glm_vec3_copy((vec3){2.3f, -3.3f, -4.0f}, light->position);
-    glm_vec3_copy((vec3){0.1f, 0.2f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    memcpy(light->position, (const vec3){0.7f, 0.2f, 2.0f}, sizeof(vec3));
+    memcpy(light->diffuse_color, (const vec3){0.1f, 0.8f, 0.2f}, sizeof(vec3));
+    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
+    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    glm_vec3_copy((vec3){-4.0f, 2.0f, -12.0f}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    memcpy(light->position, (const vec3){2.3f, -3.3f, -4.0f}, sizeof(vec3));
+    memcpy(light->diffuse_color, (const vec3){0.1f, 0.2f, 0.8f}, sizeof(vec3));
+    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
+    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
 
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    glm_vec3_copy((vec3){0.0f, 0.0f, -3.0}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    memcpy(light->position, (const vec3){-4.0f, 2.0f, -12.0f}, sizeof(vec3));
+    memcpy(light->diffuse_color, (const vec3){0.8f, 0.8f, 0.8f}, sizeof(vec3));
+    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
+    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
+    light->constant = 1.0f;
+    light->linear = 0.09f;
+    light->quadratic = 0.032f;
+
+    light = light_get_data(light_new());
+    light->type = _light_type_point;
+    memcpy(light->position, (const vec3){0.0f, 0.0f, -3.0}, sizeof(vec3));
+    memcpy(light->diffuse_color, (const vec3){0.8f, 0.8f, 0.8f}, sizeof(vec3));
+    memcpy(light->ambient_color, (const vec3){0.05f, 0.05f, 0.05f}, sizeof(vec3));
+    memcpy(light->specular_color, (const vec3){1.0f, 1.0f, 1.0f}, sizeof(vec3));
     light->constant = 1.0f;
     light->linear = 0.09f;
     light->quadratic = 0.032f;
