@@ -18,6 +18,7 @@ struct material_data
     sampler2D emissive_texture;
 
     sampler2D normal_texture;
+    float bump_scaling;
 };
 uniform material_data material;
 
@@ -179,7 +180,7 @@ out vec4 out_color;
 void main()
 {
     // vec3 normal = normalize(frag_normal);
-    vec3 normal = normalize(frag_tbn * (texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0));
+    vec3 normal = normalize(frag_tbn * (texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0) * material.bump_scaling);
     vec3 camera_direction = normalize(camera_position - frag_position);
 
     vec3 result = vec3(0.0);

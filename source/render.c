@@ -148,7 +148,7 @@ void render_initialize(void)
     light = light_get_data(light_new());
     light->type = _light_type_point;
     glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.2f, 0.1f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
@@ -158,7 +158,7 @@ void render_initialize(void)
     light = light_get_data(light_new());
     light->type = _light_type_point;
     glm_vec3_copy((vec3){0.7f, 0.2f, 2.0f}, light->position);
-    glm_vec3_copy((vec3){0.1f, 0.8f, 0.2f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
@@ -168,7 +168,7 @@ void render_initialize(void)
     light = light_get_data(light_new());
     light->type = _light_type_point;
     glm_vec3_copy((vec3){2.3f, -3.3f, -4.0f}, light->position);
-    glm_vec3_copy((vec3){0.1f, 0.2f, 0.8f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
@@ -391,6 +391,8 @@ static void render_model(struct model_data *model, mat4 model_matrix)
 
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_color"), 1, material->base_properties.color_ambient);
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
+
+            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.bump_scaling"), 1, (const GLfloat[]){material->base_properties.bump_scaling});
 
             // TODO: determine required default textures ahead of time
 
