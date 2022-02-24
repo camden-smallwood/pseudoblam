@@ -150,7 +150,7 @@ void render_initialize(void)
         light = light_get_data(light_new());
         light->type = _light_type_point;
         glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
-        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.8f, 0.2f, 0.1f}, light->diffuse_color);
         glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
         glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
         light->constant = 1.0f;
@@ -160,7 +160,7 @@ void render_initialize(void)
         light = light_get_data(light_new());
         light->type = _light_type_point;
         glm_vec3_copy((vec3){0.7f, 0.2f, 2.0f}, light->position);
-        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.1f, 0.2f, 0.8f}, light->diffuse_color);
         glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
         glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
         light->constant = 1.0f;
@@ -170,7 +170,7 @@ void render_initialize(void)
         light = light_get_data(light_new());
         light->type = _light_type_point;
         glm_vec3_copy((vec3){2.3f, -3.3f, -4.0f}, light->position);
-        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.1f, 0.8f, 0.2f}, light->diffuse_color);
         glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
         glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
         light->constant = 1.0f;
@@ -180,7 +180,7 @@ void render_initialize(void)
         light = light_get_data(light_new());
         light->type = _light_type_point;
         glm_vec3_copy((vec3){-4.0f, 2.0f, -12.0f}, light->position);
-        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.8f, 0.2f, 0.8f}, light->diffuse_color);
         glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
         glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
         light->constant = 1.0f;
@@ -302,8 +302,6 @@ static void render_initialize_quad(void)
     
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // TODO: finish
 }
 
 static void render_update_input(void)
@@ -375,7 +373,9 @@ static void render_quad(void)
 static void render_models(void)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
+    
     glEnable(GL_DEPTH_TEST);
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     struct model_iterator iterator;
@@ -514,13 +514,13 @@ static void render_model(struct model_data *model, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
 
             // Bind the material uniforms
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_color"), 1, material->base_properties.color_diffuse);
+            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_color"), 1, material->base_properties.color_diffuse);
 
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_color"), 1, material->base_properties.color_specular);
+            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_color"), 1, material->base_properties.color_specular);
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_amount"), 1, (const GLfloat[]){material->specular_properties.specular_factor});
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_shininess"), 1, (const GLfloat[]){material->specular_properties.glossiness_factor});
 
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_color"), 1, material->base_properties.color_ambient);
+            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_color"), 1, material->base_properties.color_ambient);
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
 
             glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.bump_scaling"), 1, (const GLfloat[]){material->base_properties.bump_scaling});
@@ -537,19 +537,19 @@ static void render_model(struct model_data *model, mat4 model_matrix)
                 switch (texture->usage)
                 {
                 case _material_texture_usage_diffuse:
-                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_texture"), texture_index);
+                    shader_set_int(render_globals.blinn_phong_shader, "material.diffuse_texture", texture_index);
                     break;
 
                 case _material_texture_usage_specular:
-                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.specular_texture"), texture_index);
+                    shader_set_int(render_globals.blinn_phong_shader, "material.specular_texture", texture_index);
                     break;
 
                 case _material_texture_usage_emissive:
-                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.emissive_texture"), texture_index);
+                    shader_set_int(render_globals.blinn_phong_shader, "material.emissive_texture", texture_index);
                     break;
 
                 case _material_texture_usage_normals:
-                    glUniform1i(glGetUniformLocation(blinn_phong_shader->program, "material.normal_texture"), texture_index);
+                    shader_set_int(render_globals.blinn_phong_shader, "material.normal_texture", texture_index);
                     break;
 
                 default:

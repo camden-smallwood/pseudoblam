@@ -89,7 +89,7 @@ vec3 calculate_light(
     // specular shading
     vec3 light_halfway_direction = normalize(light_direction + camera_direction);
     float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
-    vec3 specular = ((((material.specular_color + light_specular_color) * material.specular_amount) * specular_texture) * specular_amount) * light_attenuation;
+    vec3 specular = ((((material.specular_color + light_specular_color) * specular_texture) * specular_amount) * material.specular_amount) * light_attenuation;
 
     // emissive
     vec3 emissive = vec3(texture(material.emissive_texture, frag_texcoord));
