@@ -7,9 +7,16 @@
 
 enum vertex_type
 {
+    _vertex_type_flat,
     _vertex_type_rigid,
     _vertex_type_skinned,
     NUMBER_OF_VERTEX_TYPES
+};
+
+struct vertex_flat
+{
+    vec2 position;
+    vec2 texcoord;
 };
 
 struct vertex_rigid

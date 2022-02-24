@@ -10,6 +10,7 @@ SHELL.C
 
 #include <SDL.h>
 
+#include "common.h"
 #include "input.h"
 #include "lights.h"
 #include "models.h"
@@ -81,10 +82,17 @@ enum
     NUMBER_OF_SHELL_COMPONENTS = sizeof(shell_components) / sizeof(struct shell_component)
 };
 
+enum shell_flags
+{
+    _shell_capture_mouse_bit,
+    NUMBER_OF_SHELL_FLAGS
+};
+
 /* ---------- private variables */
 
 struct
 {
+    unsigned int flags;
     SDL_Window *window;
     SDL_GLContext gl_context;
     SDL_Event event;
@@ -147,8 +155,7 @@ static inline void shell_initialize(void)
 
     SDL_GL_SetSwapInterval(0);
 
-    SDL_CaptureMouse(SDL_TRUE);
-    SDL_SetRelativeMouseMode(SDL_TRUE);
+    SET_BIT(shell_globals.flags, _shell_capture_mouse_bit, 1);
 
     for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
     {
@@ -193,6 +200,9 @@ static inline void shell_handle_screen_resize(int width, int height)
 
 static inline void shell_update(void)
 {
+    SDL_CaptureMouse(TEST_BIT(shell_globals.flags, _shell_capture_mouse_bit) ? SDL_TRUE : SDL_FALSE);
+    SDL_SetRelativeMouseMode(TEST_BIT(shell_globals.flags, _shell_capture_mouse_bit) ? SDL_TRUE : SDL_FALSE);
+
     uint64_t frame_start_time = SDL_GetPerformanceCounter();
 
     if (!shell_globals.last_frame_time)
@@ -236,6 +246,8 @@ static inline void shell_update(void)
             break;
         
         case SDL_KEYUP:
+            if (event.key.keysym.scancode == SDL_SCANCODE_M)
+                SET_BIT(shell_globals.flags, _shell_capture_mouse_bit, !TEST_BIT(shell_globals.flags, _shell_capture_mouse_bit));
             input_set_key_down(event.key.keysym.scancode, false);
             break;
         

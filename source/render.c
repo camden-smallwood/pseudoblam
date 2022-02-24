@@ -43,12 +43,19 @@ struct render_globals
 
     struct camera_data camera;
 
+    GLuint quad_texture;
+    GLuint quad_renderbuffer;
+    GLuint quad_framebuffer;
+    GLuint quad_vertex_array;
+    GLuint quad_vertex_buffer;
+    int quad_shader;
+
     int blinn_phong_shader;
 
-    GLuint diffuse_texture;
-    GLuint specular_texture;
-    GLuint normal_texture;
-    GLuint emissive_texture;
+    GLuint default_diffuse_texture;
+    GLuint default_specular_texture;
+    GLuint default_normal_texture;
+    GLuint default_emissive_texture;
 
     int weapon_model_index;
 
@@ -57,6 +64,15 @@ struct render_globals
 
 /* ---------- private prototypes */
 
+static void render_initialize_gl(void);
+static void render_initialize_quad(void);
+
+static void render_update_input(void);
+static void render_update_headlight(void);
+
+static void render_frame(void);
+static void render_quad(void);
+static void render_models(void);
 static void render_model(struct model_data *model, mat4 model_matrix);
 
 /* ---------- public code */
@@ -65,35 +81,20 @@ void render_initialize(void)
 {
     memset(&render_globals, 0, sizeof(render_globals));
 
-    glewExperimental = GL_TRUE;
-    glewInit();
+    render_globals.screen_width = 1280;
+    render_globals.screen_height = 720;
 
-    const GLubyte *renderer = glGetString(GL_RENDERER);
-    printf("GL Renderer: %s\n", renderer);
-
-    const GLubyte *version = glGetString(GL_VERSION);
-    printf("GL Version: %s\n", version);
-
-    // Enable multisampling
-    glEnable(GL_MULTISAMPLE);
-
-    // Enable depth testing
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    render_initialize_gl();
+    render_initialize_quad();
     
-    // Enable backface culling
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-
     camera_initialize(&render_globals.camera);
 
     render_globals.blinn_phong_shader = shader_new("../assets/shaders/generic.vs", "../assets/shaders/blinnphong.fs");
 
-    render_globals.diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
-    render_globals.specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
-    render_globals.normal_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
-    render_globals.emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
+    render_globals.default_diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
+    render_globals.default_specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
+    render_globals.default_normal_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.default_emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
 
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     model_import_from_file(_vertex_type_rigid, "../assets/models/cube.fbx");
@@ -128,72 +129,74 @@ void render_initialize(void)
     }
 
     // Initialize lights
-    struct light_data *light;
+    {
+        struct light_data *light;
 
-    render_globals.headlight_light_index = light_new();
-    light = light_get_data(render_globals.headlight_light_index);
-    light->type = _light_type_spot;
-    SET_BIT(light->flags, _light_is_hidden_bit, true);
-    glm_vec3_copy(render_globals.camera.position, light->position);
-    glm_vec3_copy(render_globals.camera.forward, light->direction);
-    glm_vec3_copy((vec3){1, 1, 1}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
-    light->inner_cutoff = 12.5f;
-    light->outer_cutoff = 15.0f;
-    
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
+        render_globals.headlight_light_index = light_new();
+        light = light_get_data(render_globals.headlight_light_index);
+        light->type = _light_type_spot;
+        SET_BIT(light->flags, _light_is_hidden_bit, true);
+        glm_vec3_copy(render_globals.camera.position, light->position);
+        glm_vec3_copy(render_globals.camera.forward, light->direction);
+        glm_vec3_copy((vec3){1, 1, 1}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+        light->constant = 1.0f;
+        light->linear = 0.09f;
+        light->quadratic = 0.032f;
+        light->inner_cutoff = 12.5f;
+        light->outer_cutoff = 15.0f;
+        
+        light = light_get_data(light_new());
+        light->type = _light_type_point;
+        glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
+        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+        light->constant = 1.0f;
+        light->linear = 0.09f;
+        light->quadratic = 0.032f;
 
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){0.7f, 0.2f, 2.0f}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
+        light = light_get_data(light_new());
+        light->type = _light_type_point;
+        glm_vec3_copy((vec3){0.7f, 0.2f, 2.0f}, light->position);
+        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+        light->constant = 1.0f;
+        light->linear = 0.09f;
+        light->quadratic = 0.032f;
 
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){2.3f, -3.3f, -4.0f}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
+        light = light_get_data(light_new());
+        light->type = _light_type_point;
+        glm_vec3_copy((vec3){2.3f, -3.3f, -4.0f}, light->position);
+        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+        light->constant = 1.0f;
+        light->linear = 0.09f;
+        light->quadratic = 0.032f;
 
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){-4.0f, 2.0f, -12.0f}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
+        light = light_get_data(light_new());
+        light->type = _light_type_point;
+        glm_vec3_copy((vec3){-4.0f, 2.0f, -12.0f}, light->position);
+        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+        light->constant = 1.0f;
+        light->linear = 0.09f;
+        light->quadratic = 0.032f;
 
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){0.0f, 0.0f, -3.0}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
+        light = light_get_data(light_new());
+        light->type = _light_type_point;
+        glm_vec3_copy((vec3){0.0f, 0.0f, -3.0}, light->position);
+        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+        light->constant = 1.0f;
+        light->linear = 0.09f;
+        light->quadratic = 0.032f;
+    }
 }
 
 void render_dispose(void)
@@ -206,10 +209,104 @@ void render_handle_screen_resize(int width, int height)
     render_globals.screen_width = width;
     render_globals.screen_height = height;
 
+    // Resize the viewport
+    glViewport(0, 0, width, height);
+
+    // Resize the quad texture
+    glBindTexture(GL_TEXTURE_2D, render_globals.quad_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    // Resize the quad renderbuffer
+    glBindRenderbuffer(GL_RENDERBUFFER, render_globals.quad_renderbuffer); 
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);  
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
     camera_handle_screen_resize(&render_globals.camera, width, height);
 }
 
 void render_update(float delta_ticks)
+{
+    render_update_input();
+    camera_update(&render_globals.camera, delta_ticks);
+    render_update_headlight();
+    render_frame();
+}
+
+/* ---------- private code */
+
+static void render_initialize_gl(void)
+{
+    glewExperimental = GL_TRUE;
+    glewInit();
+
+    const GLubyte *renderer = glGetString(GL_RENDERER);
+    printf("GL Renderer: %s\n", renderer);
+
+    const GLubyte *version = glGetString(GL_VERSION);
+    printf("GL Version: %s\n", version);
+
+    // Enable multisampling
+    glEnable(GL_MULTISAMPLE);
+
+    // Enable depth testing
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    
+    // Enable backface culling
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+}
+
+static void render_initialize_quad(void)
+{
+    struct vertex_flat quad_vertices[] =
+    {
+        { .position = { -1.0f, 1.0f }, .texcoord = { 0.0f, 1.0f } },
+        { .position = { -1.0f, -1.0f }, .texcoord = { 0.0f, 0.0f } },
+        { .position = { 1.0f, -1.0f }, .texcoord = { 1.0f, 0.0f } },
+        { .position = { -1.0f, 1.0f }, .texcoord = { 0.0f, 1.0f } },
+        { .position = { 1.0f, -1.0f }, .texcoord = { 1.0f, 0.0f } },
+        { .position = { 1.0f, 1.0f }, .texcoord = { 1.0f, 1.0f } },
+    };
+
+    glGenVertexArrays(1, &render_globals.quad_vertex_array);
+    glBindVertexArray(render_globals.quad_vertex_array);
+    
+    glGenBuffers(1, &render_globals.quad_vertex_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, render_globals.quad_vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+    
+    render_globals.quad_shader = shader_new("../assets/shaders/quad.vs", "../assets/shaders/quad.fs");
+    shader_bind_vertex_attributes(render_globals.quad_shader, _vertex_type_flat);
+
+    glGenFramebuffers(1, &render_globals.quad_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
+
+    glGenTextures(1, &render_globals.quad_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.quad_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, render_globals.screen_width, render_globals.screen_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.quad_texture, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenRenderbuffers(1, &render_globals.quad_renderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, render_globals.quad_renderbuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, render_globals.screen_width, render_globals.screen_height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_globals.quad_renderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // TODO: finish
+}
+
+static void render_update_input(void)
 {
     // Toggle the headlight on or off
     if (input_is_key_down(SDL_SCANCODE_H))
@@ -239,14 +336,46 @@ void render_update(float delta_ticks)
         else
             render_globals.camera.movement_speed = 1.0f;
     }
-    
-    camera_update(&render_globals.camera, delta_ticks);
+}
 
-    // Update the headlight position
+static void render_update_headlight(void)
+{
     struct light_data *headlight = light_get_data(render_globals.headlight_light_index);
+
+    if (!headlight)
+        return;
+
     glm_vec3_copy(render_globals.camera.position, headlight->position);
     glm_vec3_copy(render_globals.camera.forward, headlight->direction);
+}
 
+static void render_frame(void)
+{
+    render_models();
+    render_quad();
+}
+
+static void render_quad(void)
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // TODO: move to texture abstraction code
+    int texture_index = 0;
+    glActiveTexture(GL_TEXTURE0 + texture_index);
+    glBindTexture(GL_TEXTURE_2D, render_globals.quad_texture);
+
+    shader_use(render_globals.quad_shader);
+    shader_set_int(render_globals.quad_shader, "quad_texture", texture_index);
+
+    glBindVertexArray(render_globals.quad_vertex_array);
+    glBindTexture(GL_TEXTURE_2D, render_globals.quad_texture);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+static void render_models(void)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
+    glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     struct model_iterator iterator;
@@ -259,6 +388,7 @@ void render_update(float delta_ticks)
         
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
+        
         render_model(iterator.data, model_matrix);
     }
 
@@ -277,9 +407,10 @@ void render_update(float delta_ticks)
 
         render_model(model_get_data(render_globals.weapon_model_index), model_matrix);
     }
-}
 
-/* ---------- private code */
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST);
+}
 
 static void render_model(struct model_data *model, mat4 model_matrix)
 {

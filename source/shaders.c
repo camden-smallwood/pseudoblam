@@ -92,8 +92,18 @@ void shader_delete(
 struct shader_data *shader_get_data(
     int shader_index)
 {
+    if (shader_index == -1)
+        return NULL;
+    
     assert(shader_index >= 0 && shader_index < shader_globals.shader_count);
     return shader_globals.shaders + shader_index;
+}
+
+void shader_use(
+    int shader_index)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    glUseProgram(shader->program);
 }
 
 void shader_bind_vertex_attributes(
@@ -146,6 +156,28 @@ void shader_bind_vertex_attributes(
             break;
         }
     }
+}
+
+void shader_set_int(
+    int shader_index,
+    const char *name,
+    int value)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+    
+    glUniform1i(glGetUniformLocation(shader->program, name), value);
+}
+
+void shader_set_float(
+    int shader_index,
+    const char *name,
+    float value)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+    
+    glUniform1f(glGetUniformLocation(shader->program, name), value);
 }
 
 /* ---------- private code */

@@ -2,6 +2,18 @@
 
 /* ---------- private constants */
 
+static const struct vertex_attribute_definition vertex_flat_attributes[] =
+{
+    { GL_FLOAT, 2, GL_FALSE, "position", offsetof(struct vertex_flat, position) },
+    { GL_FLOAT, 2, GL_FALSE, "texcoord", offsetof(struct vertex_flat, texcoord) },
+};
+
+enum
+{
+    NUMBER_OF_VERTEX_FLAT_ATTRIBUTES =
+        sizeof(vertex_flat_attributes) / sizeof(vertex_flat_attributes[0]),
+};
+
 static const struct vertex_attribute_definition vertex_rigid_attributes[] =
 {
     { GL_FLOAT, 3, GL_FALSE, "position", offsetof(struct vertex_rigid, position) },
@@ -14,7 +26,7 @@ static const struct vertex_attribute_definition vertex_rigid_attributes[] =
 enum
 {
     NUMBER_OF_VERTEX_RIGID_ATTRIBUTES =
-        sizeof(vertex_rigid_attributes) / sizeof(struct vertex_attribute_definition),
+        sizeof(vertex_rigid_attributes) / sizeof(vertex_rigid_attributes[0]),
 };
 
 static const struct vertex_attribute_definition vertex_skinned_attributes[] =
@@ -31,11 +43,16 @@ static const struct vertex_attribute_definition vertex_skinned_attributes[] =
 enum
 {
     NUMBER_OF_VERTEX_SKINNED_ATTRIBUTES =
-        sizeof(vertex_skinned_attributes) / sizeof(struct vertex_attribute_definition),
+        sizeof(vertex_skinned_attributes) / sizeof(vertex_skinned_attributes[0]),
 };
 
 static const struct vertex_definition vertex_definitions[NUMBER_OF_VERTEX_TYPES] =
 {
+    {
+        .size = sizeof(struct vertex_flat),
+        .attribute_count = NUMBER_OF_VERTEX_FLAT_ATTRIBUTES,
+        .attributes = vertex_flat_attributes,
+    },
     {
         .size = sizeof(struct vertex_rigid),
         .attribute_count = NUMBER_OF_VERTEX_RIGID_ATTRIBUTES,

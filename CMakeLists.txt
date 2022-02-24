@@ -18,7 +18,7 @@ set(PROJECT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/source")
 set(CGLM_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/dependencies/cglm/include/")
 
 add_executable(c-language-prototypes ${PROJECT_C_SOURCE_FILES})
-target_compile_options(c-language-prototypes PRIVATE -ansi -pedantic -Wall -Wextra -Werror -Wno-missing-braces)
+target_compile_options(c-language-prototypes PRIVATE -ansi -pedantic -Wall -Wextra -Wno-missing-braces)
 target_compile_definitions(c-language-prototypes PRIVATE -DGL_SILENCE_DEPRECATION)
 target_include_directories(c-language-prototypes PRIVATE ${PROJECT_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIRS} ${GLEW_INCLUDE_DIR} ${CGLM_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${ASSIMP_INCLUDE_DIRS})
 target_link_libraries(c-language-prototypes ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${SDL2_LIBRARIES} ${FREETYPE_LIBRARIES} ${ASSIMP_LIBRARIES})
