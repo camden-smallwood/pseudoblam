@@ -76,20 +76,23 @@ vec3 calculate_light(
     vec3 light_specular_color,
     float light_attenuation)
 {
+    float light_distance = length(light_direction);
+    light_distance = light_distance * light_distance;
+
     vec3 diffuse_texture = vec3(texture(material.diffuse_texture, frag_texcoord));
     vec3 specular_texture = vec3(texture(material.specular_texture, frag_texcoord));
 
     // ambient shading
-    vec3 ambient = ((material.ambient_color + light_ambient_color) * material.ambient_amount) * light_attenuation;
+    vec3 ambient = material.ambient_amount * (material.ambient_color + light_ambient_color) * light_attenuation / light_distance;
 
     // diffuse shading
-    float diffuse_amount = max(dot(normal, light_direction), 0.0);
-    vec3 diffuse = (((material.diffuse_color + light_diffuse_color) * diffuse_texture) * diffuse_amount) * light_attenuation;
+    float diffuse_amount = clamp(dot(normal, light_direction), 0.0, 1.0);
+    vec3 diffuse = diffuse_amount * (material.diffuse_color + light_diffuse_color) * diffuse_texture * light_attenuation / light_distance;
 
     // specular shading
     vec3 light_halfway_direction = normalize(light_direction + camera_direction);
-    float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
-    vec3 specular = ((((material.specular_color + light_specular_color) * specular_texture) * specular_amount) * material.specular_amount) * light_attenuation;
+    float specular_amount = pow(clamp(dot(normal, light_halfway_direction), 0.0, 1.0), material.specular_shininess);
+    vec3 specular = specular_amount * (material.specular_color + light_specular_color) * material.specular_amount * light_attenuation * specular_texture / light_distance;
 
     // emissive
     vec3 emissive = vec3(texture(material.emissive_texture, frag_texcoord));

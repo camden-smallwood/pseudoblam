@@ -41,6 +41,7 @@ static void model_import_assimp_mesh(
     enum vertex_type vertex_type,
     const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
+    struct model_data *out_model,
     struct model_mesh *out_mesh);
 
 static void model_import_assimp_material(
@@ -263,6 +264,7 @@ static void model_import_assimp_node(
             mesh.vertex_type,
             in_node,
             in_mesh,
+            out_model,
             &mesh);
     }
     
@@ -345,6 +347,7 @@ static void model_import_assimp_mesh(
     enum vertex_type vertex_type,
     const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
+    struct model_data *out_model,
     struct model_mesh *out_mesh)
 {
     printf("%s mesh in node \"%s\" has:\n", vertex_type == _vertex_type_rigid ? "rigid" : "skinned", in_node->mName.data);
@@ -409,27 +412,45 @@ static void model_import_assimp_mesh(
         part.vertex_count += face.mNumIndices;
     }
     
-    for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
+    if (vertex_type == _vertex_type_skinned)
     {
-        struct aiBone *bone = in_mesh->mBones[bone_index];
-
-        // TODO: build bone parent/child indices from armature data
-        
-        for (unsigned int weight_index = 0; weight_index < bone->mNumWeights; weight_index++)
+        for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
         {
-            struct aiVertexWeight *weight = bone->mWeights + weight_index;
-            
-            struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
+            struct aiBone *in_bone = in_mesh->mBones[bone_index];
+            struct aiNode *bone_node = in_bone->mNode;
 
-            for (int i = 0; i < 4; i++)
+            struct model_bone bone =
             {
-                if (vertex->bone_indices[i] == -1)
+                .id = bone_index,
+                .parent_index = -1, // TODO
+                .first_child_index = -1, // TODO
+                .next_sibling_index = -1, // TODO
+                .transform = GLM_MAT4_ZERO_INIT,
+            };
+
+            glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, bone.transform);
+            glm_mat4_transpose(bone.transform);
+            
+            for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
+            {
+                struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
+                struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
+
+                for (int i = 0; i < sizeof(vertex->bone_indices) / sizeof(vertex->bone_indices[0]); i++)
                 {
-                    vertex->bone_indices[i] = bone_index;
-                    vertex->bone_weights[i] = weight->mWeight;
-                    break;
+                    if ((unsigned int)vertex->bone_indices[i] == bone_index)
+                        break;
+                    
+                    if (vertex->bone_indices[i] == -1)
+                    {
+                        vertex->bone_indices[i] = bone_index;
+                        vertex->bone_weights[i] = weight->mWeight;
+                        break;
+                    }
                 }
             }
+
+            mempush(&out_model->bone_count, (void **)&out_model->bones, &bone, sizeof(bone), realloc);
         }
     }
 
