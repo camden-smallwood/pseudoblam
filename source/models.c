@@ -358,11 +358,11 @@ static void model_import_assimp_mesh(
         .vertex_count = 0,
     };
 
-    for(unsigned int face_index = 0; face_index < in_mesh->mNumFaces; face_index++)
+    for (unsigned int face_index = 0; face_index < in_mesh->mNumFaces; face_index++)
     {
         struct aiFace face = in_mesh->mFaces[face_index];
 
-        for(unsigned int index_index = 0; index_index < face.mNumIndices; index_index++)
+        for (unsigned int index_index = 0; index_index < face.mNumIndices; index_index++)
         {
             int vertex_index = face.mIndices[index_index];
 
@@ -394,7 +394,7 @@ static void model_import_assimp_mesh(
                     glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
                     glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
                     glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
-                    memset(vertex.bone_indices, 0, sizeof(vertex.bone_indices));
+                    memset(vertex.bone_indices, -1, sizeof(vertex.bone_indices));
                     memset(vertex.bone_weights, 0, sizeof(vertex.bone_weights));
                     mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
                 }
@@ -409,6 +409,30 @@ static void model_import_assimp_mesh(
         part.vertex_count += face.mNumIndices;
     }
     
+    for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
+    {
+        struct aiBone *bone = in_mesh->mBones[bone_index];
+
+        // TODO: build bone parent/child indices from armature data
+        
+        for (unsigned int weight_index = 0; weight_index < bone->mNumWeights; weight_index++)
+        {
+            struct aiVertexWeight *weight = bone->mWeights + weight_index;
+            
+            struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
+
+            for (int i = 0; i < 4; i++)
+            {
+                if (vertex->bone_indices[i] == -1)
+                {
+                    vertex->bone_indices[i] = bone_index;
+                    vertex->bone_weights[i] = weight->mWeight;
+                    break;
+                }
+            }
+        }
+    }
+
     mempush(&out_mesh->part_count, (void **)&out_mesh->parts, &part, sizeof(part), realloc);
 }
 

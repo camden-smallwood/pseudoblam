@@ -8,9 +8,22 @@
 struct model_data
 {
     int material_count;
+    int bone_count;
     int mesh_count;
     struct material_data *materials;
+    struct model_bone *bones;
     struct model_mesh *meshes;
+};
+
+struct model_bone
+{
+    int id;
+
+    int parent_index;
+    int first_child_index;
+    int next_sibling_index;
+    
+    mat4 transform;
 };
 
 struct model_mesh

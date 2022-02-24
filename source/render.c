@@ -373,9 +373,8 @@ static void render_quad(void)
 static void render_models(void)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
-    
     glEnable(GL_DEPTH_TEST);
-
+    
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     struct model_iterator iterator;
