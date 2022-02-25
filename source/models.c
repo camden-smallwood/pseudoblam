@@ -14,11 +14,15 @@
 #include "dds.h"
 #include "models.h"
 
+/* ---------- private variables */
+
 struct
 {
     int model_count;
     struct model_data *models;
 } static model_globals;
+
+/* ---------- code */
 
 void models_initialize(void)
 {
@@ -29,25 +33,7 @@ void models_dispose(void)
 {
     for (int model_index = 0; model_index < model_globals.model_count; model_index++)
     {
-        struct model_data *model = model_globals.models + model_index;
-
-        for (int material_index = 0; material_index < model->material_count; material_index++)
-        {
-            struct material_data *material = model->materials + material_index;
-            
-            free(material->textures);
-        }
-
-        for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
-        {
-            struct model_mesh *mesh = model->meshes + mesh_index;
-            
-            free(mesh->vertex_data);
-            free(mesh->parts);
-        }
-
-        free(model->materials);
-        free(model->meshes);
+        model_delete(model_index);
     }
 
     free(model_globals.models);
@@ -67,8 +53,59 @@ int model_new(void)
 void model_delete(
     int model_index)
 {
-    assert(model_index >= 0 && model_index < model_globals.model_count);
-    // TODO
+    struct model_data *model = model_get_data(model_index);
+
+    for (int material_index = 0;
+        material_index < model->material_count;
+        material_index++)
+    {
+        struct material_data *material = model->materials + material_index;
+        
+        free(material->textures);
+    }
+
+    for (int bone_index = 0;
+        bone_index < model->node_count;
+        bone_index++)
+    {
+        struct model_node *bone = model->nodes + bone_index;
+        
+        free(bone->name);
+    }
+
+    for (int mesh_index = 0;
+        mesh_index < model->mesh_count;
+        mesh_index++)
+    {
+        struct model_mesh *mesh = model->meshes + mesh_index;
+        
+        free(mesh->vertex_data);
+        free(mesh->parts);
+    }
+
+    for (int animation_index = 0;
+        animation_index < model->animation_count;
+        animation_index++)
+    {
+        struct model_animation *animation = model->animations + animation_index;
+
+        for (int channel_index = 0;
+            channel_index < animation->channel_count;
+            channel_index++)
+        {
+            struct model_animation_channel *channel = animation->channels + channel_index;
+
+            // TODO
+        }
+        
+        free(animation->name);
+        free(animation->channels);
+    }
+
+    free(model->materials);
+    free(model->nodes);
+    free(model->meshes);
+    free(model->animations);
 }
 
 struct model_data *model_get_data(
@@ -497,6 +534,132 @@ static void model_import_assimp_material(
         realloc);
 }
 
+static void model_import_assimp_animation(
+    const struct aiScene *in_scene,
+    const struct aiAnimation *in_animation,
+    struct model_data *out_model)
+{
+    struct model_animation animation =
+    {
+        .name = strdup(in_animation->mName.data),
+        .duration = in_animation->mDuration,
+        .ticks_per_second = in_animation->mTicksPerSecond,
+        .channel_count = 0,
+        .channels = NULL,
+    };
+
+    for (unsigned int channel_index = 0;
+        channel_index < in_animation->mNumChannels;
+        channel_index++)
+    {
+        struct aiNodeAnim *in_channel = in_animation->mChannels[channel_index];
+
+        struct model_animation_channel channel =
+        {
+            .type = _model_animation_channel_type_node,
+            .node_index = -1, // TODO: find from in_channel->mNodeName
+            .position_key_count = 0,
+            .rotation_key_count = 0,
+            .scaling_key_count = 0,
+            .position_keys = NULL,
+            .rotation_keys = NULL,
+            .scaling_keys = NULL,
+        };
+
+        for (unsigned int position_key_index = 0;
+            position_key_index < in_channel->mNumPositionKeys;
+            position_key_index++)
+        {
+            struct aiVectorKey *in_position_key = in_channel->mPositionKeys + position_key_index;
+
+            struct model_animation_position_key position_key =
+            {
+                .time = in_position_key->mTime,
+                .position =
+                {
+                    in_position_key->mValue.x,
+                    in_position_key->mValue.y,
+                    in_position_key->mValue.z
+                }
+            };
+
+            mempush(
+                &channel.position_key_count,
+                (void **)&channel.position_keys,
+                &position_key,
+                sizeof(position_key),
+                realloc);
+        }
+
+        for (unsigned int rotation_key_index = 0;
+            rotation_key_index < in_channel->mNumRotationKeys;
+            rotation_key_index++)
+        {
+            struct aiQuatKey *in_rotation_key = in_channel->mRotationKeys + rotation_key_index;
+
+            struct model_animation_rotation_key rotation_key =
+            {
+                .time = in_rotation_key->mTime,
+                .rotation =
+                {
+                    in_rotation_key->mValue.x,
+                    in_rotation_key->mValue.y,
+                    in_rotation_key->mValue.z,
+                    in_rotation_key->mValue.w,
+                }
+            };
+
+            mempush(
+                &channel.rotation_key_count,
+                (void **)&channel.rotation_keys,
+                &rotation_key,
+                sizeof(rotation_key),
+                realloc);
+        }
+
+        for (unsigned int scaling_key_index = 0;
+            scaling_key_index < in_channel->mNumScalingKeys;
+            scaling_key_index++)
+        {
+            struct aiVectorKey *in_scaling_key = in_channel->mScalingKeys + scaling_key_index;
+
+            struct model_animation_scaling_key scaling_key =
+            {
+                .time = in_scaling_key->mTime,
+                .scaling =
+                {
+                    in_scaling_key->mValue.x,
+                    in_scaling_key->mValue.y,
+                    in_scaling_key->mValue.z
+                }
+            };
+
+            mempush(
+                &channel.scaling_key_count,
+                (void **)&channel.scaling_keys,
+                &scaling_key,
+                sizeof(scaling_key),
+                realloc);
+        }
+
+        mempush(
+            &animation.channel_count,
+            (void **)&animation.channels,
+            &channel,
+            sizeof(channel),
+            realloc);
+    }
+    
+    // TODO: finish
+
+    mempush(
+        &out_model->animation_count,
+        (void **)&out_model->animations,
+        &animation,
+        sizeof(animation),
+        realloc);
+}
+
 static void model_import_assimp_metadata(
     const char *directory_path,
     const struct aiScene *in_scene,
@@ -646,7 +809,7 @@ static void model_import_assimp_mesh(
             printf("\tbone parent node: %s\n", in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
             printf("\tbone armature: %s\n", in_bone->mArmature->mName.data);
             
-            struct model_bone bone =
+            struct model_node bone =
             {
                 .name = strdup(in_bone->mName.data),
                 .parent_index = -1, // TODO
@@ -682,7 +845,7 @@ static void model_import_assimp_mesh(
                 }
             }
 
-            mempush(&out_model->bone_count, (void **)&out_model->bones, &bone, sizeof(bone), realloc);
+            mempush(&out_model->node_count, (void **)&out_model->nodes, &bone, sizeof(bone), realloc);
         }
     }
 
@@ -782,10 +945,20 @@ int model_import_from_file(
     int model_index = model_new();
     struct model_data *model = model_get_data(model_index);
 
-    for (unsigned int material_index = 0; material_index < scene->mNumMaterials; material_index++)
+    for (unsigned int material_index = 0;
+        material_index < scene->mNumMaterials;
+        material_index++)
     {
         struct aiMaterial *material = scene->mMaterials[material_index];
         model_import_assimp_material(material, model);
+    }
+
+    for (unsigned int animation_index = 0;
+        animation_index < scene->mNumAnimations;
+        animation_index++)
+    {
+        struct aiAnimation *animation = scene->mAnimations[animation_index];
+        model_import_assimp_animation(scene, animation, model);
     }
 
     model_import_assimp_node(directory_path, vertex_type, scene, scene->mRootNode, model);

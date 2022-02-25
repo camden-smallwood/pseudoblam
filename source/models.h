@@ -3,19 +3,19 @@
 #include "materials.h"
 #include "vertices.h"
 
-/* ---------- types */
-
 struct model_data
 {
     int material_count;
-    int bone_count;
+    int node_count;
     int mesh_count;
+    int animation_count;
     struct material_data *materials;
-    struct model_bone *bones;
+    struct model_node *nodes;
     struct model_mesh *meshes;
+    struct model_animation *animations;
 };
 
-struct model_bone
+struct model_node
 {
     char *name;
 
@@ -44,6 +44,75 @@ struct model_mesh_part
     int material_index;
     int vertex_index;
     int vertex_count;
+};
+
+struct model_animation
+{
+    char *name;
+    float duration;
+    float ticks_per_second;
+    int channel_count;
+    struct model_animation_channel *channels;
+};
+
+enum model_animation_channel_type
+{
+    _model_animation_channel_type_node,
+    _model_animation_channel_type_mesh,
+    _model_animation_channel_type_morph,
+    NUMBER_OF_MODEL_ANIMATION_CHANNEL_TYPES
+};
+
+struct model_animation_channel
+{
+    enum model_animation_channel_type type;
+    union
+    {
+        int node_index;
+        int mesh_index;
+    };
+    int position_key_count;
+    int rotation_key_count;
+    int scaling_key_count;
+    int mesh_key_count;
+    int morph_key_count;
+    struct model_animation_position_key *position_keys;
+    struct model_animation_rotation_key *rotation_keys;
+    struct model_animation_scaling_key *scaling_keys;
+    struct model_animation_mesh_key *mesh_keys;
+    struct model_animation_morph_key *morph_keys;
+};
+
+struct model_animation_position_key
+{
+    float time;
+    vec3 position;
+};
+
+struct model_animation_rotation_key
+{
+    float time;
+    vec4 rotation;
+};
+
+struct model_animation_scaling_key
+{
+    float time;
+    vec3 scaling;
+};
+
+struct model_animation_mesh_key
+{
+    float time;
+    int mesh_index;
+};
+
+struct model_animation_morph_key
+{
+    float time;
+    int count;
+    int *values;
+    float *weights;
 };
 
 struct model_iterator
