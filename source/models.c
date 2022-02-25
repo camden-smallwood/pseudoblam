@@ -50,73 +50,21 @@ int model_new(void)
     return model_index;
 }
 
-void model_delete(
-    int model_index)
+void model_delete(int model_index)
 {
     struct model_data *model = model_get_data(model_index);
+    assert(model);
 
-    for (int material_index = 0;
-        material_index < model->material_count;
-        material_index++)
-    {
-        struct material_data *material = model->materials + material_index;
-        
-        free(material->textures);
-    }
-
-    for (int bone_index = 0;
-        bone_index < model->node_count;
-        bone_index++)
-    {
-        struct model_node *bone = model->nodes + bone_index;
-        
-        free(bone->name);
-    }
-
-    for (int mesh_index = 0;
-        mesh_index < model->mesh_count;
-        mesh_index++)
-    {
-        struct model_mesh *mesh = model->meshes + mesh_index;
-        
-        free(mesh->vertex_data);
-        free(mesh->parts);
-    }
-
-    for (int animation_index = 0;
-        animation_index < model->animation_count;
-        animation_index++)
-    {
-        struct model_animation *animation = model->animations + animation_index;
-
-        for (int channel_index = 0;
-            channel_index < animation->channel_count;
-            channel_index++)
-        {
-            struct model_animation_channel *channel = animation->channels + channel_index;
-
-            // TODO
-        }
-        
-        free(animation->name);
-        free(animation->channels);
-    }
-
-    free(model->materials);
-    free(model->nodes);
-    free(model->meshes);
-    free(model->animations);
+    // TODO
 }
 
-struct model_data *model_get_data(
-    int model_index)
+struct model_data *model_get_data(int model_index)
 {
     assert(model_index >= 0 && model_index < model_globals.model_count);
     return model_globals.models + model_index;
 }
 
-void model_iterator_new(
-    struct model_iterator *iterator)
+void model_iterator_new(struct model_iterator *iterator)
 {
     assert(iterator);
 
@@ -124,8 +72,7 @@ void model_iterator_new(
     iterator->index = -1;
 }
 
-int model_iterator_next(
-    struct model_iterator *iterator)
+int model_iterator_next(struct model_iterator *iterator)
 {
     assert(iterator);
 
@@ -219,13 +166,7 @@ static inline void material_import_assimp_textures(
 {
     struct aiString string;
 
-    for (int
-        texture_index = 0,
-        texture_count = aiGetMaterialTextureCount(in_material, texture_type);
-
-        texture_index < texture_count;
-
-        texture_index++)
+    for (int i = 0, count = aiGetMaterialTextureCount(in_material, texture_type); i < count; i++)
     {
         struct material_texture texture =
         {
@@ -233,7 +174,7 @@ static inline void material_import_assimp_textures(
             .id = 0,
         };
 
-        if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_type, texture_index, &string, NULL, NULL, NULL, NULL, NULL, NULL))
+        if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_type, i, &string, NULL, NULL, NULL, NULL, NULL, NULL))
         {
             printf("loading \"%s\"...\n", string.data);
             texture.id = dds_import_file_as_texture2d(string.data);
@@ -299,167 +240,75 @@ static void material_import_assimp_pbr_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    material_get_assimp_flag(
-        in_material,
-        AI_MATKEY_USE_COLOR_MAP,
-        &out_material->pbr_properties.flags,
-        _material_use_pbr_base_color_texture_bit);
-    
-    material_get_assimp_vec3(
-        in_material,
-        AI_MATKEY_BASE_COLOR,
-        out_material->pbr_properties.base_color,
-        (vec3){1, 1, 1});
-    
-    material_import_assimp_textures(
-        in_material,
-        out_material,
-        aiTextureType_BASE_COLOR,
-        _material_texture_usage_base_color);
+    material_get_assimp_flag(in_material, AI_MATKEY_USE_COLOR_MAP, &out_material->pbr_properties.flags, _material_use_pbr_base_color_texture_bit);
+    material_get_assimp_vec3(in_material, AI_MATKEY_BASE_COLOR, out_material->pbr_properties.base_color, (vec3){1, 1, 1});
+    material_import_assimp_textures(in_material, out_material, aiTextureType_BASE_COLOR, _material_texture_usage_base_color);
 
-    material_get_assimp_flag(
-        in_material,
-        AI_MATKEY_USE_METALLIC_MAP,
-        &out_material->pbr_properties.flags,
-        _material_use_pbr_metalness_texture_bit);
-    
-    out_material->pbr_properties.metallic_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_METALLIC_FACTOR,
-        0.0f);
-    
-    material_import_assimp_textures(
-        in_material,
-        out_material,
-        aiTextureType_METALNESS,
-        _material_texture_usage_metalness);
+    material_get_assimp_flag(in_material, AI_MATKEY_USE_METALLIC_MAP, &out_material->pbr_properties.flags, _material_use_pbr_metalness_texture_bit);
+    out_material->pbr_properties.metallic_factor = material_get_assimp_float(in_material, AI_MATKEY_METALLIC_FACTOR, 0.0f);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_METALNESS, _material_texture_usage_metalness);
 
-    material_get_assimp_flag(
-        in_material,
-        AI_MATKEY_USE_ROUGHNESS_MAP,
-        &out_material->pbr_properties.flags,
-        _material_use_pbr_diffuse_roughness_texture_bit);
-    
-    out_material->pbr_properties.anisotropy_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_ANISOTROPY_FACTOR,
-        0.0f);
+    material_get_assimp_flag(in_material, AI_MATKEY_USE_ROUGHNESS_MAP, &out_material->pbr_properties.flags, _material_use_pbr_diffuse_roughness_texture_bit);
+
+    out_material->pbr_properties.anisotropy_factor = material_get_assimp_float(in_material, AI_MATKEY_ANISOTROPY_FACTOR, 0.0f);
 }
 
 static void material_import_assimp_specular_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    out_material->specular_properties.specular_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_SPECULAR_FACTOR,
-        0.5f);
-    
-    out_material->specular_properties.glossiness_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_GLOSSINESS_FACTOR,
-        32.0f);
+    out_material->specular_properties.specular_factor = material_get_assimp_float(in_material, AI_MATKEY_SPECULAR_FACTOR, 0.5f);
+    out_material->specular_properties.glossiness_factor = material_get_assimp_float(in_material, AI_MATKEY_GLOSSINESS_FACTOR, 32.0f);
 }
 
 static void material_import_assimp_sheen_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    out_material->sheen_properties.color_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_SHEEN_COLOR_FACTOR,
-        1.0f);
+    out_material->sheen_properties.color_factor = material_get_assimp_float(in_material, AI_MATKEY_SHEEN_COLOR_FACTOR, 1.0f);
+    out_material->sheen_properties.roughness_factor = material_get_assimp_float(in_material, AI_MATKEY_SHEEN_ROUGHNESS_FACTOR, 0.0f);
     
-    out_material->sheen_properties.roughness_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_SHEEN_ROUGHNESS_FACTOR,
-        0.0f);
-
-    material_import_assimp_textures(
-        in_material,
-        out_material,
-        aiTextureType_SHEEN,
-        _material_texture_usage_sheen);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_SHEEN, _material_texture_usage_sheen);
 }
 
 static void material_import_assimp_clearcoat_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    out_material->clearcoat_properties.clearcoat_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_CLEARCOAT_FACTOR,
-        1.0f);
-    
-    out_material->clearcoat_properties.roughness_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR,
-        0.0f);
+    out_material->clearcoat_properties.clearcoat_factor = material_get_assimp_float(in_material, AI_MATKEY_CLEARCOAT_FACTOR, 1.0f);
+    out_material->clearcoat_properties.roughness_factor = material_get_assimp_float(in_material, AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR, 0.0f);
 
-    material_import_assimp_textures(
-        in_material,
-        out_material,
-        aiTextureType_CLEARCOAT,
-        _material_texture_usage_clearcoat);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_CLEARCOAT, _material_texture_usage_clearcoat);
 }
 
 static void material_import_assimp_transmission_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    out_material->transmission_properties.transmission_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_TRANSMISSION_FACTOR,
-        1.0f);
+    out_material->transmission_properties.transmission_factor = material_get_assimp_float(in_material, AI_MATKEY_TRANSMISSION_FACTOR, 1.0f);
     
-    material_import_assimp_textures(
-        in_material,
-        out_material,
-        aiTextureType_TRANSMISSION,
-        _material_texture_usage_transmission);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_TRANSMISSION, _material_texture_usage_transmission);
 }
 
 static void material_import_assimp_volume_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    out_material->volume_properties.thickness_factor = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_VOLUME_THICKNESS_FACTOR,
-        1.0f);
+    out_material->volume_properties.thickness_factor = material_get_assimp_float(in_material, AI_MATKEY_VOLUME_THICKNESS_FACTOR, 1.0f);
+    out_material->volume_properties.attenuation_distance = material_get_assimp_float(in_material, AI_MATKEY_VOLUME_ATTENUATION_DISTANCE, 1.0f);
     
-    out_material->volume_properties.attenuation_distance = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_VOLUME_ATTENUATION_DISTANCE,
-        1.0f);
+    material_get_assimp_vec3(in_material, AI_MATKEY_VOLUME_ATTENUATION_DISTANCE, out_material->volume_properties.attenuation_color, (vec3){0, 0, 0});
     
-    material_get_assimp_vec3(
-        in_material,
-        AI_MATKEY_VOLUME_ATTENUATION_DISTANCE,
-        out_material->volume_properties.attenuation_color,
-        (vec3){0, 0, 0});
-    
-    material_import_assimp_textures(
-        in_material,
-        out_material,
-        aiTextureType_TRANSMISSION,
-        _material_texture_usage_transmission);
+    material_import_assimp_textures(in_material, out_material, aiTextureType_TRANSMISSION, _material_texture_usage_transmission);
 }
 
 static void material_import_assimp_emissive_properties(
     const struct aiMaterial *in_material,
     struct material_data *out_material)
 {
-    material_get_assimp_flag(
-        in_material,
-        AI_MATKEY_USE_EMISSIVE_MAP,
-        &out_material->emissive_properties.flags,
-        _material_use_emissive_texture_bit);
+    material_get_assimp_flag(in_material, AI_MATKEY_USE_EMISSIVE_MAP, &out_material->emissive_properties.flags, _material_use_emissive_texture_bit);
     
-    out_material->emissive_properties.intensity = material_get_assimp_float(
-        in_material,
-        AI_MATKEY_EMISSIVE_INTENSITY,
-        1.0f);
+    out_material->emissive_properties.intensity = material_get_assimp_float(in_material, AI_MATKEY_EMISSIVE_INTENSITY, 1.0f);
 }
 
 static void material_import_assimp_ambient_occlussion_properties(
@@ -548,9 +397,7 @@ static void model_import_assimp_animation(
         .channels = NULL,
     };
 
-    for (unsigned int channel_index = 0;
-        channel_index < in_animation->mNumChannels;
-        channel_index++)
+    for (unsigned int channel_index = 0; channel_index < in_animation->mNumChannels; channel_index++)
     {
         struct aiNodeAnim *in_channel = in_animation->mChannels[channel_index];
 
@@ -566,9 +413,7 @@ static void model_import_assimp_animation(
             .scaling_keys = NULL,
         };
 
-        for (unsigned int position_key_index = 0;
-            position_key_index < in_channel->mNumPositionKeys;
-            position_key_index++)
+        for (unsigned int position_key_index = 0; position_key_index < in_channel->mNumPositionKeys; position_key_index++)
         {
             struct aiVectorKey *in_position_key = in_channel->mPositionKeys + position_key_index;
 
@@ -591,9 +436,7 @@ static void model_import_assimp_animation(
                 realloc);
         }
 
-        for (unsigned int rotation_key_index = 0;
-            rotation_key_index < in_channel->mNumRotationKeys;
-            rotation_key_index++)
+        for (unsigned int rotation_key_index = 0; rotation_key_index < in_channel->mNumRotationKeys; rotation_key_index++)
         {
             struct aiQuatKey *in_rotation_key = in_channel->mRotationKeys + rotation_key_index;
 
@@ -617,9 +460,7 @@ static void model_import_assimp_animation(
                 realloc);
         }
 
-        for (unsigned int scaling_key_index = 0;
-            scaling_key_index < in_channel->mNumScalingKeys;
-            scaling_key_index++)
+        for (unsigned int scaling_key_index = 0; scaling_key_index < in_channel->mNumScalingKeys; scaling_key_index++)
         {
             struct aiVectorKey *in_scaling_key = in_channel->mScalingKeys + scaling_key_index;
 
@@ -634,30 +475,15 @@ static void model_import_assimp_animation(
                 }
             };
 
-            mempush(
-                &channel.scaling_key_count,
-                (void **)&channel.scaling_keys,
-                &scaling_key,
-                sizeof(scaling_key),
-                realloc);
+            mempush(&channel.scaling_key_count, (void **)&channel.scaling_keys, &scaling_key, sizeof(scaling_key), realloc);
         }
 
-        mempush(
-            &animation.channel_count,
-            (void **)&animation.channels,
-            &channel,
-            sizeof(channel),
-            realloc);
+        mempush(&animation.channel_count, (void **)&animation.channels, &channel, sizeof(channel), realloc);
     }
     
     // TODO: finish
 
-    mempush(
-        &out_model->animation_count,
-        (void **)&out_model->animations,
-        &animation,
-        sizeof(animation),
-        realloc);
+    mempush(&out_model->animation_count, (void **)&out_model->animations, &animation, sizeof(animation), realloc);
 }
 
 static void model_import_assimp_metadata(
@@ -879,13 +705,7 @@ static void model_import_assimp_node(
     {
         struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
 
-        model_import_assimp_mesh(
-            mesh.vertex_type,
-            in_scene,
-            in_node,
-            in_mesh,
-            out_model,
-            &mesh);
+        model_import_assimp_mesh(mesh.vertex_type, in_scene, in_node, in_mesh, out_model, &mesh);
     }
     
     if (mesh.vertex_data)
