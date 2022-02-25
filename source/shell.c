@@ -14,6 +14,7 @@ SHELL.C
 #include "input.h"
 #include "lights.h"
 #include "models.h"
+#include "animations.h"
 #include "shaders.h"
 #include "text.h"
 #include "render.h"
@@ -53,6 +54,13 @@ static const struct shell_component shell_components[] =
         models_dispose,
         NULL,
         NULL,
+    },
+    {
+        "animations",
+        animations_initialize,
+        animations_dispose,
+        NULL,
+        animations_update,
     },
     {
         "shaders",

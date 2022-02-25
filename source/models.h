@@ -17,7 +17,7 @@ struct model_data
 
 struct model_bone
 {
-    int id;
+    char *name;
 
     int parent_index;
     int first_child_index;

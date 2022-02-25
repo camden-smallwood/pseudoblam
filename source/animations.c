@@ -1,35 +1,90 @@
-#include <cglm/cglm.h>
+/*
+ANIMATIONS.C
+    Animation management code.
+*/
+
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <assimp/cimport.h>
+#include <assimp/anim.h>
+#include <assimp/scene.h>
+
+#include "common.h"
 #include "animations.h"
 
-struct animation_frame_position_data
+/* ---------- private variables */
+
+struct
 {
-    vec3 position;
-    float time;
-};
+    int animation_graph_count;
+    struct animation_graph_data *animation_graphs;
+} static animation_globals;
 
-struct animation_frame_rotation_data
+/* ---------- public code */
+
+void animations_initialize(void)
 {
-    vec3 rotation;
-    float time;
-};
+    memset(&animation_globals, 0, sizeof(animation_globals));
+}
 
-struct animation_frame_scale_data
+void animations_dispose(void)
 {
-    vec3 scale;
-    float time;
-};
+    for (int animation_graph_index = 0;
+        animation_graph_index < animation_globals.animation_graph_count;
+        animation_graph_index++)
+    {
+        animation_graph_delete(animation_graph_index);
+    }
+}
 
-struct animation_bone_data
+void animations_update(float delta_ticks)
 {
-    int id;
+    // TODO
+}
 
-    int position_frame_count;
-    int rotation_frame_count;
-    int scale_frame_count;
+int animation_graph_new(void)
+{
+    int animation_graph_index = animation_globals.animation_graph_count;
 
-    struct animation_frame_position_data *position_frames;
-    struct animation_frame_rotation_data *rotation_frames;
-    struct animation_frame_scale_data *scale_frames;
+    struct animation_graph_data animation_graph =
+    {
+        .animation_count = 0,
+        .animations = NULL,
+    };
 
-    mat4 transform;
-};
+    mempush(
+        &animation_globals.animation_graph_count,
+        (void **)&animation_globals.animation_graphs,
+        &animation_graph,
+        sizeof(animation_graph),
+        realloc);
+    
+    return animation_graph_index;
+}
+
+void animation_graph_delete(int animation_graph_index)
+{
+    assert(animation_graph_index >= 0 && animation_graph_index < animation_globals.animation_graph_count);
+    struct animation_graph_data *animation_graph = animation_globals.animation_graphs + animation_graph_index;
+
+    for (int animation_index = 0; animation_index < animation_graph->animation_count; animation_index++)
+    {
+        struct animation_data *animation = animation_graph->animations + animation_index;
+        assert(animation);
+
+        // TODO
+    }
+
+    free(animation_graph->animations);
+}
+
+struct animation_graph_data *animation_graph_get_data(int animation_graph_index)
+{
+    if (animation_graph_index == -1)
+        return NULL;
+    
+    assert(animation_graph_index >= 0 && animation_graph_index < animation_globals.animation_graph_count);
+    return animation_globals.animation_graphs + animation_graph_index;
+}

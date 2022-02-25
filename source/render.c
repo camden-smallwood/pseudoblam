@@ -99,7 +99,7 @@ void render_initialize(void)
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     model_import_from_file(_vertex_type_rigid, "../assets/models/cube.fbx");
     
-    render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
+    render_globals.weapon_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle_skinned.fbx");
     
     struct model_iterator iterator;
     model_iterator_new(&iterator);
@@ -183,9 +183,9 @@ void render_initialize(void)
         glm_vec3_copy((vec3){0.8f, 0.2f, 0.8f}, light->diffuse_color);
         glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
         glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-        light->constant = 1.0f;
-        light->linear = 0.09f;
-        light->quadratic = 0.032f;
+        light->constant = 10.0f;
+        light->linear = 0.9f;
+        light->quadratic = 0.32f;
 
         light = light_get_data(light_new());
         light->type = _light_type_point;
