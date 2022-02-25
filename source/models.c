@@ -456,49 +456,6 @@ static void model_import_assimp_animation(
         mempush(&animation.channel_count, (void **)&animation.channels, &channel, sizeof(channel), realloc);
     }
 
-    for (unsigned int channel_index = 0; channel_index < in_animation->mNumMeshChannels; channel_index++)
-    {
-        struct aiMeshMorphAnim *in_channel = in_animation->mMorphMeshChannels[channel_index];
-
-        struct model_animation_channel channel;
-        memset(&channel, 0, sizeof(channel));
-        channel.type = _model_animation_channel_type_morph;
-        channel.mesh_index = -1; // TODO: get from in_channel->mName
-
-        for (unsigned int mesh_key_index = 0; mesh_key_index < in_channel->mNumKeys; mesh_key_index++)
-        {
-            struct aiMeshMorphKey *in_morph_key = in_channel->mKeys + mesh_key_index;
-
-            struct model_animation_morph_key morph_key;
-            memset(&morph_key, 0, sizeof(morph_key));
-            morph_key.time = in_morph_key->mTime;
-
-            for (unsigned int i = 0; i < in_morph_key->mNumValuesAndWeights; i++)
-            {
-                mempush_multiple(
-                    &morph_key.count,
-                    2,
-                    (void *[]){
-                        &morph_key.values,
-                        &morph_key.weights
-                    },
-                    (void *[]){
-                        &in_morph_key->mValues[i],
-                        &in_morph_key->mWeights[i]
-                    },
-                    (size_t[]){
-                        sizeof(in_morph_key->mValues[i]),
-                        sizeof(in_morph_key->mWeights[i])
-                    },
-                    realloc);
-            }
-
-            mempush(&channel.morph_key_count, (void **)&channel.morph_keys, &morph_key, sizeof(morph_key), realloc);
-        }
-
-        mempush(&animation.channel_count, (void **)&animation.channels, &channel, sizeof(channel), realloc);
-    }
-
     for (unsigned int channel_index = 0; channel_index < in_animation->mNumMorphMeshChannels; channel_index++)
     {
         struct aiMeshAnim *in_channel = in_animation->mMeshChannels[channel_index];
@@ -519,6 +476,49 @@ static void model_import_assimp_animation(
             };
 
             mempush(&channel.mesh_key_count, (void **)&channel.mesh_keys, &mesh_key, sizeof(mesh_key), realloc);
+        }
+
+        mempush(&animation.channel_count, (void **)&animation.channels, &channel, sizeof(channel), realloc);
+    }
+
+    for (unsigned int channel_index = 0; channel_index < in_animation->mNumMeshChannels; channel_index++)
+    {
+        struct aiMeshMorphAnim *in_channel = in_animation->mMorphMeshChannels[channel_index];
+
+        struct model_animation_channel channel;
+        memset(&channel, 0, sizeof(channel));
+        channel.type = _model_animation_channel_type_morph;
+        channel.mesh_index = -1; // TODO: get from in_channel->mName
+
+        for (unsigned int morph_key_index = 0; morph_key_index < in_channel->mNumKeys; morph_key_index++)
+        {
+            struct aiMeshMorphKey *in_morph_key = in_channel->mKeys + morph_key_index;
+
+            struct model_animation_morph_key morph_key;
+            memset(&morph_key, 0, sizeof(morph_key));
+            morph_key.time = in_morph_key->mTime;
+
+            for (unsigned int i = 0; i < in_morph_key->mNumValuesAndWeights; i++)
+            {
+                mempush_multiple(
+                    2,
+                    &morph_key.count,
+                    (void *[]){
+                        &morph_key.values,
+                        &morph_key.weights
+                    },
+                    (void *[]){
+                        &in_morph_key->mValues[i],
+                        &in_morph_key->mWeights[i]
+                    },
+                    (size_t[]){
+                        sizeof(in_morph_key->mValues[i]),
+                        sizeof(in_morph_key->mWeights[i])
+                    },
+                    realloc);
+            }
+
+            mempush(&channel.morph_key_count, (void **)&channel.morph_keys, &morph_key, sizeof(morph_key), realloc);
         }
 
         mempush(&animation.channel_count, (void **)&animation.channels, &channel, sizeof(channel), realloc);

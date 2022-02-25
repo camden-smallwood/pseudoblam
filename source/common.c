@@ -1,3 +1,8 @@
+/*
+COMMON.C
+    Commonly-used code.
+*/
+
 #include <assert.h>
 #include <string.h>
 #include "common.h"
@@ -27,28 +32,28 @@ void *mempush(
 }
 
 void mempush_multiple(
+    int array_count,
     int *out_count,
-    int address_count,
     void **out_addresses,
-    void **addresses,
+    void **in_addresses,
     size_t *sizes,
     void *(*realloc_function)(void *, size_t))
 {
     assert(out_count);
-    assert(address_count);
+    assert(array_count);
     assert(out_addresses);
-    assert(addresses);
+    assert(in_addresses);
     assert(sizes);
     assert(realloc_function);
 
     int index = (*out_count)++;
     assert(index < *out_count);
 
-    for (int i = 0; i < address_count; i++)
+    for (int i = 0; i < array_count; i++)
     {
         out_addresses[i] = realloc_function(out_addresses[i], (*out_count) * sizes[i]);
         assert(out_addresses[i]);
 
-        memcpy((char *)out_addresses[i] + (index * sizes[i]), addresses[i], sizes[i]);
+        memcpy((char *)out_addresses[i] + (index * sizes[i]), in_addresses[i], sizes[i]);
     }
 }
