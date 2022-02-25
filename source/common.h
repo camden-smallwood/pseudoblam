@@ -22,3 +22,11 @@ void *mempush(
     void *address,
     size_t size,
     void *(*realloc_function)(void *, size_t));
+
+void mempush_multiple(
+    int *out_count,
+    int address_count,
+    void **out_addresses,
+    void **addresses,
+    size_t *sizes,
+    void *(*realloc_function)(void *, size_t));

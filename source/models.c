@@ -383,34 +383,20 @@ static void model_import_assimp_animation(
     const struct aiAnimation *in_animation,
     struct model_data *out_model)
 {
-    struct model_animation animation =
-    {
-        .name = strdup(in_animation->mName.data),
-        .duration = in_animation->mDuration,
-        .ticks_per_second = in_animation->mTicksPerSecond,
-        .channel_count = 0,
-        .channels = NULL,
-    };
+    struct model_animation animation;
+    memset(&animation, 0, sizeof(animation));
+    animation.name = strdup(in_animation->mName.data);
+    animation.duration = in_animation->mDuration;
+    animation.ticks_per_second = in_animation->mTicksPerSecond;
 
     for (unsigned int channel_index = 0; channel_index < in_animation->mNumChannels; channel_index++)
     {
         struct aiNodeAnim *in_channel = in_animation->mChannels[channel_index];
 
-        struct model_animation_channel channel =
-        {
-            .type = _model_animation_channel_type_node,
-            .node_index = -1, // TODO: find from in_channel->mNodeName
-            .position_key_count = 0,
-            .rotation_key_count = 0,
-            .scaling_key_count = 0,
-            .mesh_key_count = 0,
-            .morph_key_count = 0,
-            .position_keys = NULL,
-            .rotation_keys = NULL,
-            .scaling_keys = NULL,
-            .mesh_keys = NULL,
-            .morph_keys = NULL,
-        };
+        struct model_animation_channel channel;
+        memset(&channel, 0, sizeof(channel));
+        channel.type = _model_animation_channel_type_node;
+        channel.node_index = -1; // TODO: find from in_channel->mNodeName
 
         for (unsigned int position_key_index = 0; position_key_index < in_channel->mNumPositionKeys; position_key_index++)
         {
@@ -469,8 +455,74 @@ static void model_import_assimp_animation(
 
         mempush(&animation.channel_count, (void **)&animation.channels, &channel, sizeof(channel), realloc);
     }
-    
-    // TODO: finish
+
+    for (unsigned int channel_index = 0; channel_index < in_animation->mNumMeshChannels; channel_index++)
+    {
+        struct aiMeshMorphAnim *in_channel = in_animation->mMorphMeshChannels[channel_index];
+
+        struct model_animation_channel channel;
+        memset(&channel, 0, sizeof(channel));
+        channel.type = _model_animation_channel_type_morph;
+        channel.mesh_index = -1; // TODO: get from in_channel->mName
+
+        for (unsigned int mesh_key_index = 0; mesh_key_index < in_channel->mNumKeys; mesh_key_index++)
+        {
+            struct aiMeshMorphKey *in_morph_key = in_channel->mKeys + mesh_key_index;
+
+            struct model_animation_morph_key morph_key;
+            memset(&morph_key, 0, sizeof(morph_key));
+            morph_key.time = in_morph_key->mTime;
+
+            for (unsigned int i = 0; i < in_morph_key->mNumValuesAndWeights; i++)
+            {
+                mempush_multiple(
+                    &morph_key.count,
+                    2,
+                    (void *[]){
+                        &morph_key.values,
+                        &morph_key.weights
+                    },
+                    (void *[]){
+                        &in_morph_key->mValues[i],
+                        &in_morph_key->mWeights[i]
+                    },
+                    (size_t[]){
+                        sizeof(in_morph_key->mValues[i]),
+                        sizeof(in_morph_key->mWeights[i])
+                    },
+                    realloc);
+            }
+
+            mempush(&channel.morph_key_count, (void **)&channel.morph_keys, &morph_key, sizeof(morph_key), realloc);
+        }
+
+        mempush(&animation.channel_count, (void **)&animation.channels, &channel, sizeof(channel), realloc);
+    }
+
+    for (unsigned int channel_index = 0; channel_index < in_animation->mNumMorphMeshChannels; channel_index++)
+    {
+        struct aiMeshAnim *in_channel = in_animation->mMeshChannels[channel_index];
+
+        struct model_animation_channel channel;
+        memset(&channel, 0, sizeof(channel));
+        channel.type = _model_animation_channel_type_mesh;
+        channel.mesh_index = -1; // TODO: get from in_channel->mName
+
+        for (unsigned int mesh_key_index = 0; mesh_key_index < in_channel->mNumKeys; mesh_key_index++)
+        {
+            struct aiMeshKey *in_mesh_key = in_channel->mKeys + mesh_key_index;
+
+            struct model_animation_mesh_key mesh_key =
+            {
+                .time = in_mesh_key->mTime,
+                .mesh_index = (int)in_mesh_key->mValue,
+            };
+
+            mempush(&channel.mesh_key_count, (void **)&channel.mesh_keys, &mesh_key, sizeof(mesh_key), realloc);
+        }
+
+        mempush(&animation.channel_count, (void **)&animation.channels, &channel, sizeof(channel), realloc);
+    }
 
     mempush(&out_model->animation_count, (void **)&out_model->animations, &animation, sizeof(animation), realloc);
 }
@@ -749,17 +801,13 @@ int model_import_from_file(
     int model_index = model_new();
     struct model_data *model = model_get_data(model_index);
 
-    for (unsigned int material_index = 0;
-        material_index < scene->mNumMaterials;
-        material_index++)
+    for (unsigned int material_index = 0; material_index < scene->mNumMaterials; material_index++)
     {
         struct aiMaterial *material = scene->mMaterials[material_index];
         model_import_assimp_material(material, model);
     }
 
-    for (unsigned int animation_index = 0;
-        animation_index < scene->mNumAnimations;
-        animation_index++)
+    for (unsigned int animation_index = 0; animation_index < scene->mNumAnimations; animation_index++)
     {
         struct aiAnimation *animation = scene->mAnimations[animation_index];
         model_import_assimp_animation(scene, animation, model);
