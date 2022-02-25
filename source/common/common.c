@@ -5,7 +5,7 @@ COMMON.C
 
 #include <assert.h>
 #include <string.h>
-#include "common.h"
+#include "common/common.h"
 
 /* ---------- public code */
 

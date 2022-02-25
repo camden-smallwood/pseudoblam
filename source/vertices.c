@@ -36,8 +36,8 @@ static const struct vertex_attribute_definition vertex_skinned_attributes[] =
     { GL_FLOAT, 2, GL_FALSE, "texcoord", offsetof(struct vertex_skinned, texcoord) },
     { GL_FLOAT, 3, GL_FALSE, "tangent", offsetof(struct vertex_skinned, tangent) },
     { GL_FLOAT, 3, GL_FALSE, "bitangent", offsetof(struct vertex_skinned, bitangent) },
-    { GL_INT, 4, GL_FALSE, "bone_indices", offsetof(struct vertex_skinned, bone_indices) },
-    { GL_FLOAT, 4, GL_FALSE, "bone_weights", offsetof(struct vertex_skinned, bone_weights) },
+    { GL_INT, 4, GL_FALSE, "node_indices", offsetof(struct vertex_skinned, node_indices) },
+    { GL_FLOAT, 4, GL_FALSE, "node_weights", offsetof(struct vertex_skinned, node_weights) },
 };
 
 enum

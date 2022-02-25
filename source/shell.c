@@ -10,10 +10,10 @@ SHELL.C
 
 #include <SDL.h>
 
-#include "common.h"
-#include "input.h"
+#include "common/common.h"
+#include "input/input.h"
 #include "lights.h"
-#include "models.h"
+#include "models/models.h"
 #include "shaders.h"
 #include "text.h"
 #include "render.h"
@@ -142,16 +142,13 @@ static inline void shell_initialize(void)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 16);
-
     const int screen_width = 1280;
     const int screen_height = 720;
 
     shell_globals.window = SDL_CreateWindow("asdf", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     shell_globals.gl_context = SDL_GL_CreateContext(shell_globals.window);
     
-    shell_globals.frame_rate = 60;
+    shell_globals.frame_rate = 120;
 
     SDL_GL_SetSwapInterval(0);
 

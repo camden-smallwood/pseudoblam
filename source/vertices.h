@@ -35,8 +35,8 @@ struct vertex_skinned
     vec2 texcoord;
     vec3 tangent;
     vec3 bitangent;
-    int bone_indices[4];
-    float bone_weights[4];
+    int node_indices[4];
+    float node_weights[4];
 };
 
 struct vertex_attribute_definition

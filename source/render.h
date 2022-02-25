@@ -1,3 +1,8 @@
+/*
+RENDER.H
+    Main rendering declarations.
+*/
+
 #pragma once
 #include <cglm/cglm.h>
 

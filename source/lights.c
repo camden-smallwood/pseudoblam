@@ -10,7 +10,7 @@ LIGHTS.C
 #include <stdlib.h>
 #include <string.h>
 
-#include "common.h"
+#include "common/common.h"
 #include "lights.h"
 
 /* ---------- private variables */

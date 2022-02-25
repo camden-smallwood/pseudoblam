@@ -1,10 +1,18 @@
+/*
+CAMERA.C
+    Camera management.
+*/
+
 #include <assert.h>
 #include <math.h>
 #include <string.h>
+
 #include <cglm/cglm.h>
+
 #include <SDL_keycode.h>
+
+#include "input/input.h"
 #include "camera.h"
-#include "input.h"
 
 /* ---------- public code */
 

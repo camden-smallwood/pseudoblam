@@ -11,7 +11,7 @@ SHADERS.C
 
 #include <GL/glew.h>
 
-#include "common.h"
+#include "common/common.h"
 #include "shaders.h"
 
 /* ---------- private structures */

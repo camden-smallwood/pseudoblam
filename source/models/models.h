@@ -1,7 +1,14 @@
+/*
+MODELS.H
+    3D model management declarations.
+*/
+
 #pragma once
 #include <cglm/cglm.h>
 #include "materials.h"
 #include "vertices.h"
+
+/* ---------- types */
 
 struct model_data
 {
@@ -13,6 +20,12 @@ struct model_data
     struct model_node *nodes;
     struct model_mesh *meshes;
     struct model_animation *animations;
+};
+
+struct model_iterator
+{
+    struct model_data *data;
+    int index;
 };
 
 struct model_node
@@ -49,8 +62,10 @@ struct model_mesh_part
 struct model_animation
 {
     char *name;
+
     float duration;
     float ticks_per_second;
+
     int channel_count;
     struct model_animation_channel *channels;
 };
@@ -115,10 +130,16 @@ struct model_animation_morph_key
     float *weights;
 };
 
-struct model_iterator
+struct model_animation_state
 {
-    struct model_data *data;
-    int index;
+    float time;
+    mat4 *node_matrices;
+};
+
+struct model_animator
+{
+    int model_index;
+    struct model_animation_state *animation_states;
 };
 
 /* ---------- prototypes/MODELS.C */

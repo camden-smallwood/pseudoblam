@@ -1,3 +1,8 @@
+/*
+CAMERA.H
+    Camera management declarations.
+*/
+
 #pragma once
 #include <cglm/cglm.h>
 

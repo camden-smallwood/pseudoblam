@@ -15,14 +15,14 @@ RENDER.C
 #include <GL/glew.h>
 #include <cglm/cglm.h>
 
-#include "common.h"
-#include "camera.h"
+#include "common/common.h"
+#include "camera/camera.h"
+#include "input/input.h"
+#include "models/models.h"
 #include "dds.h"
-#include "input.h"
 #include "lights.h"
-#include "models.h"
-#include "render.h"
 #include "shaders.h"
+#include "render.h"
 
 /* ---------- private constants */
 

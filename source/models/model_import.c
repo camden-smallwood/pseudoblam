@@ -10,84 +10,9 @@
 
 #include <GL/glew.h>
 
-#include "common.h"
+#include "common/common.h"
 #include "dds.h"
 #include "models.h"
-
-/* ---------- private variables */
-
-struct
-{
-    int model_count;
-    struct model_data *models;
-} static model_globals;
-
-/* ---------- code */
-
-void models_initialize(void)
-{
-    memset(&model_globals, 0, sizeof(model_globals));
-}
-
-void models_dispose(void)
-{
-    for (int model_index = 0; model_index < model_globals.model_count; model_index++)
-    {
-        model_delete(model_index);
-    }
-
-    free(model_globals.models);
-}
-
-int model_new(void)
-{
-    struct model_data model;
-    memset(&model, 0, sizeof(model));
-    
-    int model_index = model_globals.model_count;
-    mempush(&model_globals.model_count, (void **)&model_globals.models, &model, sizeof(model), realloc);
-    
-    return model_index;
-}
-
-void model_delete(int model_index)
-{
-    struct model_data *model = model_get_data(model_index);
-    assert(model);
-
-    // TODO
-}
-
-struct model_data *model_get_data(int model_index)
-{
-    assert(model_index >= 0 && model_index < model_globals.model_count);
-    return model_globals.models + model_index;
-}
-
-void model_iterator_new(struct model_iterator *iterator)
-{
-    assert(iterator);
-
-    iterator->data = NULL;
-    iterator->index = -1;
-}
-
-int model_iterator_next(struct model_iterator *iterator)
-{
-    assert(iterator);
-
-    if (++iterator->index >= model_globals.model_count)
-    {
-        iterator->data = NULL;
-        iterator->index = -1;
-        return -1;
-    }
-
-    int model_index = iterator->index;
-    iterator->data = model_globals.models + model_index;
-    
-    return model_index;
-}
 
 static inline char *material_get_assimp_string(
     const struct aiMaterial *in_material,
@@ -645,8 +570,8 @@ static void model_import_assimp_mesh(
                     glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
                     glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
                     glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
-                    memset(vertex.bone_indices, -1, sizeof(vertex.bone_indices));
-                    memset(vertex.bone_weights, 0, sizeof(vertex.bone_weights));
+                    memset(vertex.node_indices, -1, sizeof(vertex.node_indices));
+                    memset(vertex.node_weights, 0, sizeof(vertex.node_weights));
                     mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
                 }
                 break;
@@ -671,7 +596,7 @@ static void model_import_assimp_mesh(
             printf("\tbone parent node: %s\n", in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
             printf("\tbone armature: %s\n", in_bone->mArmature->mName.data);
             
-            struct model_node bone =
+            struct model_node node =
             {
                 .name = strdup(in_bone->mName.data),
                 .parent_index = -1, // TODO
@@ -685,29 +610,29 @@ static void model_import_assimp_mesh(
                 // TODO: find parent index
             }
 
-            glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, bone.transform);
-            glm_mat4_transpose(bone.transform);
+            glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.transform);
+            glm_mat4_transpose(node.transform);
             
             for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
             {
                 struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
                 struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
 
-                for (size_t i = 0; i < sizeof(vertex->bone_indices) / sizeof(vertex->bone_indices[0]); i++)
+                for (size_t i = 0; i < sizeof(vertex->node_indices) / sizeof(vertex->node_indices[0]); i++)
                 {
-                    if ((unsigned int)vertex->bone_indices[i] == bone_index)
+                    if ((unsigned int)vertex->node_indices[i] == bone_index)
                         break;
                     
-                    if (vertex->bone_indices[i] == -1)
+                    if (vertex->node_indices[i] == -1)
                     {
-                        vertex->bone_indices[i] = bone_index;
-                        vertex->bone_weights[i] = weight->mWeight;
+                        vertex->node_indices[i] = bone_index;
+                        vertex->node_weights[i] = weight->mWeight;
                         break;
                     }
                 }
             }
 
-            mempush(&out_model->node_count, (void **)&out_model->nodes, &bone, sizeof(bone), realloc);
+            mempush(&out_model->node_count, (void **)&out_model->nodes, &node, sizeof(node), realloc);
         }
     }
 

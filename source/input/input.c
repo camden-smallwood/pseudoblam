@@ -1,5 +1,5 @@
-#include "common.h"
-#include "input.h"
+#include "common/common.h"
+#include "input/input.h"
 #include <SDL_scancode.h>
 
 /* ---------- private variables */

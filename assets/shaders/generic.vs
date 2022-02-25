@@ -4,17 +4,17 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-#define MAXIMUM_BONES 256
-uniform uint bone_count;
-uniform mat4 bone_matrices[MAXIMUM_BONES];
+#define MAXIMUM_NODES 256
+uniform uint node_count;
+uniform mat4 node_matrices[MAXIMUM_NODES];
 
 in vec3 position;
 in vec3 normal;
 in vec2 texcoord;
 in vec3 tangent;
 in vec3 bitangent;
-in ivec4 bone_indices;
-in vec4 bone_weights;
+in ivec4 node_indices;
+in vec4 node_weights;
 
 out vec3 frag_position;
 out vec3 frag_normal;
