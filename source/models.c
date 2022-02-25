@@ -375,12 +375,7 @@ static void model_import_assimp_material(
     material_import_assimp_emissive_properties(in_material, &material);
     material_import_assimp_ambient_occlussion_properties(in_material, &material);
 
-    mempush(
-        &out_model->material_count,
-        (void **)&out_model->materials,
-        &material,
-        sizeof(material),
-        realloc);
+    mempush(&out_model->material_count, (void **)&out_model->materials, &material, sizeof(material), realloc);
 }
 
 static void model_import_assimp_animation(
@@ -408,9 +403,13 @@ static void model_import_assimp_animation(
             .position_key_count = 0,
             .rotation_key_count = 0,
             .scaling_key_count = 0,
+            .mesh_key_count = 0,
+            .morph_key_count = 0,
             .position_keys = NULL,
             .rotation_keys = NULL,
             .scaling_keys = NULL,
+            .mesh_keys = NULL,
+            .morph_keys = NULL,
         };
 
         for (unsigned int position_key_index = 0; position_key_index < in_channel->mNumPositionKeys; position_key_index++)
@@ -428,12 +427,7 @@ static void model_import_assimp_animation(
                 }
             };
 
-            mempush(
-                &channel.position_key_count,
-                (void **)&channel.position_keys,
-                &position_key,
-                sizeof(position_key),
-                realloc);
+            mempush(&channel.position_key_count, (void **)&channel.position_keys, &position_key, sizeof(position_key), realloc);
         }
 
         for (unsigned int rotation_key_index = 0; rotation_key_index < in_channel->mNumRotationKeys; rotation_key_index++)
@@ -452,12 +446,7 @@ static void model_import_assimp_animation(
                 }
             };
 
-            mempush(
-                &channel.rotation_key_count,
-                (void **)&channel.rotation_keys,
-                &rotation_key,
-                sizeof(rotation_key),
-                realloc);
+            mempush(&channel.rotation_key_count, (void **)&channel.rotation_keys, &rotation_key, sizeof(rotation_key), realloc);
         }
 
         for (unsigned int scaling_key_index = 0; scaling_key_index < in_channel->mNumScalingKeys; scaling_key_index++)
@@ -537,12 +526,7 @@ static void model_import_assimp_metadata(
             break;
 
         case AI_AIMETADATA:
-            model_import_assimp_metadata(
-                directory_path,
-                in_scene,
-                in_node,
-                (const struct aiMetadata *)value->mData,
-                out_model);
+            model_import_assimp_metadata(directory_path, in_scene, in_node, (const struct aiMetadata *)value->mData, out_model);
             break;
 
         default:
