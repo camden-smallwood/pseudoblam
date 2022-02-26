@@ -3,7 +3,7 @@
 
 #include <assimp/material.h>
 
-#include "materials.h"
+#include "models/materials.h"
 
 /* ---------- public code */
 

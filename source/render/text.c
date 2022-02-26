@@ -14,6 +14,8 @@ TEXT.C
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include "render/text.h"
+
 /* ---------- private structures */
 
 struct text_glyph

@@ -84,3 +84,51 @@ int model_iterator_next(struct model_iterator *iterator)
     
     return model_index;
 }
+
+int model_find_node_by_name(
+    struct model_data *model,
+    const char *node_name)
+{
+    assert(model);
+    assert(node_name);
+
+    for (int node_index = 0; node_index < model->node_count; node_index++)
+    {
+        struct model_node *node = model->nodes + node_index;
+
+        if (strcmp(node_name, node->name) == 0)
+            return node_index;
+    }
+
+    return -1;
+}
+
+void model_node_add_child_node(
+    struct model_data *model,
+    int node_index,
+    struct model_node *child_node)
+{
+    assert(node_index >= 0 && node_index < model->node_count);
+    struct model_node *node = model->nodes + node_index;
+
+    int child_node_index = model->node_count;
+    mempush(&model->node_count, (void **)&model->nodes, child_node, sizeof(*child_node), realloc);
+    node = model->nodes + node_index;
+
+    child_node->parent_index = node_index;
+
+    if (node->first_child_index == -1)
+    {
+        node->first_child_index = child_node_index;
+        return;
+    }
+
+    for (node = model->nodes + node->first_child_index; ; node = model->nodes + node->next_sibling_index)
+    {
+        if (node->next_sibling_index == -1)
+        {
+            node->next_sibling_index = child_node_index;
+            break;
+        }
+    }
+}

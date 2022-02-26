@@ -11,7 +11,7 @@ LIGHTS.C
 #include <string.h>
 
 #include "common/common.h"
-#include "lights.h"
+#include "render/lights.h"
 
 /* ---------- private variables */
 

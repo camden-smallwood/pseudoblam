@@ -12,7 +12,7 @@ SHADERS.C
 #include <GL/glew.h>
 
 #include "common/common.h"
-#include "shaders.h"
+#include "render/shaders.h"
 
 /* ---------- private structures */
 

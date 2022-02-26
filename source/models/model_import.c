@@ -17,7 +17,7 @@ MODEL_IMPORT.C
 
 #include "common/common.h"
 #include "models/models.h"
-#include "dds.h"
+#include "textures/dds.h"
 
 /* ---------- code */
 
@@ -592,17 +592,18 @@ static void model_import_assimp_mesh(
         part.vertex_count += face.mNumIndices;
     }
     
-    if (vertex_type == _vertex_type_skinned)
+    for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
     {
-        for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
-        {
-            struct aiBone *in_bone = in_mesh->mBones[bone_index];
+        struct aiBone *in_bone = in_mesh->mBones[bone_index];
 
-            printf("\t----------\n");
-            printf("\tbone node: %s\n", in_bone->mNode->mName.data);
-            printf("\tbone parent node: %s\n", in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
-            printf("\tbone armature: %s\n", in_bone->mArmature->mName.data);
-            
+        if (model_find_node_by_name(out_model, in_bone->mName.data) == -1)
+        {
+            printf("\t----------\n"
+                "\tbone node: %s\n"
+                "\tbone parent node: %s\n",
+                in_bone->mNode->mName.data,
+                in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
+
             struct model_node node =
             {
                 .name = strdup(in_bone->mName.data),
@@ -612,34 +613,37 @@ static void model_import_assimp_mesh(
                 .transform = GLM_MAT4_ZERO_INIT,
             };
 
-            if (in_bone->mNode->mParent != in_bone->mArmature)
-            {
-                // TODO: find parent index
-            }
-
             glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.transform);
             glm_mat4_transpose(node.transform);
             
-            for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
+            if (in_bone->mNode->mParent == in_bone->mArmature)
             {
-                struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
-                struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
+                mempush(&out_model->node_count, (void **)&out_model->nodes, &node, sizeof(node), realloc);
+            }
+            else
+            {
+                int parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
+                model_node_add_child_node(out_model, parent_node_index, &node);
+            }
+        }
+        
+        for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
+        {
+            struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
+            struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
 
-                for (size_t i = 0; i < sizeof(vertex->node_indices) / sizeof(vertex->node_indices[0]); i++)
+            for (size_t i = 0; i < sizeof(vertex->node_indices) / sizeof(vertex->node_indices[0]); i++)
+            {
+                if ((unsigned int)vertex->node_indices[i] == bone_index)
+                    break;
+                
+                if (vertex->node_indices[i] == -1)
                 {
-                    if ((unsigned int)vertex->node_indices[i] == bone_index)
-                        break;
-                    
-                    if (vertex->node_indices[i] == -1)
-                    {
-                        vertex->node_indices[i] = bone_index;
-                        vertex->node_weights[i] = weight->mWeight;
-                        break;
-                    }
+                    vertex->node_indices[i] = bone_index;
+                    vertex->node_weights[i] = weight->mWeight;
+                    break;
                 }
             }
-
-            mempush(&out_model->node_count, (void **)&out_model->nodes, &node, sizeof(node), realloc);
         }
     }
 

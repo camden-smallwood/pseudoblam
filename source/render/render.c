@@ -19,10 +19,10 @@ RENDER.C
 #include "camera/camera.h"
 #include "input/input.h"
 #include "models/models.h"
-#include "dds.h"
-#include "lights.h"
-#include "shaders.h"
-#include "render.h"
+#include "render/lights.h"
+#include "render/shaders.h"
+#include "render/render.h"
+#include "textures/dds.h"
 
 /* ---------- private constants */
 

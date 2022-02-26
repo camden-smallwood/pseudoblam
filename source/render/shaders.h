@@ -1,7 +1,7 @@
 #pragma once
 #include <cglm/cglm.h>
 #include <GL/glew.h>
-#include "vertices.h"
+#include "render/vertices.h"
 
 /* ---------- structures */
 

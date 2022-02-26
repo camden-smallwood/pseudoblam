@@ -6,8 +6,8 @@ MODELS.H
 #pragma once
 #include <stdbool.h>
 #include <cglm/cglm.h>
-#include "materials.h"
-#include "vertices.h"
+#include "models/materials.h"
+#include "render/vertices.h"
 
 /* ---------- types */
 
@@ -156,6 +156,9 @@ struct model_data *model_get_data(int model_index);
 
 void model_iterator_new(struct model_iterator *iterator);
 int model_iterator_next(struct model_iterator *iterator);
+
+int model_find_node_by_name(struct model_data *model, const char *node_name);
+void model_node_add_child_node(struct model_data *model, int node_index, struct model_node *child_node);
 
 /* ---------- prototypes/MODEL_IMPORT.C */
 
