@@ -1,3 +1,8 @@
+/*
+MODEL_IMPORT.C
+    3D model importing code.
+*/
+
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -11,8 +16,10 @@
 #include <GL/glew.h>
 
 #include "common/common.h"
+#include "models/models.h"
 #include "dds.h"
-#include "models.h"
+
+/* ---------- code */
 
 static inline char *material_get_assimp_string(
     const struct aiMaterial *in_material,

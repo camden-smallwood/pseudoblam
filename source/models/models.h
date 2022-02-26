@@ -163,7 +163,7 @@ int model_import_from_file(enum vertex_type vertex_type, const char *file_path);
 
 /* ---------- prototypes/MODEL_ANIMATION.C */
 
-void model_animation_manager_initialize(struct model_animation_manager *manager, int model_index);
-void model_animation_manager_dispose(struct model_animation_manager *manager);
-void model_animation_manager_set_animation_active(struct model_animation_manager *manager, int animation_index, bool active);
-void model_animation_manager_update(struct model_animation_manager *manager, float delta_ticks);
+void model_animations_initialize(struct model_animation_manager *manager, int model_index);
+void model_animations_dispose(struct model_animation_manager *manager);
+void model_set_animation_active(struct model_animation_manager *manager, int animation_index, bool active);
+void model_animations_update(struct model_animation_manager *manager, float delta_ticks);

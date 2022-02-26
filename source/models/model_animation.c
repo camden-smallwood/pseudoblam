@@ -9,9 +9,18 @@ MODEL_ANIMATION.C
 #include <string.h>
 
 #include "common/common.h"
-#include "models.h"
+#include "models/models.h"
 
-void model_animation_manager_initialize(
+/* ---------- private prototypes */
+
+static void model_animation_compute_node_matrices(
+    struct model_animation_manager *manager,
+    int animation_index,
+    mat4 transform);
+
+/* ---------- public code */
+
+void model_animations_initialize(
     struct model_animation_manager *manager,
     int model_index)
 {
@@ -32,7 +41,7 @@ void model_animation_manager_initialize(
     }
 }
 
-void model_animation_manager_dispose(
+void model_animations_dispose(
     struct model_animation_manager *manager)
 {
     assert(manager);
@@ -49,7 +58,7 @@ void model_animation_manager_dispose(
     free(manager->animation_states);
 }
 
-void model_animation_manager_set_animation_active(
+void model_set_animation_active(
     struct model_animation_manager *manager,
     int animation_index,
     bool active)
@@ -63,11 +72,35 @@ void model_animation_manager_set_animation_active(
     BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, active);
 }
 
-void model_animation_manager_update(
+void model_animations_update(
     struct model_animation_manager *manager,
     float delta_ticks)
 {
     assert(manager);
 
-    // TODO: update active animations
+    struct model_data *model = model_get_data(manager->model_index);
+    assert(model);
+
+    for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
+    {
+        if (BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index))
+        {
+            struct model_animation *animation = model->animations + animation_index;
+            struct model_animation_state *state = manager->animation_states + animation_index;
+
+            state->time = fmodf(state->time + animation->ticks_per_second * delta_ticks, animation->duration);
+            
+            model_animation_compute_node_matrices(manager, animation_index, GLM_MAT4_IDENTITY);
+        }
+    }
+}
+
+/* ---------- private code */
+
+static void model_animation_compute_node_matrices(
+    struct model_animation_manager *manager,
+    int animation_index,
+    mat4 transform)
+{
+    // TODO
 }

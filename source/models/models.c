@@ -1,8 +1,14 @@
+/*
+MODELS.C
+    3D model management.
+*/
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "common/common.h"
-#include "models.h"
+#include "models/models.h"
 
 /* ---------- private variables */
 
