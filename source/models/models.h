@@ -4,6 +4,7 @@ MODELS.H
 */
 
 #pragma once
+#include <stdbool.h>
 #include <cglm/cglm.h>
 #include "materials.h"
 #include "vertices.h"
@@ -136,9 +137,10 @@ struct model_animation_state
     mat4 *node_matrices;
 };
 
-struct model_animator
+struct model_animation_manager
 {
     int model_index;
+    unsigned int *active_animations_bit_vector;
     struct model_animation_state *animation_states;
 };
 
@@ -155,4 +157,13 @@ struct model_data *model_get_data(int model_index);
 void model_iterator_new(struct model_iterator *iterator);
 int model_iterator_next(struct model_iterator *iterator);
 
+/* ---------- prototypes/MODEL_IMPORT.C */
+
 int model_import_from_file(enum vertex_type vertex_type, const char *file_path);
+
+/* ---------- prototypes/MODEL_ANIMATION.C */
+
+void model_animation_manager_initialize(struct model_animation_manager *manager, int model_index);
+void model_animation_manager_dispose(struct model_animation_manager *manager);
+void model_animation_manager_set_animation_active(struct model_animation_manager *manager, int animation_index, bool active);
+void model_animation_manager_update(struct model_animation_manager *manager, float delta_ticks);
