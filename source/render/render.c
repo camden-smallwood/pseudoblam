@@ -480,9 +480,9 @@ static void render_model(struct model_data *model, mat4 model_matrix)
             
             case _light_type_spot:
             case _light_type_point:
-                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].constant", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){1.0f});
-                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].linear", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){0.09f});
-                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].quadratic", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){0.032f});
+                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].constant", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){light->constant});
+                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].linear", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){light->linear});
+                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].quadratic", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){light->quadratic});
                 if (light->type == _light_type_spot)
                 {
                     glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].direction", lights_array_name, light_counts[light->type]), uniform_name)), 1, light->direction);
