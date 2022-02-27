@@ -104,12 +104,64 @@ static void model_animation_compute_node_matrices(
     struct model_animation_manager *manager,
     int animation_index,
     int node_index,
-    mat4 transform)
+    mat4 parent_transform)
 {
     struct model_data *model = model_get_data(manager->model_index);
-
     assert(animation_index >= 0 && animation_index < model->animation_count);
+
+    struct model_animation *animation = model->animations + animation_index;
     struct model_animation_state *state = manager->animation_states + animation_index;
+
+    struct model_node *node = model->nodes + node_index;
     
-    // TODO: update 
+    mat4 node_transform;
+    glm_mat4_copy(node->transform, node_transform);
+
+    for (int channel_index = 0; channel_index < animation->channel_count; channel_index++)
+    {
+        struct model_animation_channel *channel = animation->channels + channel_index;
+        
+        switch (channel->type)
+        {
+        case _model_animation_channel_type_node:
+            if (channel->node_index == node_index)
+            {
+                // TODO: apply positions to node_transform
+                // TODO: apply rotations to node_transform
+                // TODO: apply scalings to node_transform
+
+                fprintf(stderr, "ERROR: node channel animations not implemented\n");
+                exit(EXIT_FAILURE);
+            }
+            break;
+        
+        case _model_animation_channel_type_mesh:
+            // TODO: implement
+            fprintf(stderr, "ERROR: mesh channel animations not implemented\n");
+            exit(EXIT_FAILURE);
+        
+        case _model_animation_channel_type_morph:
+            // TODO: implement
+            fprintf(stderr, "ERROR: morph channel animations not implemented\n");
+            exit(EXIT_FAILURE);
+        
+        default:
+            fprintf(stderr, "ERROR: unhandled animation channel type %i\n", channel->type);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    mat4 global_transform;
+    glm_mat4_mul(parent_transform, node_transform, global_transform);
+
+    mat4 *node_matrix = state->node_matrices + node_index;
+    // TODO: apply bone offset to global_transform
+
+    for (int child_node_index = node->first_child_index;
+        child_node_index != -1;
+        child_node_index = model->nodes[child_node_index].next_sibling_index)
+    {
+        model_animation_compute_node_matrices(manager, animation_index, child_node_index, global_transform);
+        // TODO: compute child node matrices
+    }
 }
