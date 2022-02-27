@@ -85,6 +85,22 @@ int model_iterator_next(struct model_iterator *iterator)
     return model_index;
 }
 
+int model_find_root_node(
+    struct model_data *model)
+{
+    assert(model);
+
+    for (int node_index = 0; node_index < model->node_count; node_index++)
+    {
+        struct model_node *node = model->nodes + node_index;
+
+        if (node->parent_index == -1)
+            return node_index;
+    }
+
+    return -1;
+}
+
 int model_find_node_by_name(
     struct model_data *model,
     const char *node_name)
@@ -109,13 +125,12 @@ void model_node_add_child_node(
     struct model_node *child_node)
 {
     assert(node_index >= 0 && node_index < model->node_count);
-    struct model_node *node = model->nodes + node_index;
+    child_node->parent_index = node_index;
 
     int child_node_index = model->node_count;
     mempush(&model->node_count, (void **)&model->nodes, child_node, sizeof(*child_node), realloc);
-    node = model->nodes + node_index;
 
-    child_node->parent_index = node_index;
+    struct model_node *node = model->nodes + node_index;
 
     if (node->first_child_index == -1)
     {

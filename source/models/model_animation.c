@@ -16,6 +16,7 @@ MODEL_ANIMATION.C
 static void model_animation_compute_node_matrices(
     struct model_animation_manager *manager,
     int animation_index,
+    int node_index,
     mat4 transform);
 
 /* ---------- public code */
@@ -81,6 +82,8 @@ void model_animations_update(
     struct model_data *model = model_get_data(manager->model_index);
     assert(model);
 
+    int root_node_index = model_find_root_node(model);
+
     for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
     {
         if (BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index))
@@ -88,9 +91,9 @@ void model_animations_update(
             struct model_animation *animation = model->animations + animation_index;
             struct model_animation_state *state = manager->animation_states + animation_index;
 
-            state->time = fmodf(state->time + animation->ticks_per_second * delta_ticks, animation->duration);
+            state->time = fmodf(state->time + (animation->ticks_per_second * delta_ticks), animation->duration);
             
-            model_animation_compute_node_matrices(manager, animation_index, GLM_MAT4_IDENTITY);
+            model_animation_compute_node_matrices(manager, animation_index, root_node_index, GLM_MAT4_IDENTITY);
         }
     }
 }
@@ -100,7 +103,13 @@ void model_animations_update(
 static void model_animation_compute_node_matrices(
     struct model_animation_manager *manager,
     int animation_index,
+    int node_index,
     mat4 transform)
 {
-    // TODO
+    struct model_data *model = model_get_data(manager->model_index);
+
+    assert(animation_index >= 0 && animation_index < model->animation_count);
+    struct model_animation_state *state = manager->animation_states + animation_index;
+    
+    // TODO: update 
 }
