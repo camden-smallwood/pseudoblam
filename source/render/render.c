@@ -144,8 +144,8 @@ void render_initialize(void)
         light->constant = 1.0f;
         light->linear = 0.09f;
         light->quadratic = 0.032f;
-        light->inner_cutoff = 12.5f;
-        light->outer_cutoff = 15.0f;
+        light->inner_cutoff = 18.5f;
+        light->outer_cutoff = 20.0f;
         
         light = light_get_data(light_new());
         light->type = _light_type_point;
@@ -423,12 +423,12 @@ static void render_model(struct model_data *model, mat4 model_matrix)
         glUseProgram(blinn_phong_shader->program);
 
         // Bind the camera position
-        glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, "camera_position"), 1, (const GLfloat *)render_globals.camera.position);
+        shader_set_vec3(render_globals.blinn_phong_shader, "camera_position", render_globals.camera.position);
 
         // Bind the camera model/view/projection matrices
-        glUniformMatrix4fv(glGetUniformLocation(blinn_phong_shader->program, "model"), 1, GL_FALSE, (const GLfloat *)model_matrix);
-        glUniformMatrix4fv(glGetUniformLocation(blinn_phong_shader->program, "view"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.view);
-        glUniformMatrix4fv(glGetUniformLocation(blinn_phong_shader->program, "projection"), 1, GL_FALSE, (const GLfloat *)render_globals.camera.projection);
+        shader_set_mat4(render_globals.blinn_phong_shader, "model", model_matrix);
+        shader_set_mat4(render_globals.blinn_phong_shader, "view", render_globals.camera.view);
+        shader_set_mat4(render_globals.blinn_phong_shader, "projection", render_globals.camera.projection);
 
         // Bind the lighting uniforms
         struct light_iterator light_iterator;
@@ -467,42 +467,36 @@ static void render_model(struct model_data *model, mat4 model_matrix)
 
             char uniform_name[256];
 
-            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].position", lights_array_name, light_counts[light->type]), uniform_name)), 1, light->position);
-            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].diffuse_color", lights_array_name, light_counts[light->type]), uniform_name)), 1, light->diffuse_color);
-            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].ambient_color", lights_array_name, light_counts[light->type]), uniform_name)), 1, light->ambient_color);
-            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].specular_color", lights_array_name, light_counts[light->type]), uniform_name)), 1, light->specular_color);
+            shader_set_vec3_v(render_globals.blinn_phong_shader, light->position, "%s[%i].position", lights_array_name, light_counts[light->type]);
+            shader_set_vec3_v(render_globals.blinn_phong_shader, light->diffuse_color, "%s[%i].diffuse_color", lights_array_name, light_counts[light->type]);
+            shader_set_vec3_v(render_globals.blinn_phong_shader, light->ambient_color, "%s[%i].ambient_color", lights_array_name, light_counts[light->type]);
+            shader_set_vec3_v(render_globals.blinn_phong_shader, light->specular_color, "%s[%i].specular_color", lights_array_name, light_counts[light->type]);
 
-            switch (light->type)
+            if (light->type == _light_type_directional || light->type == _light_type_spot)
             {
-            case _light_type_directional:
-                glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].direction", lights_array_name, light_counts[light->type]), uniform_name)), 1, light->direction);
-                break;
-            
-            case _light_type_spot:
-            case _light_type_point:
-                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].constant", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){light->constant});
-                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].linear", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){light->linear});
-                glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].quadratic", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){light->quadratic});
-                if (light->type == _light_type_spot)
-                {
-                    glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].direction", lights_array_name, light_counts[light->type]), uniform_name)), 1, light->direction);
-                    glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].inner_cutoff", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){cosf(glm_rad(light->inner_cutoff))});
-                    glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, (snprintf(uniform_name, sizeof(uniform_name), "%s[%i].outer_cutoff", lights_array_name, light_counts[light->type]), uniform_name)), 1, (const GLfloat[]){cosf(glm_rad(light->outer_cutoff))});
-                }
-                break;
-            
-            default:
-                fprintf(stderr, "ERROR: unhandled light type %i\n", light->type);
-                exit(EXIT_FAILURE);
+                shader_set_vec3_v(render_globals.blinn_phong_shader, light->direction, "%s[%i].direction", lights_array_name, light_counts[light->type]);
+            }
+
+            if (light->type == _light_type_point || light->type == _light_type_spot)
+            {
+                shader_set_float_v(render_globals.blinn_phong_shader, light->constant, "%s[%i].constant", lights_array_name, light_counts[light->type]);
+                shader_set_float_v(render_globals.blinn_phong_shader, light->linear, "%s[%i].linear", lights_array_name, light_counts[light->type]);
+                shader_set_float_v(render_globals.blinn_phong_shader, light->quadratic, "%s[%i].quadratic", lights_array_name, light_counts[light->type]);
+            }
+
+            if (light->type == _light_type_spot)
+            {
+                shader_set_float_v(render_globals.blinn_phong_shader, cosf(glm_rad(light->inner_cutoff)), "%s[%i].inner_cutoff", lights_array_name, light_counts[light->type]);
+                shader_set_float_v(render_globals.blinn_phong_shader, cosf(glm_rad(light->outer_cutoff)), "%s[%i].outer_cutoff", lights_array_name, light_counts[light->type]);
             }
 
             light_counts[light->type]++;
         }
 
         // Bind the total number of lights for each light type
-        glUniform1uiv(glGetUniformLocation(blinn_phong_shader->program, "directional_light_count"), 1, (const GLuint[]){light_counts[_light_type_directional]});
-        glUniform1uiv(glGetUniformLocation(blinn_phong_shader->program, "point_light_count"), 1, (const GLuint[]){light_counts[_light_type_point]});
-        glUniform1uiv(glGetUniformLocation(blinn_phong_shader->program, "spot_light_count"), 1, (const GLuint[]){light_counts[_light_type_spot]});
+        shader_set_uint(render_globals.blinn_phong_shader, "directional_light_count", light_counts[_light_type_directional]);
+        shader_set_uint(render_globals.blinn_phong_shader, "point_light_count", light_counts[_light_type_point]);
+        shader_set_uint(render_globals.blinn_phong_shader, "spot_light_count", light_counts[_light_type_spot]);
 
         // Draw the geometry
         glBindVertexArray(mesh->vertex_array);
@@ -513,16 +507,16 @@ static void render_model(struct model_data *model, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
 
             // Bind the material uniforms
-            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, "material.diffuse_color"), 1, material->base_properties.color_diffuse);
+            shader_set_vec3(render_globals.blinn_phong_shader, "material.diffuse_color", material->base_properties.color_diffuse);
 
-            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_color"), 1, material->base_properties.color_specular);
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_amount"), 1, (const GLfloat[]){material->specular_properties.specular_factor});
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.specular_shininess"), 1, (const GLfloat[]){material->specular_properties.glossiness_factor});
+            shader_set_vec3(render_globals.blinn_phong_shader, "material.specular_color", material->base_properties.color_specular);
+            shader_set_float(render_globals.blinn_phong_shader, "material.specular_amount", material->specular_properties.specular_factor);
+            shader_set_float(render_globals.blinn_phong_shader, "material.specular_shininess", material->specular_properties.glossiness_factor);
 
-            glUniform3fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_color"), 1, material->base_properties.color_ambient);
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.ambient_amount"), 1, (const GLfloat[]){0.1f});
+            shader_set_vec3(render_globals.blinn_phong_shader, "material.ambient_color", material->base_properties.color_ambient);
+            shader_set_float(render_globals.blinn_phong_shader, "material.ambient_amount", 0.1f);
 
-            glUniform1fv(glGetUniformLocation(blinn_phong_shader->program, "material.bump_scaling"), 1, (const GLfloat[]){material->base_properties.bump_scaling});
+            shader_set_float(render_globals.blinn_phong_shader, "material.bump_scaling", material->base_properties.bump_scaling);
 
             // TODO: determine required default textures ahead of time
 

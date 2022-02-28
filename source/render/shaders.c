@@ -6,6 +6,7 @@ SHADERS.C
 /* ---------- headers */
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -169,6 +170,55 @@ void shader_set_int(
     glUniform1i(glGetUniformLocation(shader->program, name), value);
 }
 
+void shader_set_int_v(
+    int shader_index,
+    int value,
+    const char *fmt,
+    ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
+    char *name;
+    vasprintf(&name, fmt, va);
+
+    va_end(va);
+    
+    shader_set_int(shader_index, name, value);
+
+    free(name);
+}
+
+void shader_set_uint(
+    int shader_index,
+    const char *name,
+    unsigned int value)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+    
+    glUniform1ui(glGetUniformLocation(shader->program, name), value);
+}
+
+void shader_set_uint_v(
+    int shader_index,
+    unsigned int value,
+    const char *fmt,
+    ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
+    char *name;
+    vasprintf(&name, fmt, va);
+
+    va_end(va);
+    
+    shader_set_uint(shader_index, name, value);
+
+    free(name);
+}
+
 void shader_set_float(
     int shader_index,
     const char *name,
@@ -178,6 +228,85 @@ void shader_set_float(
     assert(shader);
     
     glUniform1f(glGetUniformLocation(shader->program, name), value);
+}
+
+void shader_set_float_v(
+    int shader_index,
+    float value,
+    const char *fmt,
+    ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
+    char *name;
+    vasprintf(&name, fmt, va);
+
+    va_end(va);
+    
+    shader_set_float(shader_index, name, value);
+
+    free(name);
+}
+
+void shader_set_vec3(
+    int shader_index,
+    const char *name,
+    vec3 value)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+    
+    glUniform3fv(glGetUniformLocation(shader->program, name), 1, value);
+}
+
+void shader_set_vec3_v(
+    int shader_index,
+    vec3 value,
+    const char *fmt,
+    ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
+    char *name;
+    vasprintf(&name, fmt, va);
+
+    va_end(va);
+    
+    shader_set_vec3(shader_index, name, value);
+
+    free(name);
+}
+
+void shader_set_mat4(
+    int shader_index,
+    const char *name,
+    mat4 value)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+    
+    glUniformMatrix4fv(glGetUniformLocation(shader->program, name), 1, GL_FALSE, value);
+}
+
+void shader_set_mat4_v(
+    int shader_index,
+    mat4 value,
+    const char *fmt,
+    ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
+    char *name;
+    vasprintf(&name, fmt, va);
+
+    va_end(va);
+    
+    shader_set_mat4(shader_index, name, value);
+
+    free(name);
 }
 
 /* ---------- private code */
