@@ -37,6 +37,7 @@ struct model_node
     int first_child_index;
     int next_sibling_index;
     
+    mat4 offset_matrix;
     mat4 transform;
 };
 

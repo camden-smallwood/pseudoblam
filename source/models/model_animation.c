@@ -127,6 +127,8 @@ static void model_animation_compute_node_matrices(
     mat4 node_transform;
     glm_mat4_identity(node_transform);
 
+    int key_count = 0;
+
     for (int channel_index = 0; channel_index < animation->channel_count; channel_index++)
     {
         struct model_animation_channel *channel = animation->channels + channel_index;
@@ -140,8 +142,9 @@ static void model_animation_compute_node_matrices(
                 {
                     mat4 position_matrix;
                     glm_mat4_identity(position_matrix);
-                    glm_translate(node_transform, channel->position_keys[0].position);
+                    glm_translate(position_matrix, channel->position_keys[0].position);
                     glm_mat4_mul(node_transform, position_matrix, node_transform);
+                    key_count++;
                 }
                 else
                 {
@@ -161,6 +164,7 @@ static void model_animation_compute_node_matrices(
                             glm_mat4_identity(position_matrix);
                             glm_translate(position_matrix, interpolated_position);
                             glm_mat4_mul(node_transform, position_matrix, node_transform);
+                            key_count++;
                             break;
                         }
                     }
@@ -171,7 +175,8 @@ static void model_animation_compute_node_matrices(
                     mat4 rotation_matrix;
                     glm_mat4_identity(rotation_matrix);
                     glm_quat_mat4(channel->rotation_keys[0].rotation, rotation_matrix);
-                    glm_mat4_mul(node_transform, rotation_matrix, node_transform);   
+                    glm_mat4_mul(node_transform, rotation_matrix, node_transform);
+                    key_count++;
                 }
                 else
                 {
@@ -192,6 +197,7 @@ static void model_animation_compute_node_matrices(
                             glm_mat4_identity(rotation_matrix);
                             glm_quat_mat4(interpolated_rotation, rotation_matrix);
                             glm_mat4_mul(node_transform, rotation_matrix, node_transform);
+                            key_count++;
                             break;
                         }
                     }
@@ -203,6 +209,7 @@ static void model_animation_compute_node_matrices(
                     glm_mat4_identity(scaling_matrix);
                     glm_scale(scaling_matrix, channel->scaling_keys[0].scaling);
                     glm_mat4_mul(node_transform, scaling_matrix, node_transform);
+                    key_count++;
                 }
                 else
                 {
@@ -222,6 +229,7 @@ static void model_animation_compute_node_matrices(
                             glm_mat4_identity(scaling_matrix);
                             glm_scale(scaling_matrix, interpolated_scaling);
                             glm_mat4_mul(node_transform, scaling_matrix, node_transform);
+                            key_count++;
                             break;
                         }
                     }
@@ -245,12 +253,13 @@ static void model_animation_compute_node_matrices(
         }
     }
 
-    // TODO: track if node transform is set by a channel, if not then use node->transform
+    if (!key_count)
+        glm_mat4_copy(node->transform, node_transform);
 
     mat4 global_transform;
     glm_mat4_mul(parent_transform, node_transform, global_transform);
 
-    // TODO: apply bone offset to global_transform
+    glm_mat4_mul(global_transform, node->offset_matrix, state->node_matrices[node_index]);
 
     for (int child_node_index = node->first_child_index;
         child_node_index != -1;

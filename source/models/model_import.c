@@ -607,14 +607,18 @@ static void model_import_assimp_mesh(
             struct model_node node =
             {
                 .name = strdup(in_bone->mName.data),
-                .parent_index = -1, // TODO
-                .first_child_index = -1, // TODO
-                .next_sibling_index = -1, // TODO
+                .parent_index = -1,
+                .first_child_index = -1,
+                .next_sibling_index = -1,
+                .offset_matrix = GLM_MAT4_ZERO_INIT,
                 .transform = GLM_MAT4_ZERO_INIT,
             };
 
-            glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.transform);
+            glm_mat4_copy((vec4 *)&in_node->mTransformation, node.transform);
             glm_mat4_transpose(node.transform);
+
+            glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
+            glm_mat4_transpose(node.offset_matrix);
             
             if (in_bone->mNode->mParent == in_bone->mArmature)
             {
