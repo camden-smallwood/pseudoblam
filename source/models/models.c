@@ -119,23 +119,23 @@ int model_find_node_by_name(
     return -1;
 }
 
-void model_node_add_child_node(
+int model_node_add_child_node(
     struct model_data *model,
     int node_index,
     struct model_node *child_node)
 {
-    assert(node_index >= 0 && node_index < model->node_count);
-    child_node->parent_index = node_index;
-
     int child_node_index = model->node_count;
     mempush(&model->node_count, (void **)&model->nodes, child_node, sizeof(*child_node), realloc);
+
+    if (node_index == -1)
+        return child_node_index;
 
     struct model_node *node = model->nodes + node_index;
 
     if (node->first_child_index == -1)
     {
         node->first_child_index = child_node_index;
-        return;
+        return child_node_index;
     }
 
     for (node = model->nodes + node->first_child_index; ; node = model->nodes + node->next_sibling_index)
@@ -146,4 +146,6 @@ void model_node_add_child_node(
             break;
         }
     }
+    
+    return child_node_index;
 }

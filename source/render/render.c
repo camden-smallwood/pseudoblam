@@ -73,7 +73,7 @@ static void render_update_headlight(void);
 static void render_frame(void);
 static void render_quad(void);
 static void render_models(void);
-static void render_model(struct model_data *model, mat4 model_matrix);
+static void render_model(int model_index, mat4 model_matrix);
 
 /* ---------- public code */
 
@@ -99,7 +99,7 @@ void render_initialize(void)
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     model_import_from_file(_vertex_type_rigid, "../assets/models/cube.fbx");
     
-    render_globals.weapon_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle_skinned.fbx");
+    render_globals.weapon_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
     
     struct model_iterator iterator;
     model_iterator_new(&iterator);
@@ -388,7 +388,7 @@ static void render_models(void)
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
         
-        render_model(iterator.data, model_matrix);
+        render_model(iterator.index, model_matrix);
     }
 
     if (render_globals.weapon_model_index != -1)
@@ -404,15 +404,17 @@ static void render_models(void)
         glm_mat4_inv(render_globals.camera.view, inverted_view);
         glm_mat4_mul(inverted_view, model_matrix, model_matrix);
 
-        render_model(model_get_data(render_globals.weapon_model_index), model_matrix);
+        render_model(render_globals.weapon_model_index, model_matrix);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
 }
 
-static void render_model(struct model_data *model, mat4 model_matrix)
+static void render_model(int model_index, mat4 model_matrix)
 {
+    struct model_data *model = model_get_data(model_index);
+
     for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
     {
         struct model_mesh *mesh = model->meshes + mesh_index;
@@ -439,6 +441,9 @@ static void render_model(struct model_data *model, mat4 model_matrix)
 
         while (light_iterator_next(&light_iterator) != -1)
         {
+            if (model_index == render_globals.weapon_model_index && light_iterator.index == render_globals.headlight_light_index)
+                continue;
+            
             struct light_data *light = light_iterator.data;
 
             if (TEST_BIT(light->flags, _light_is_hidden_bit))
@@ -464,8 +469,6 @@ static void render_model(struct model_data *model, mat4 model_matrix)
                 fprintf(stderr, "ERROR: unhandled light type %i\n", light->type);
                 exit(EXIT_FAILURE);
             }
-
-            char uniform_name[256];
 
             shader_set_vec3_v(render_globals.blinn_phong_shader, light->position, "%s[%i].position", lights_array_name, light_counts[light->type]);
             shader_set_vec3_v(render_globals.blinn_phong_shader, light->diffuse_color, "%s[%i].diffuse_color", lights_array_name, light_counts[light->type]);
@@ -549,6 +552,17 @@ static void render_model(struct model_data *model, mat4 model_matrix)
                     fprintf(stderr, "ERROR: unhandled texture usage - \"%s\"\n", material_texture_usage_to_string(texture->usage));
                     exit(EXIT_FAILURE);
                 }
+            }
+
+            // Bind model animation uniforms
+            shader_set_bool(render_globals.blinn_phong_shader, "use_nodes", mesh->vertex_type == _vertex_type_skinned);
+            shader_set_uint(render_globals.blinn_phong_shader, "node_count", model->node_count);
+
+            for (int node_index = 0; node_index < model->node_count; node_index++)
+            {
+                struct model_node *node = model->nodes + node_index;
+                // TODO: get node matrix from animation state
+                shader_set_mat4_v(render_globals.blinn_phong_shader, node->transform, "node_matrices[%i]", node_index);
             }
 
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);

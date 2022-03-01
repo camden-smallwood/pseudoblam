@@ -311,7 +311,6 @@ static void model_import_assimp_material(
 }
 
 static void model_import_assimp_animation(
-    const struct aiScene *in_scene,
     const struct aiAnimation *in_animation,
     struct model_data *out_model)
 {
@@ -525,7 +524,6 @@ static void model_import_assimp_metadata(
 
 static void model_import_assimp_mesh(
     enum vertex_type vertex_type,
-    const struct aiScene *in_scene,
     const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
     struct model_data *out_model,
@@ -592,61 +590,84 @@ static void model_import_assimp_mesh(
         part.vertex_count += face.mNumIndices;
     }
     
-    for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
+    if (vertex_type == _vertex_type_skinned)
     {
-        struct aiBone *in_bone = in_mesh->mBones[bone_index];
-
-        if (model_find_node_by_name(out_model, in_bone->mName.data) == -1)
+        for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
         {
-            printf("\t----------\n"
-                "\tbone node: %s\n"
-                "\tbone parent node: %s\n",
-                in_bone->mNode->mName.data,
-                in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
+            struct aiBone *in_bone = in_mesh->mBones[bone_index];
 
-            struct model_node node =
-            {
-                .name = strdup(in_bone->mName.data),
-                .parent_index = -1,
-                .first_child_index = -1,
-                .next_sibling_index = -1,
-                .offset_matrix = GLM_MAT4_ZERO_INIT,
-                .transform = GLM_MAT4_ZERO_INIT,
-            };
+            int node_index = model_find_node_by_name(out_model, in_bone->mName.data);
 
-            glm_mat4_copy((vec4 *)&in_node->mTransformation, node.transform);
-            glm_mat4_transpose(node.transform);
+            if (node_index == -1)
+            {
+                printf("\t----------\n"
+                    "\tbone node: %s\n"
+                    "\tbone parent node: %s\n",
+                    in_bone->mNode->mName.data,
+                    in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
 
-            glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
-            glm_mat4_transpose(node.offset_matrix);
-            
-            if (in_bone->mNode->mParent == in_bone->mArmature)
-            {
-                mempush(&out_model->node_count, (void **)&out_model->nodes, &node, sizeof(node), realloc);
-            }
-            else
-            {
-                int parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
-                model_node_add_child_node(out_model, parent_node_index, &node);
-            }
-        }
-        
-        for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
-        {
-            struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
-            struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
-
-            for (size_t i = 0; i < sizeof(vertex->node_indices) / sizeof(vertex->node_indices[0]); i++)
-            {
-                if ((unsigned int)vertex->node_indices[i] == bone_index)
-                    break;
-                
-                if (vertex->node_indices[i] == -1)
+                struct model_node node =
                 {
-                    vertex->node_indices[i] = bone_index;
-                    vertex->node_weights[i] = weight->mWeight;
-                    break;
+                    .name = strdup(in_bone->mName.data),
+                    .parent_index = -1,
+                    .first_child_index = -1,
+                    .next_sibling_index = -1,
+                    .offset_matrix = GLM_MAT4_ZERO_INIT,
+                    .transform = GLM_MAT4_ZERO_INIT,
+                };
+
+                glm_mat4_copy((vec4 *)&in_node->mTransformation, node.transform);
+                glm_mat4_transpose(node.transform);
+
+                glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
+                glm_mat4_transpose(node.offset_matrix);
+                
+                node_index = out_model->node_count;
+                
+                if (in_bone->mNode->mParent == in_bone->mArmature)
+                {
+                    model_node_add_child_node(out_model, -1, &node);
                 }
+                else
+                {
+                    int parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
+                    model_node_add_child_node(out_model, parent_node_index, &node);
+                }
+            }
+
+            for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
+            {
+                struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
+                struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
+
+                printf("weighting vertex %i: {\n", weight->mVertexId);
+                printf("\tposition: { x: %f, y: %f, z: %f },\n", vertex->position[0], vertex->position[1], vertex->position[2]);
+                printf("\tnormal: { x: %f, y: %f, z: %f },\n", vertex->normal[0], vertex->normal[1], vertex->position[2]);
+                printf("\texcoord: { x: %f, y: %f },\n", vertex->texcoord[0], vertex->texcoord[1]);
+                printf("\ttangent: { x: %f, y: %f, z: %f },\n", vertex->tangent[0], vertex->tangent[1], vertex->position[2]);
+                printf("\tbitangent: { x: %f, y: %f, z: %f },\n", vertex->bitangent[0], vertex->bitangent[1], vertex->position[2]);
+                printf("\tnode_indices (before): { [0]: %i, [1]: %i, [2]: %i, [3]: %i },\n", vertex->node_indices[0], vertex->node_indices[1], vertex->node_indices[2], vertex->node_indices[3]);
+                printf("\tnode_weights (before): { [0]: %f, [1]: %f, [2]: %f, [3]: %f },\n", vertex->node_weights[0], vertex->node_weights[1], vertex->node_weights[2], vertex->node_weights[3]);
+
+                for (size_t i = 0; i < 4; i++)
+                {
+                    if (vertex->node_indices[i] == node_index)
+                    {
+                        vertex->node_weights[i] = fmaxf(vertex->node_weights[i], weight->mWeight);
+                        break;
+                    }
+                    
+                    if (vertex->node_indices[i] == -1)
+                    {
+                        vertex->node_indices[i] = node_index;
+                        vertex->node_weights[i] = weight->mWeight;
+                        break;
+                    }
+                }
+                
+                printf("\tnode_indices (after): { [0]: %i, [1]: %i, [2]: %i, [3]: %i },\n", vertex->node_indices[0], vertex->node_indices[1], vertex->node_indices[2], vertex->node_indices[3]);
+                printf("\tnode_weights (after): { [0]: %f, [1]: %f, [2]: %f, [3]: %f },\n", vertex->node_weights[0], vertex->node_weights[1], vertex->node_weights[2], vertex->node_weights[3]);
+                printf("}\n");
             }
         }
     }
@@ -681,7 +702,7 @@ static void model_import_assimp_node(
     {
         struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
 
-        model_import_assimp_mesh(mesh.vertex_type, in_scene, in_node, in_mesh, out_model, &mesh);
+        model_import_assimp_mesh(mesh.vertex_type, in_node, in_mesh, out_model, &mesh);
     }
     
     if (mesh.vertex_data)
@@ -750,13 +771,15 @@ int model_import_from_file(
     for (unsigned int animation_index = 0; animation_index < scene->mNumAnimations; animation_index++)
     {
         struct aiAnimation *animation = scene->mAnimations[animation_index];
-        model_import_assimp_animation(scene, animation, model);
+        model_import_assimp_animation(animation, model);
     }
 
     model_import_assimp_node(directory_path, vertex_type, scene, scene->mRootNode, model);
 
     aiReleaseImport(scene);
     free(directory_path);
+    
+    printf("mode node count: %i\n", model->node_count);
 
     return model_index;
 }

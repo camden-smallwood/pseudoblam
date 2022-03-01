@@ -4,6 +4,8 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+uniform bool use_nodes;
+
 #define MAXIMUM_NODES 256
 uniform uint node_count;
 uniform mat4 node_matrices[MAXIMUM_NODES];

@@ -159,6 +159,36 @@ void shader_bind_vertex_attributes(
     }
 }
 
+void shader_set_bool(
+    int shader_index,
+    const char *name,
+    bool value)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+    
+    glUniform1i(glGetUniformLocation(shader->program, name), value);
+}
+
+void shader_set_bool_v(
+    int shader_index,
+    bool value,
+    const char *fmt,
+    ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
+    char *name;
+    vasprintf(&name, fmt, va);
+
+    va_end(va);
+    
+    shader_set_bool(shader_index, name, value);
+
+    free(name);
+}
+
 void shader_set_int(
     int shader_index,
     const char *name,
@@ -287,7 +317,7 @@ void shader_set_mat4(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
     
-    glUniformMatrix4fv(glGetUniformLocation(shader->program, name), 1, GL_FALSE, value);
+    glUniformMatrix4fv(glGetUniformLocation(shader->program, name), 1, GL_FALSE, &value[0][0]);
 }
 
 void shader_set_mat4_v(

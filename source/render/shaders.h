@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 #include <cglm/cglm.h>
 #include <GL/glew.h>
 #include "render/vertices.h"
@@ -23,6 +24,9 @@ struct shader_data *shader_get_data(int shader_index);
 void shader_use(int shader_index);
 
 void shader_bind_vertex_attributes(int shader_index, enum vertex_type vertex_type);
+
+void shader_set_bool(int shader_index, const char *name, bool value);
+void shader_set_bool_v(int shader_index, bool value, const char *fmt, ...);
 
 void shader_set_int(int shader_index, const char *name, int value);
 void shader_set_int_v(int shader_index, int value, const char *fmt, ...);
