@@ -97,7 +97,7 @@ void render_initialize(void)
     render_globals.default_emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
 
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
-    model_import_from_file(_vertex_type_rigid, "../assets/models/cube.fbx");
+    model_import_from_file(_vertex_type_rigid, "../assets/models/crate_space.fbx");
     
     render_globals.weapon_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
     
