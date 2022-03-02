@@ -316,7 +316,7 @@ void shader_set_mat4(
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
-    
+
     glUniformMatrix4fv(glGetUniformLocation(shader->program, name), 1, GL_FALSE, &value[0][0]);
 }
 

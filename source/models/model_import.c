@@ -622,32 +622,18 @@ static void model_import_assimp_mesh(
                 glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
                 glm_mat4_transpose(node.offset_matrix);
                 
-                node_index = out_model->node_count;
+                int parent_node_index = -1;
                 
-                if (in_bone->mNode->mParent == in_bone->mArmature)
-                {
-                    model_node_add_child_node(out_model, -1, &node);
-                }
-                else
-                {
-                    int parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
-                    model_node_add_child_node(out_model, parent_node_index, &node);
-                }
+                if (in_bone->mNode->mParent != in_bone->mArmature)
+                    parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
+                
+                model_node_add_child_node(out_model, parent_node_index, &node);
             }
 
             for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
             {
                 struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
                 struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
-
-                printf("weighting vertex %i: {\n", weight->mVertexId);
-                printf("\tposition: { x: %f, y: %f, z: %f },\n", vertex->position[0], vertex->position[1], vertex->position[2]);
-                printf("\tnormal: { x: %f, y: %f, z: %f },\n", vertex->normal[0], vertex->normal[1], vertex->position[2]);
-                printf("\texcoord: { x: %f, y: %f },\n", vertex->texcoord[0], vertex->texcoord[1]);
-                printf("\ttangent: { x: %f, y: %f, z: %f },\n", vertex->tangent[0], vertex->tangent[1], vertex->position[2]);
-                printf("\tbitangent: { x: %f, y: %f, z: %f },\n", vertex->bitangent[0], vertex->bitangent[1], vertex->position[2]);
-                printf("\tnode_indices (before): { [0]: %i, [1]: %i, [2]: %i, [3]: %i },\n", vertex->node_indices[0], vertex->node_indices[1], vertex->node_indices[2], vertex->node_indices[3]);
-                printf("\tnode_weights (before): { [0]: %f, [1]: %f, [2]: %f, [3]: %f },\n", vertex->node_weights[0], vertex->node_weights[1], vertex->node_weights[2], vertex->node_weights[3]);
 
                 for (size_t i = 0; i < 4; i++)
                 {
@@ -664,10 +650,6 @@ static void model_import_assimp_mesh(
                         break;
                     }
                 }
-                
-                printf("\tnode_indices (after): { [0]: %i, [1]: %i, [2]: %i, [3]: %i },\n", vertex->node_indices[0], vertex->node_indices[1], vertex->node_indices[2], vertex->node_indices[3]);
-                printf("\tnode_weights (after): { [0]: %f, [1]: %f, [2]: %f, [3]: %f },\n", vertex->node_weights[0], vertex->node_weights[1], vertex->node_weights[2], vertex->node_weights[3]);
-                printf("}\n");
             }
         }
     }

@@ -59,7 +59,7 @@ struct render_globals
 
     int weapon_model_index;
 
-    int headlight_light_index;
+    int flashlight_light_index;
 } static render_globals;
 
 /* ---------- private prototypes */
@@ -68,12 +68,14 @@ static void render_initialize_gl(void);
 static void render_initialize_quad(void);
 
 static void render_update_input(void);
-static void render_update_headlight(void);
+static void render_update_flashlight(void);
 
 static void render_frame(void);
 static void render_quad(void);
 static void render_models(void);
 static void render_model(int model_index, mat4 model_matrix);
+static void render_lights(int shader_index);
+static void render_material(struct material_data *material);
 
 /* ---------- public code */
 
@@ -132,16 +134,16 @@ void render_initialize(void)
     {
         struct light_data *light;
 
-        render_globals.headlight_light_index = light_new();
-        light = light_get_data(render_globals.headlight_light_index);
+        render_globals.flashlight_light_index = light_new();
+        light = light_get_data(render_globals.flashlight_light_index);
         light->type = _light_type_spot;
         SET_BIT(light->flags, _light_is_hidden_bit, true);
         glm_vec3_copy(render_globals.camera.position, light->position);
         glm_vec3_copy(render_globals.camera.forward, light->direction);
-        glm_vec3_copy((vec3){1, 1, 1}, light->diffuse_color);
+        glm_vec3_copy((vec3){0.8, 0.8, 0.8}, light->diffuse_color);
         glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
         glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-        light->constant = 1.0f;
+        light->constant = 1.1f;
         light->linear = 0.09f;
         light->quadratic = 0.032f;
         light->inner_cutoff = 18.5f;
@@ -231,7 +233,7 @@ void render_update(float delta_ticks)
 {
     render_update_input();
     camera_update(&render_globals.camera, delta_ticks);
-    render_update_headlight();
+    render_update_flashlight();
     render_frame();
 }
 
@@ -306,7 +308,7 @@ static void render_initialize_quad(void)
 
 static void render_update_input(void)
 {
-    // Toggle the headlight on or off
+    // Toggle the flashlight on or off
     if (input_is_key_down(SDL_SCANCODE_H))
     {
         SET_BIT(render_globals.flags, _render_input_h_bit, true);
@@ -316,8 +318,8 @@ static void render_update_input(void)
         SET_BIT(render_globals.flags, _render_input_h_bit, false);
 
         light_set_hidden(
-            render_globals.headlight_light_index,
-            !light_is_hidden(render_globals.headlight_light_index));
+            render_globals.flashlight_light_index,
+            !light_is_hidden(render_globals.flashlight_light_index));
     }
 
     // Cycle through camera speed intervals when the tab key is pressed and then released
@@ -336,15 +338,15 @@ static void render_update_input(void)
     }
 }
 
-static void render_update_headlight(void)
+static void render_update_flashlight(void)
 {
-    struct light_data *headlight = light_get_data(render_globals.headlight_light_index);
+    struct light_data *light = light_get_data(render_globals.flashlight_light_index);
 
-    if (!headlight)
+    if (!light)
         return;
 
-    glm_vec3_copy(render_globals.camera.position, headlight->position);
-    glm_vec3_copy(render_globals.camera.forward, headlight->direction);
+    glm_vec3_copy(render_globals.camera.position, light->position);
+    glm_vec3_copy(render_globals.camera.forward, light->direction);
 }
 
 static void render_frame(void)
@@ -419,151 +421,35 @@ static void render_model(int model_index, mat4 model_matrix)
     {
         struct model_mesh *mesh = model->meshes + mesh_index;
 
-        struct shader_data *blinn_phong_shader = shader_get_data(render_globals.blinn_phong_shader);
+        shader_use(render_globals.blinn_phong_shader);
 
-        // Bind the shader
-        glUseProgram(blinn_phong_shader->program);
-
-        // Bind the camera position
         shader_set_vec3(render_globals.blinn_phong_shader, "camera_position", render_globals.camera.position);
 
-        // Bind the camera model/view/projection matrices
         shader_set_mat4(render_globals.blinn_phong_shader, "model", model_matrix);
         shader_set_mat4(render_globals.blinn_phong_shader, "view", render_globals.camera.view);
         shader_set_mat4(render_globals.blinn_phong_shader, "projection", render_globals.camera.projection);
 
-        // Bind the lighting uniforms
-        struct light_iterator light_iterator;
-        light_iterator_new(&light_iterator);
+        shader_set_bool(render_globals.blinn_phong_shader, "use_nodes", mesh->vertex_type == _vertex_type_skinned);
+        shader_set_uint(render_globals.blinn_phong_shader, "node_count", model->node_count);
 
-        int light_counts[NUMBER_OF_LIGHT_TYPES];
-        memset(light_counts, 0, sizeof(light_counts));
-
-        while (light_iterator_next(&light_iterator) != -1)
+        for (int node_index = 0; node_index < model->node_count; node_index++)
         {
-            if (model_index == render_globals.weapon_model_index && light_iterator.index == render_globals.headlight_light_index)
-                continue;
+            struct model_node *node = model->nodes + node_index;
+            // TODO: get node matrix from animation state
             
-            struct light_data *light = light_iterator.data;
-
-            if (TEST_BIT(light->flags, _light_is_hidden_bit))
-                continue;
-
-            const char *lights_array_name;
-
-            switch (light->type)
-            {
-            case _light_type_directional:
-                lights_array_name = "directional_lights";
-                break;
-            
-            case _light_type_point:
-                lights_array_name = "point_lights";
-                break;
-            
-            case _light_type_spot:
-                lights_array_name = "spot_lights";
-                break;
-            
-            default:
-                fprintf(stderr, "ERROR: unhandled light type %i\n", light->type);
-                exit(EXIT_FAILURE);
-            }
-
-            shader_set_vec3_v(render_globals.blinn_phong_shader, light->position, "%s[%i].position", lights_array_name, light_counts[light->type]);
-            shader_set_vec3_v(render_globals.blinn_phong_shader, light->diffuse_color, "%s[%i].diffuse_color", lights_array_name, light_counts[light->type]);
-            shader_set_vec3_v(render_globals.blinn_phong_shader, light->ambient_color, "%s[%i].ambient_color", lights_array_name, light_counts[light->type]);
-            shader_set_vec3_v(render_globals.blinn_phong_shader, light->specular_color, "%s[%i].specular_color", lights_array_name, light_counts[light->type]);
-
-            if (light->type == _light_type_directional || light->type == _light_type_spot)
-            {
-                shader_set_vec3_v(render_globals.blinn_phong_shader, light->direction, "%s[%i].direction", lights_array_name, light_counts[light->type]);
-            }
-
-            if (light->type == _light_type_point || light->type == _light_type_spot)
-            {
-                shader_set_float_v(render_globals.blinn_phong_shader, light->constant, "%s[%i].constant", lights_array_name, light_counts[light->type]);
-                shader_set_float_v(render_globals.blinn_phong_shader, light->linear, "%s[%i].linear", lights_array_name, light_counts[light->type]);
-                shader_set_float_v(render_globals.blinn_phong_shader, light->quadratic, "%s[%i].quadratic", lights_array_name, light_counts[light->type]);
-            }
-
-            if (light->type == _light_type_spot)
-            {
-                shader_set_float_v(render_globals.blinn_phong_shader, cosf(glm_rad(light->inner_cutoff)), "%s[%i].inner_cutoff", lights_array_name, light_counts[light->type]);
-                shader_set_float_v(render_globals.blinn_phong_shader, cosf(glm_rad(light->outer_cutoff)), "%s[%i].outer_cutoff", lights_array_name, light_counts[light->type]);
-            }
-
-            light_counts[light->type]++;
+            shader_set_mat4_v(render_globals.blinn_phong_shader, node->offset_matrix, "node_matrices[%i]", node_index);
         }
+        
+        render_lights(render_globals.blinn_phong_shader);
 
-        // Bind the total number of lights for each light type
-        shader_set_uint(render_globals.blinn_phong_shader, "directional_light_count", light_counts[_light_type_directional]);
-        shader_set_uint(render_globals.blinn_phong_shader, "point_light_count", light_counts[_light_type_point]);
-        shader_set_uint(render_globals.blinn_phong_shader, "spot_light_count", light_counts[_light_type_spot]);
-
-        // Draw the geometry
         glBindVertexArray(mesh->vertex_array);
 
         for (int part_index = 0; part_index < mesh->part_count; part_index++)
         {
             struct model_mesh_part *part = mesh->parts + part_index;
+
             struct material_data *material = model->materials + part->material_index;
-
-            // Bind the material uniforms
-            shader_set_vec3(render_globals.blinn_phong_shader, "material.diffuse_color", material->base_properties.color_diffuse);
-
-            shader_set_vec3(render_globals.blinn_phong_shader, "material.specular_color", material->base_properties.color_specular);
-            shader_set_float(render_globals.blinn_phong_shader, "material.specular_amount", material->specular_properties.specular_factor);
-            shader_set_float(render_globals.blinn_phong_shader, "material.specular_shininess", material->specular_properties.glossiness_factor);
-
-            shader_set_vec3(render_globals.blinn_phong_shader, "material.ambient_color", material->base_properties.color_ambient);
-            shader_set_float(render_globals.blinn_phong_shader, "material.ambient_amount", 0.1f);
-
-            shader_set_float(render_globals.blinn_phong_shader, "material.bump_scaling", material->base_properties.bump_scaling);
-
-            // TODO: determine required default textures ahead of time
-
-            for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
-            {
-                struct material_texture *texture = material->textures + texture_index;
-
-                glActiveTexture(GL_TEXTURE0 + texture_index);
-                glBindTexture(GL_TEXTURE_2D, texture->id);
-
-                switch (texture->usage)
-                {
-                case _material_texture_usage_diffuse:
-                    shader_set_int(render_globals.blinn_phong_shader, "material.diffuse_texture", texture_index);
-                    break;
-
-                case _material_texture_usage_specular:
-                    shader_set_int(render_globals.blinn_phong_shader, "material.specular_texture", texture_index);
-                    break;
-
-                case _material_texture_usage_emissive:
-                    shader_set_int(render_globals.blinn_phong_shader, "material.emissive_texture", texture_index);
-                    break;
-
-                case _material_texture_usage_normals:
-                    shader_set_int(render_globals.blinn_phong_shader, "material.normal_texture", texture_index);
-                    break;
-
-                default:
-                    fprintf(stderr, "ERROR: unhandled texture usage - \"%s\"\n", material_texture_usage_to_string(texture->usage));
-                    exit(EXIT_FAILURE);
-                }
-            }
-
-            // Bind model animation uniforms
-            shader_set_bool(render_globals.blinn_phong_shader, "use_nodes", mesh->vertex_type == _vertex_type_skinned);
-            shader_set_uint(render_globals.blinn_phong_shader, "node_count", model->node_count);
-
-            for (int node_index = 0; node_index < model->node_count; node_index++)
-            {
-                struct model_node *node = model->nodes + node_index;
-                // TODO: get node matrix from animation state
-                shader_set_mat4_v(render_globals.blinn_phong_shader, node->transform, "node_matrices[%i]", node_index);
-            }
+            render_material(material);
 
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
 
@@ -572,6 +458,123 @@ static void render_model(int model_index, mat4 model_matrix)
                 glActiveTexture(GL_TEXTURE0 + texture_index);
                 glBindTexture(GL_TEXTURE_2D, 0);
             }
+        }
+    }
+}
+
+static void render_lights(int shader_index)
+{
+    // Bind the lighting uniforms
+    struct light_iterator light_iterator;
+    light_iterator_new(&light_iterator);
+
+    int light_counts[NUMBER_OF_LIGHT_TYPES];
+    memset(light_counts, 0, sizeof(light_counts));
+
+    while (light_iterator_next(&light_iterator) != -1)
+    {
+        struct light_data *light = light_iterator.data;
+
+        if (TEST_BIT(light->flags, _light_is_hidden_bit))
+            continue;
+
+        const char *lights_array_name;
+
+        switch (light->type)
+        {
+        case _light_type_directional:
+            lights_array_name = "directional_lights";
+            break;
+        
+        case _light_type_point:
+            lights_array_name = "point_lights";
+            break;
+        
+        case _light_type_spot:
+            lights_array_name = "spot_lights";
+            break;
+        
+        default:
+            fprintf(stderr, "ERROR: unhandled light type %i\n", light->type);
+            exit(EXIT_FAILURE);
+        }
+
+        shader_set_vec3_v(shader_index, light->position, "%s[%i].position", lights_array_name, light_counts[light->type]);
+        shader_set_vec3_v(shader_index, light->diffuse_color, "%s[%i].diffuse_color", lights_array_name, light_counts[light->type]);
+        shader_set_vec3_v(shader_index, light->ambient_color, "%s[%i].ambient_color", lights_array_name, light_counts[light->type]);
+        shader_set_vec3_v(shader_index, light->specular_color, "%s[%i].specular_color", lights_array_name, light_counts[light->type]);
+
+        if (light->type == _light_type_directional || light->type == _light_type_spot)
+        {
+            shader_set_vec3_v(shader_index, light->direction, "%s[%i].direction", lights_array_name, light_counts[light->type]);
+        }
+
+        if (light->type == _light_type_point || light->type == _light_type_spot)
+        {
+            shader_set_float_v(shader_index, light->constant, "%s[%i].constant", lights_array_name, light_counts[light->type]);
+            shader_set_float_v(shader_index, light->linear, "%s[%i].linear", lights_array_name, light_counts[light->type]);
+            shader_set_float_v(shader_index, light->quadratic, "%s[%i].quadratic", lights_array_name, light_counts[light->type]);
+        }
+
+        if (light->type == _light_type_spot)
+        {
+            shader_set_float_v(shader_index, cosf(glm_rad(light->inner_cutoff)), "%s[%i].inner_cutoff", lights_array_name, light_counts[light->type]);
+            shader_set_float_v(shader_index, cosf(glm_rad(light->outer_cutoff)), "%s[%i].outer_cutoff", lights_array_name, light_counts[light->type]);
+        }
+
+        light_counts[light->type]++;
+    }
+
+    // Bind the total number of lights for each light type
+    shader_set_uint(shader_index, "directional_light_count", light_counts[_light_type_directional]);
+    shader_set_uint(shader_index, "point_light_count", light_counts[_light_type_point]);
+    shader_set_uint(shader_index, "spot_light_count", light_counts[_light_type_spot]);
+}
+
+static void render_material(struct material_data *material)
+{
+    // Bind the material uniforms
+    shader_set_vec3(render_globals.blinn_phong_shader, "material.diffuse_color", material->base_properties.color_diffuse);
+
+    shader_set_vec3(render_globals.blinn_phong_shader, "material.specular_color", material->base_properties.color_specular);
+    shader_set_float(render_globals.blinn_phong_shader, "material.specular_amount", material->specular_properties.specular_factor);
+    shader_set_float(render_globals.blinn_phong_shader, "material.specular_shininess", material->specular_properties.glossiness_factor);
+
+    shader_set_vec3(render_globals.blinn_phong_shader, "material.ambient_color", material->base_properties.color_ambient);
+    shader_set_float(render_globals.blinn_phong_shader, "material.ambient_amount", 0.1f);
+
+    shader_set_float(render_globals.blinn_phong_shader, "material.bump_scaling", material->base_properties.bump_scaling);
+
+    // TODO: determine required default textures ahead of time
+
+    for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
+    {
+        struct material_texture *texture = material->textures + texture_index;
+
+        glActiveTexture(GL_TEXTURE0 + texture_index);
+        glBindTexture(GL_TEXTURE_2D, texture->id);
+
+        switch (texture->usage)
+        {
+        case _material_texture_usage_diffuse:
+            shader_set_int(render_globals.blinn_phong_shader, "material.diffuse_texture", texture_index);
+            break;
+
+        case _material_texture_usage_specular:
+            shader_set_int(render_globals.blinn_phong_shader, "material.specular_texture", texture_index);
+            break;
+
+        case _material_texture_usage_emissive:
+            shader_set_int(render_globals.blinn_phong_shader, "material.emissive_texture", texture_index);
+            break;
+
+        case _material_texture_usage_normals:
+            shader_set_int(render_globals.blinn_phong_shader, "material.normal_texture", texture_index);
+            break;
+
+        default:
+            fprintf(stderr, "ERROR: unhandled texture usage - \"%s\"\n", material_texture_usage_to_string(texture->usage));
+            exit(EXIT_FAILURE);
         }
     }
 }

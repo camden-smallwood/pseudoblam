@@ -77,22 +77,22 @@ vec3 calculate_light(
     float light_attenuation)
 {
     float light_distance = length(light_direction);
-    light_distance = light_distance * light_distance;
+    // light_distance = light_distance * light_distance;
 
     vec3 diffuse_texture = vec3(texture(material.diffuse_texture, frag_texcoord));
     vec3 specular_texture = vec3(texture(material.specular_texture, frag_texcoord));
 
     // ambient shading
-    vec3 ambient = material.ambient_amount * (material.ambient_color + light_ambient_color) * light_attenuation / light_distance;
+    vec3 ambient = material.ambient_amount * (material.ambient_color + light_ambient_color) * light_attenuation;
 
     // diffuse shading
-    float diffuse_amount = clamp(dot(normal, light_direction), 0.0, 1.0);
-    vec3 diffuse = diffuse_amount * (material.diffuse_color + light_diffuse_color) * diffuse_texture * light_attenuation / light_distance;
+    float diffuse_amount = max(dot(normal, light_direction), 0.0);
+    vec3 diffuse = diffuse_amount * (material.diffuse_color + light_diffuse_color) * diffuse_texture * light_attenuation;
 
     // specular shading
     vec3 light_halfway_direction = normalize(light_direction + camera_direction);
-    float specular_amount = pow(clamp(dot(normal, light_halfway_direction), 0.0, 1.0), material.specular_shininess);
-    vec3 specular = specular_amount * (material.specular_color + light_specular_color) * material.specular_amount * light_attenuation * specular_texture / light_distance;
+    float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
+    vec3 specular = (light_specular_color * specular_amount) * light_attenuation * (specular_texture * material.specular_amount);
 
     // emissive
     vec3 emissive = vec3(texture(material.emissive_texture, frag_texcoord));
@@ -170,7 +170,17 @@ vec3 calculate_spot_light(
         light.diffuse_color,
         light.ambient_color,
         light.specular_color,
-        light_attenuation * light_intensity);
+        light_intensity * light_attenuation);
+}
+
+vec3 compute_brightness_contrast(vec3 color, float brightness, float contrast)
+{
+    return ((color - 0.5) * (contrast + 0.5)) + brightness;
+}
+
+vec3 compute_gamma(vec3 value, float param)
+{
+    return vec3(pow(abs(value.r), param), pow(abs(value.g), param), pow(abs(value.b), param));
 }
 
 in vec3 frag_position;
@@ -186,16 +196,22 @@ void main()
     vec3 normal = normalize(frag_tbn * (texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0) * material.bump_scaling);
     vec3 camera_direction = normalize(camera_position - frag_position);
 
-    vec3 result = vec3(0.0);
+    vec3 color = vec3(0.0);
 
     for (uint i = 0; i < directional_light_count; i++)
-        result += calculate_directional_light(directional_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        color += calculate_directional_light(directional_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
     
     for (uint i = 0; i < point_light_count; i++)
-        result += calculate_point_light(point_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        color += calculate_point_light(point_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
     
     for (uint i = 0; i < spot_light_count; i++)
-        result += calculate_spot_light(spot_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        color += calculate_spot_light(spot_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+    
+    float brightness = 77.0 / 127.0;
+    float contrast = 77.0 / 127.0;
+    color = compute_brightness_contrast(color, brightness, contrast);
+    
+    // color = compute_gamma(color, 1.2);
 
-    out_color = vec4(result, 1.0);
+    out_color = vec4(color, 1.0);
 }
