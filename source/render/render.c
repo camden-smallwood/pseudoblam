@@ -40,12 +40,16 @@ struct render_globals
 
     int screen_width;
     int screen_height;
+    
+    int sample_count;
 
     struct camera_data camera;
 
     GLuint quad_texture;
     GLuint quad_renderbuffer;
     GLuint quad_framebuffer;
+    GLuint quad_intermediate_framebuffer;
+    GLuint quad_intermediate_texture;
     GLuint quad_vertex_array;
     GLuint quad_vertex_buffer;
     int quad_shader;
@@ -54,7 +58,7 @@ struct render_globals
 
     GLuint default_diffuse_texture;
     GLuint default_specular_texture;
-    GLuint default_normal_texture;
+    GLuint default_normals_texture;
     GLuint default_emissive_texture;
 
     int weapon_model_index;
@@ -88,6 +92,8 @@ void render_initialize(void)
     render_globals.screen_width = 1280;
     render_globals.screen_height = 720;
 
+    render_globals.sample_count = 4;
+
     render_initialize_gl();
     render_initialize_quad();
     render_initialize_scene();
@@ -108,15 +114,22 @@ void render_handle_screen_resize(int width, int height)
     glViewport(0, 0, width, height);
 
     // Resize the quad texture
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_texture);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, render_globals.sample_count, GL_RGB, render_globals.screen_width, render_globals.screen_height, GL_TRUE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+
+    // Resize the quad intermediate texture
+    glBindTexture(GL_TEXTURE_2D, render_globals.quad_intermediate_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, render_globals.screen_width, render_globals.screen_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
     
     // Resize the quad renderbuffer
-    glBindRenderbuffer(GL_RENDERBUFFER, render_globals.quad_renderbuffer); 
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);  
+    glBindRenderbuffer(GL_RENDERBUFFER, render_globals.quad_renderbuffer);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, render_globals.sample_count, GL_DEPTH24_STENCIL8, render_globals.screen_width, render_globals.screen_height);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
     camera_handle_screen_resize(&render_globals.camera, width, height);
@@ -175,21 +188,37 @@ static void render_initialize_quad(void)
 
     glGenFramebuffers(1, &render_globals.quad_framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
-
+    
     glGenTextures(1, &render_globals.quad_texture);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_texture);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_texture);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, render_globals.sample_count, GL_RGB, render_globals.screen_width, render_globals.screen_height, GL_TRUE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_texture, 0);
+    
+    glGenRenderbuffers(1, &render_globals.quad_renderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, render_globals.quad_renderbuffer);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, render_globals.sample_count, GL_DEPTH24_STENCIL8, render_globals.screen_width, render_globals.screen_height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_globals.quad_renderbuffer);
+
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glGenFramebuffers(1, &render_globals.quad_intermediate_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_intermediate_framebuffer);
+    
+    glGenTextures(1, &render_globals.quad_intermediate_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.quad_intermediate_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, render_globals.screen_width, render_globals.screen_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.quad_texture, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    glGenRenderbuffers(1, &render_globals.quad_renderbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, render_globals.quad_renderbuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, render_globals.screen_width, render_globals.screen_height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_globals.quad_renderbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.quad_intermediate_texture, 0);
+
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -200,14 +229,14 @@ static void render_initialize_scene(void)
 
     render_globals.default_diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
     render_globals.default_specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
-    render_globals.default_normal_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.default_normals_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
     render_globals.default_emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
 
     camera_initialize(&render_globals.camera);
 
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     model_import_from_file(_vertex_type_rigid, "../assets/models/crate_space.fbx");
-    
+
     render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
     
     struct light_data *light;
@@ -285,9 +314,91 @@ static void render_initialize_models(void)
 
     while (model_iterator_next(&iterator) != -1)
     {
+        if (iterator.data->material_count == 0)
+        {
+            struct material_data material;
+            memset(&material, 0, sizeof(material));
+            mempush(&iterator.data->material_count, (void **)&iterator.data->materials, &material, sizeof(material), realloc);
+        }
+
+        for (int material_index = 0; material_index < iterator.data->material_count; material_index++)
+        {
+            struct material_data *material = iterator.data->materials + material_index;
+
+            if (material->texture_count == 0)
+            {
+                // TODO: get default texture for specific material model
+                puts("using default blinn-phong textures");
+
+                struct material_texture textures[] =
+                {
+                    {
+                        .usage = _material_texture_usage_diffuse,
+                        .id = render_globals.default_diffuse_texture,
+                    },
+                    {
+                        .usage = _material_texture_usage_specular,
+                        .id = render_globals.default_specular_texture,
+                    },
+                    {
+                        .usage = _material_texture_usage_normals,
+                        .id = render_globals.default_normals_texture,
+                    },
+                    {
+                        .usage = _material_texture_usage_emissive,
+                        .id = render_globals.default_emissive_texture,
+                    },
+                };
+
+                mempush(&material->texture_count, (void **)&material->textures, &textures[0], sizeof(textures[0]), realloc);
+                mempush(&material->texture_count, (void **)&material->textures, &textures[1], sizeof(textures[1]), realloc);
+                mempush(&material->texture_count, (void **)&material->textures, &textures[2], sizeof(textures[2]), realloc);
+                mempush(&material->texture_count, (void **)&material->textures, &textures[3], sizeof(textures[3]), realloc);
+            }
+
+            for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
+            {
+                struct material_texture *texture = material->textures + texture_index;
+
+                if (texture->id)
+                    continue;
+                
+                switch (texture->usage)
+                {
+                case _material_texture_usage_diffuse:
+                    texture->id = render_globals.default_diffuse_texture;
+                    break;
+
+                case _material_texture_usage_specular:
+                    texture->id = render_globals.default_specular_texture;
+                    break;
+
+                case _material_texture_usage_emissive:
+                    texture->id = render_globals.default_emissive_texture;
+                    break;
+
+                case _material_texture_usage_normals:
+                    texture->id = render_globals.default_normals_texture;
+                    break;
+
+                default:
+                    fprintf(stderr, "ERROR: unhandled texture usage - \"%s\"\n", material_texture_usage_to_string(texture->usage));
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+
         for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
         {
             struct model_mesh *mesh = iterator.data->meshes + mesh_index;
+
+            for (int part_index = 0; part_index < mesh->part_count; part_index++)
+            {
+                struct model_mesh_part *part = mesh->parts + part_index;
+
+                if (part->material_index < 0 || part->material_index >= iterator.data->material_count)
+                    part->material_index = 0;
+            }
 
             if (!mesh->vertex_data)
                 continue;
@@ -363,17 +474,18 @@ static void render_frame(void)
 static void render_quad(void)
 {
     glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
 
     // TODO: move to texture abstraction code
     int texture_index = 0;
     glActiveTexture(GL_TEXTURE0 + texture_index);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.quad_intermediate_texture);
 
     shader_use(render_globals.quad_shader);
     shader_set_int(render_globals.quad_shader, "quad_texture", texture_index);
-
+    
     glBindVertexArray(render_globals.quad_vertex_array);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.quad_intermediate_texture);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
@@ -414,8 +526,16 @@ static void render_models(void)
         render_model(render_globals.weapon_model_index, model_matrix);
     }
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.quad_framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.quad_intermediate_framebuffer);
+
+    glBlitFramebuffer(
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        GL_COLOR_BUFFER_BIT,
+        GL_NEAREST);
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glDisable(GL_DEPTH_TEST);
 }
 
 static void render_model(int model_index, mat4 model_matrix)
@@ -442,7 +562,7 @@ static void render_model(int model_index, mat4 model_matrix)
             struct model_node *node = model->nodes + node_index;
             // TODO: get node matrix from animation state
             
-            shader_set_mat4_v(render_globals.blinn_phong_shader, node->transform, "node_matrices[%i]", node_index);
+            shader_set_mat4_v(render_globals.blinn_phong_shader, node->offset_matrix, "node_matrices[%i]", node_index);
         }
         
         render_lights(render_globals.blinn_phong_shader);
@@ -464,6 +584,9 @@ static void render_model(int model_index, mat4 model_matrix)
                 glBindTexture(GL_TEXTURE_2D, 0);
             }
         }
+
+        shader_set_bool(render_globals.blinn_phong_shader, "use_nodes", false);
+        shader_set_int(render_globals.blinn_phong_shader, "node_count", 0);
     }
 }
 
@@ -546,8 +669,6 @@ static void render_material(struct material_data *material)
     shader_set_float(render_globals.blinn_phong_shader, "material.ambient_amount", 0.1f);
 
     shader_set_float(render_globals.blinn_phong_shader, "material.bump_scaling", material->base_properties.bump_scaling);
-
-    // TODO: determine required default textures ahead of time
 
     for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
     {

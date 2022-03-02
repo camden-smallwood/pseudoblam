@@ -617,10 +617,7 @@ static void model_import_assimp_mesh(
                 };
 
                 glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
-                glm_mat4_transpose(node.transform);
-
                 glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
-                glm_mat4_transpose(node.offset_matrix);
                 
                 int parent_node_index = -1;
                 

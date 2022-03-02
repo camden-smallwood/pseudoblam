@@ -36,15 +36,15 @@ void main()
         {
             int node_index = node_indices[i];
 
-            if (node_index >= 0 && node_index < node_count && node_index < MAXIMUM_NODES)
-            {
-                transform += node_matrices[node_index] * node_weights[node_index];
-            }
+            if (node_index == -1 || node_index >= node_count || node_index >= MAXIMUM_NODES)
+                continue;
+
+            transform += node_matrices[node_index] * node_weights[node_index];
         }
     }
-    
-    frag_position = vec3(model * transform * vec4(position, 1.0));
-    frag_normal = vec3(model * transform * vec4(normal, 1.0));
+
+    frag_position = vec3(model * transform * vec4(position, 1));
+    frag_normal = vec3(model * vec4(normal, 1.0));
     frag_texcoord = texcoord;
     
     vec3 T = normalize(vec3(model * transform * vec4(tangent, 0.0)));
