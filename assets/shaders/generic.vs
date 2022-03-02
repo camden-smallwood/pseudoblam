@@ -6,8 +6,9 @@ uniform mat4 projection;
 
 uniform bool use_nodes;
 
-#define MAXIMUM_NODES 256
-uniform uint node_count;
+const int MAXIMUM_NODES = 100;
+const int MAXIMUM_NODE_INFLUENCE = 4;
+uniform int node_count;
 uniform mat4 node_matrices[MAXIMUM_NODES];
 
 in vec3 position;
@@ -29,15 +30,15 @@ void main()
 
     if (use_nodes == true)
     {
-        // transform = mat4(0.0);
+        transform = mat4(0.0);
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < MAXIMUM_NODE_INFLUENCE; i++)
         {
             int node_index = node_indices[i];
 
-            if (node_index != -1 && node_index < node_count)
+            if (node_index >= 0 && node_index < node_count && node_index < MAXIMUM_NODES)
             {
-                // mat4 node_transform = node_matrices[node_index];
+                transform += node_matrices[node_index] * node_weights[node_index];
             }
         }
     }

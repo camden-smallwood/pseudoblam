@@ -208,7 +208,7 @@ static void render_initialize_scene(void)
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     model_import_from_file(_vertex_type_rigid, "../assets/models/crate_space.fbx");
     
-    render_globals.weapon_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
+    render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
     
     struct light_data *light;
 
@@ -435,14 +435,14 @@ static void render_model(int model_index, mat4 model_matrix)
         shader_set_mat4(render_globals.blinn_phong_shader, "projection", render_globals.camera.projection);
 
         shader_set_bool(render_globals.blinn_phong_shader, "use_nodes", mesh->vertex_type == _vertex_type_skinned);
-        shader_set_uint(render_globals.blinn_phong_shader, "node_count", model->node_count);
+        shader_set_int(render_globals.blinn_phong_shader, "node_count", model->node_count);
 
         for (int node_index = 0; node_index < model->node_count; node_index++)
         {
             struct model_node *node = model->nodes + node_index;
             // TODO: get node matrix from animation state
             
-            shader_set_mat4_v(render_globals.blinn_phong_shader, node->offset_matrix, "node_matrices[%i]", node_index);
+            shader_set_mat4_v(render_globals.blinn_phong_shader, node->transform, "node_matrices[%i]", node_index);
         }
         
         render_lights(render_globals.blinn_phong_shader);
