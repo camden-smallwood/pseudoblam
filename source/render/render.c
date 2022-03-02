@@ -66,6 +66,8 @@ struct render_globals
 
 static void render_initialize_gl(void);
 static void render_initialize_quad(void);
+static void render_initialize_scene(void);
+static void render_initialize_models(void);
 
 static void render_update_input(void);
 static void render_update_flashlight(void);
@@ -88,117 +90,8 @@ void render_initialize(void)
 
     render_initialize_gl();
     render_initialize_quad();
-    
-    camera_initialize(&render_globals.camera);
-
-    render_globals.blinn_phong_shader = shader_new("../assets/shaders/generic.vs", "../assets/shaders/blinnphong.fs");
-
-    render_globals.default_diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
-    render_globals.default_specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
-    render_globals.default_normal_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
-    render_globals.default_emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
-
-    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
-    model_import_from_file(_vertex_type_rigid, "../assets/models/crate_space.fbx");
-    
-    render_globals.weapon_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
-    
-    struct model_iterator iterator;
-    model_iterator_new(&iterator);
-
-    while (model_iterator_next(&iterator) != -1)
-    {
-        for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
-        {
-            struct model_mesh *mesh = iterator.data->meshes + mesh_index;
-
-            if (!mesh->vertex_data)
-                continue;
-            
-            const struct vertex_definition *vertex_definition = vertex_definition_get(mesh->vertex_type);
-
-            // Create and bind the mesh's vertex array
-            glGenVertexArrays(1, &mesh->vertex_array);
-            glBindVertexArray(mesh->vertex_array);
-
-            // Create, bind and fill the mesh's vertex buffer
-            glGenBuffers(1, &mesh->vertex_buffer);
-            glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
-            glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
-
-            shader_bind_vertex_attributes(render_globals.blinn_phong_shader, mesh->vertex_type);
-        }
-    }
-
-    // Initialize lights
-    {
-        struct light_data *light;
-
-        render_globals.flashlight_light_index = light_new();
-        light = light_get_data(render_globals.flashlight_light_index);
-        light->type = _light_type_spot;
-        SET_BIT(light->flags, _light_is_hidden_bit, true);
-        glm_vec3_copy(render_globals.camera.position, light->position);
-        glm_vec3_copy(render_globals.camera.forward, light->direction);
-        glm_vec3_copy((vec3){0.8, 0.8, 0.8}, light->diffuse_color);
-        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-        light->constant = 1.1f;
-        light->linear = 0.09f;
-        light->quadratic = 0.032f;
-        light->inner_cutoff = 18.5f;
-        light->outer_cutoff = 20.0f;
-        
-        light = light_get_data(light_new());
-        light->type = _light_type_point;
-        glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
-        glm_vec3_copy((vec3){0.8f, 0.2f, 0.1f}, light->diffuse_color);
-        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-        light->constant = 1.0f;
-        light->linear = 0.09f;
-        light->quadratic = 0.032f;
-
-        light = light_get_data(light_new());
-        light->type = _light_type_point;
-        glm_vec3_copy((vec3){0.7f, 0.2f, 2.0f}, light->position);
-        glm_vec3_copy((vec3){0.1f, 0.2f, 0.8f}, light->diffuse_color);
-        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-        light->constant = 1.0f;
-        light->linear = 0.09f;
-        light->quadratic = 0.032f;
-
-        light = light_get_data(light_new());
-        light->type = _light_type_point;
-        glm_vec3_copy((vec3){2.3f, -3.3f, -4.0f}, light->position);
-        glm_vec3_copy((vec3){0.1f, 0.8f, 0.2f}, light->diffuse_color);
-        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-        light->constant = 1.0f;
-        light->linear = 0.09f;
-        light->quadratic = 0.032f;
-
-        light = light_get_data(light_new());
-        light->type = _light_type_point;
-        glm_vec3_copy((vec3){-4.0f, 2.0f, -12.0f}, light->position);
-        glm_vec3_copy((vec3){0.8f, 0.2f, 0.8f}, light->diffuse_color);
-        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-        light->constant = 10.0f;
-        light->linear = 0.9f;
-        light->quadratic = 0.32f;
-
-        light = light_get_data(light_new());
-        light->type = _light_type_point;
-        glm_vec3_copy((vec3){0.0f, 0.0f, -3.0}, light->position);
-        glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-        glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-        glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-        light->constant = 1.0f;
-        light->linear = 0.09f;
-        light->quadratic = 0.032f;
-    }
+    render_initialize_scene();
+    render_initialize_models();
 }
 
 void render_dispose(void)
@@ -250,14 +143,9 @@ static void render_initialize_gl(void)
     const GLubyte *version = glGetString(GL_VERSION);
     printf("GL Version: %s\n", version);
 
-    // Enable multisampling
-    glEnable(GL_MULTISAMPLE);
-
-    // Enable depth testing
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     
-    // Enable backface culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
@@ -306,9 +194,120 @@ static void render_initialize_quad(void)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+static void render_initialize_scene(void)
+{
+    render_globals.blinn_phong_shader = shader_new("../assets/shaders/generic.vs", "../assets/shaders/blinnphong.fs");
+
+    render_globals.default_diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
+    render_globals.default_specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
+    render_globals.default_normal_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.default_emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
+
+    camera_initialize(&render_globals.camera);
+
+    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
+    model_import_from_file(_vertex_type_rigid, "../assets/models/crate_space.fbx");
+    
+    render_globals.weapon_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
+    
+    struct light_data *light;
+
+    render_globals.flashlight_light_index = light_new();
+    light = light_get_data(render_globals.flashlight_light_index);
+    light->type = _light_type_spot;
+    SET_BIT(light->flags, _light_is_hidden_bit, true);
+    glm_vec3_copy(render_globals.camera.position, light->position);
+    glm_vec3_copy(render_globals.camera.forward, light->direction);
+    glm_vec3_copy((vec3){0.8, 0.8, 0.8}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.1f;
+    light->linear = 0.09f;
+    light->quadratic = 0.032f;
+    light->inner_cutoff = 18.5f;
+    light->outer_cutoff = 20.0f;
+    
+    light = light_get_data(light_new());
+    light->type = _light_type_point;
+    glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
+    glm_vec3_copy((vec3){0.8f, 0.2f, 0.1f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.0f;
+    light->linear = 0.09f;
+    light->quadratic = 0.032f;
+
+    light = light_get_data(light_new());
+    light->type = _light_type_point;
+    glm_vec3_copy((vec3){0.7f, 0.2f, 2.0f}, light->position);
+    glm_vec3_copy((vec3){0.1f, 0.2f, 0.8f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.0f;
+    light->linear = 0.09f;
+    light->quadratic = 0.032f;
+
+    light = light_get_data(light_new());
+    light->type = _light_type_point;
+    glm_vec3_copy((vec3){2.3f, -3.3f, -4.0f}, light->position);
+    glm_vec3_copy((vec3){0.1f, 0.8f, 0.2f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.0f;
+    light->linear = 0.09f;
+    light->quadratic = 0.032f;
+
+    light = light_get_data(light_new());
+    light->type = _light_type_point;
+    glm_vec3_copy((vec3){-4.0f, 2.0f, -12.0f}, light->position);
+    glm_vec3_copy((vec3){0.8f, 0.2f, 0.8f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 10.0f;
+    light->linear = 0.9f;
+    light->quadratic = 0.32f;
+
+    light = light_get_data(light_new());
+    light->type = _light_type_point;
+    glm_vec3_copy((vec3){0.0f, 0.0f, -3.0}, light->position);
+    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.0f;
+    light->linear = 0.09f;
+    light->quadratic = 0.032f;
+}
+
+static void render_initialize_models(void)
+{
+    struct model_iterator iterator;
+    model_iterator_new(&iterator);
+
+    while (model_iterator_next(&iterator) != -1)
+    {
+        for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
+        {
+            struct model_mesh *mesh = iterator.data->meshes + mesh_index;
+
+            if (!mesh->vertex_data)
+                continue;
+            
+            const struct vertex_definition *vertex_definition = vertex_definition_get(mesh->vertex_type);
+
+            glGenVertexArrays(1, &mesh->vertex_array);
+            glBindVertexArray(mesh->vertex_array);
+
+            glGenBuffers(1, &mesh->vertex_buffer);
+            glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
+            glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
+
+            shader_bind_vertex_attributes(render_globals.blinn_phong_shader, mesh->vertex_type);
+        }
+    }
+}
+
 static void render_update_input(void)
 {
-    // Toggle the flashlight on or off
     if (input_is_key_down(SDL_SCANCODE_H))
     {
         SET_BIT(render_globals.flags, _render_input_h_bit, true);
@@ -322,7 +321,6 @@ static void render_update_input(void)
             !light_is_hidden(render_globals.flashlight_light_index));
     }
 
-    // Cycle through camera speed intervals when the tab key is pressed and then released
     if (input_is_key_down(SDL_SCANCODE_TAB))
     {
         SET_BIT(render_globals.flags, _render_input_tab_bit, true);
@@ -346,7 +344,14 @@ static void render_update_flashlight(void)
         return;
 
     glm_vec3_copy(render_globals.camera.position, light->position);
+
+    vec3 offset;
+    glm_vec3_zero(offset);
+    glm_vec3_scale(render_globals.camera.forward, 0.1f, offset);
+    glm_vec3_add(light->position, offset, light->position);
+
     glm_vec3_copy(render_globals.camera.forward, light->direction);
+    glm_vec3_rotate(light->direction, glm_rad(1.4f), render_globals.camera.up);
 }
 
 static void render_frame(void)
@@ -397,7 +402,7 @@ static void render_models(void)
     {
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
-        glm_scale_uni(model_matrix, 0.2f);
+        glm_scale_uni(model_matrix, 0.1f);
         glm_rotate(model_matrix, 1.4f, (vec3){0, 1, 0});
         glm_rotate(model_matrix, -0.05f, (vec3){0, 0, 1});
         glm_translate(model_matrix, (vec3){0.6f, -0.725f, 0.3f});
@@ -464,7 +469,6 @@ static void render_model(int model_index, mat4 model_matrix)
 
 static void render_lights(int shader_index)
 {
-    // Bind the lighting uniforms
     struct light_iterator light_iterator;
     light_iterator_new(&light_iterator);
 
@@ -525,7 +529,6 @@ static void render_lights(int shader_index)
         light_counts[light->type]++;
     }
 
-    // Bind the total number of lights for each light type
     shader_set_uint(shader_index, "directional_light_count", light_counts[_light_type_directional]);
     shader_set_uint(shader_index, "point_light_count", light_counts[_light_type_point]);
     shader_set_uint(shader_index, "spot_light_count", light_counts[_light_type_spot]);
@@ -533,7 +536,6 @@ static void render_lights(int shader_index)
 
 static void render_material(struct material_data *material)
 {
-    // Bind the material uniforms
     shader_set_vec3(render_globals.blinn_phong_shader, "material.diffuse_color", material->base_properties.color_diffuse);
 
     shader_set_vec3(render_globals.blinn_phong_shader, "material.specular_color", material->base_properties.color_specular);

@@ -24,8 +24,10 @@ struct camera_data
 
     vec3 position;
     vec2 rotation;
-    vec3 up;
+
     vec3 forward;
+    vec3 right;
+    vec3 up;
 
     mat4 view;
     mat4 projection;

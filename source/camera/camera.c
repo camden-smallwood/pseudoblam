@@ -75,12 +75,11 @@ void camera_update(struct camera_data *camera, float delta_ticks)
         camera->forward);
     glm_vec3_normalize(camera->forward);
 
-    vec3 right;
-    glm_vec3_cross(camera->up, camera->forward, right);
-    glm_normalize(right);
+    glm_vec3_cross(camera->up, camera->forward, camera->right);
+    glm_normalize(camera->right);
 
     vec3 up;
-    glm_vec3_cross(camera->forward, right, up);
+    glm_vec3_cross(camera->forward, camera->right, up);
 
     vec3 movement = {0.0f, 0.0f, 0.0f};
     int movement_inputs = 0;
@@ -100,12 +99,12 @@ void camera_update(struct camera_data *camera, float delta_ticks)
     // Horizontal camera movement
     if (input_is_key_down(SDL_SCANCODE_A) && !input_is_key_down(SDL_SCANCODE_D))
     {
-        glm_vec3_add(movement, right, movement);
+        glm_vec3_add(movement, camera->right, movement);
         movement_inputs++;
     }
     else if (input_is_key_down(SDL_SCANCODE_D) && !input_is_key_down(SDL_SCANCODE_A))
     {
-        glm_vec3_sub(movement, right, movement);
+        glm_vec3_sub(movement, camera->right, movement);
         movement_inputs++;
     }
 
