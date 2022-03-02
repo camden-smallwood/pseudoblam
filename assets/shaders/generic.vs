@@ -25,14 +25,31 @@ out mat3 frag_tbn;
 
 void main()
 {
-    frag_position = vec3(model * vec4(position, 1.0));
-    frag_normal = vec3(model * vec4(normal, 1.0));
+    mat4 transform = mat4(1.0);
+
+    if (use_nodes == true)
+    {
+        // transform = mat4(0.0);
+
+        for (int i = 0; i < 4; i++)
+        {
+            int node_index = node_indices[i];
+
+            if (node_index != -1 && node_index < node_count)
+            {
+                // mat4 node_transform = node_matrices[node_index];
+            }
+        }
+    }
+    
+    frag_position = vec3(model * transform * vec4(position, 1.0));
+    frag_normal = vec3(model * transform * vec4(normal, 1.0));
     frag_texcoord = texcoord;
     
-    vec3 T = normalize(vec3(model * vec4(tangent, 0.0)));
-    vec3 B = normalize(vec3(model * vec4(bitangent, 0.0)));
-    vec3 N = normalize(vec3(model * vec4(normal, 0.0)));
+    vec3 T = normalize(vec3(model * transform * vec4(tangent, 0.0)));
+    vec3 B = normalize(vec3(model * transform * vec4(bitangent, 0.0)));
+    vec3 N = normalize(vec3(model * transform * vec4(normal, 0.0)));
     frag_tbn = mat3(T, B, N);
 
-    gl_Position = projection * view * model * vec4(position, 1);
+    gl_Position = projection * view * model * transform * vec4(position, 1);
 }
