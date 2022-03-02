@@ -230,7 +230,7 @@ static inline void shell_update(void)
         switch (event.type)
         {
         case SDL_WINDOWEVENT:
-            switch(event.window.type)
+            switch (event.window.event)
             {
             case SDL_WINDOWEVENT_RESIZED:
                 shell_handle_screen_resize(event.window.data1, event.window.data2);

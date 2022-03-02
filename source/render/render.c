@@ -87,6 +87,7 @@ static void render_frame(void);
 static void render_quad(void);
 static void render_shadows(void);
 static void render_models(void);
+
 static void render_model(int shader_index, int model_index, mat4 model_matrix);
 static void render_lights(int shader_index);
 static void render_material(int shader_index, struct material_data *material);
@@ -119,9 +120,6 @@ void render_handle_screen_resize(int width, int height)
     render_globals.screen_width = width;
     render_globals.screen_height = height;
 
-    // Resize the viewport
-    glViewport(0, 0, width, height);
-
     // Resize the quad texture
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_texture);
     glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, render_globals.sample_count, GL_RGB, render_globals.screen_width, render_globals.screen_height, GL_TRUE);
@@ -141,6 +139,9 @@ void render_handle_screen_resize(int width, int height)
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, render_globals.sample_count, GL_DEPTH24_STENCIL8, render_globals.screen_width, render_globals.screen_height);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
+    // Resize the viewport
+    glViewport(0, 0, width, height);
+    
     camera_handle_screen_resize(&render_globals.camera, width, height);
 }
 
@@ -530,17 +531,21 @@ static void render_quad(void)
 static void render_shadows(void)
 {
     vec3 light_position = { 3, 3, 3 }; // TODO
-    mat4 lightProjection, lightView, lightSpaceMatrix;
-    float near_plane = 1.0f, far_plane = 7.5f;
+    float near_plane = 1.0f; // TODO
+    float far_plane = 7.5f; // TODO
 
     //lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane);
     // note that if you use a perspective projection matrix you'll have to change the light position as the current light position isn't enough to reflect the whole scene
 
+    mat4 lightProjection;
     glm_ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane, lightProjection);
+
+    mat4 lightView;
     glm_lookat(light_position, (vec3){0, 0, 0}, (vec3){0, 1, 0}, lightView);
+
+    mat4 lightSpaceMatrix;
     glm_mat4_mul(lightProjection, lightView, lightSpaceMatrix);
 
-    // render scene from light's point of view
     shader_use(render_globals.shadow_shader);
     shader_set_mat4(render_globals.shadow_shader, "light", lightSpaceMatrix);
 
