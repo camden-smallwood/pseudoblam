@@ -54,6 +54,12 @@ struct render_globals
     GLuint quad_vertex_buffer;
     int quad_shader;
 
+    GLuint shadow_framebuffer;
+    GLuint shadow_texture;
+    int shadow_width;
+    int shadow_height;
+    int shadow_shader;
+
     int blinn_phong_shader;
 
     GLuint default_diffuse_texture;
@@ -70,6 +76,7 @@ struct render_globals
 
 static void render_initialize_gl(void);
 static void render_initialize_quad(void);
+static void render_initialize_shadows(void);
 static void render_initialize_scene(void);
 static void render_initialize_models(void);
 
@@ -78,10 +85,11 @@ static void render_update_flashlight(void);
 
 static void render_frame(void);
 static void render_quad(void);
+static void render_shadows(void);
 static void render_models(void);
-static void render_model(int model_index, mat4 model_matrix);
+static void render_model(int shader_index, int model_index, mat4 model_matrix);
 static void render_lights(int shader_index);
-static void render_material(struct material_data *material);
+static void render_material(int shader_index, struct material_data *material);
 
 /* ---------- public code */
 
@@ -96,6 +104,7 @@ void render_initialize(void)
 
     render_initialize_gl();
     render_initialize_quad();
+    render_initialize_shadows();
     render_initialize_scene();
     render_initialize_models();
 }
@@ -220,6 +229,33 @@ static void render_initialize_quad(void)
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.quad_intermediate_texture, 0);
 
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void render_initialize_shadows(void)
+{
+    render_globals.shadow_width = 1024;
+    render_globals.shadow_height = 1024;
+
+    render_globals.shadow_shader = shader_new("../assets/shaders/shadows.vs", "../assets/shaders/shadows.fs");
+
+    glGenFramebuffers(1, &render_globals.shadow_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.shadow_framebuffer);
+
+    glGenTextures(1, &render_globals.shadow_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.shadow_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, render_globals.shadow_width, render_globals.shadow_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, (vec4){1, 1, 1, 1});
+    
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, render_globals.shadow_texture, 0);
+    
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -412,6 +448,7 @@ static void render_initialize_models(void)
             glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
             glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
 
+            shader_bind_vertex_attributes(render_globals.shadow_shader, mesh->vertex_type);
             shader_bind_vertex_attributes(render_globals.blinn_phong_shader, mesh->vertex_type);
         }
     }
@@ -467,6 +504,7 @@ static void render_update_flashlight(void)
 
 static void render_frame(void)
 {
+    render_shadows();
     render_models();
     render_quad();
 }
@@ -489,6 +527,47 @@ static void render_quad(void)
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
+static void render_shadows(void)
+{
+    vec3 light_position = { 3, 3, 3 }; // TODO
+    mat4 lightProjection, lightView, lightSpaceMatrix;
+    float near_plane = 1.0f, far_plane = 7.5f;
+
+    //lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane);
+    // note that if you use a perspective projection matrix you'll have to change the light position as the current light position isn't enough to reflect the whole scene
+
+    glm_ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane, lightProjection);
+    glm_lookat(light_position, (vec3){0, 0, 0}, (vec3){0, 1, 0}, lightView);
+    glm_mat4_mul(lightProjection, lightView, lightSpaceMatrix);
+
+    // render scene from light's point of view
+    shader_use(render_globals.shadow_shader);
+    shader_set_mat4(render_globals.shadow_shader, "light", lightSpaceMatrix);
+
+    glViewport(0, 0, render_globals.shadow_width, render_globals.shadow_height);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.shadow_framebuffer);
+    
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    struct model_iterator iterator;
+    model_iterator_new(&iterator);
+
+    while (model_iterator_next(&iterator) != -1)
+    {
+        if (iterator.index == render_globals.weapon_model_index)
+            continue;
+        
+        mat4 model_matrix;
+        glm_mat4_identity(model_matrix);
+        
+        render_model(render_globals.shadow_shader, iterator.index, model_matrix);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
+}
+
 static void render_models(void)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
@@ -507,7 +586,7 @@ static void render_models(void)
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
         
-        render_model(iterator.index, model_matrix);
+        render_model(render_globals.blinn_phong_shader, iterator.index, model_matrix);
     }
 
     if (render_globals.weapon_model_index != -1)
@@ -523,7 +602,7 @@ static void render_models(void)
         glm_mat4_inv(render_globals.camera.view, inverted_view);
         glm_mat4_mul(inverted_view, model_matrix, model_matrix);
 
-        render_model(render_globals.weapon_model_index, model_matrix);
+        render_model(render_globals.blinn_phong_shader, render_globals.weapon_model_index, model_matrix);
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.quad_framebuffer);
@@ -538,7 +617,7 @@ static void render_models(void)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-static void render_model(int model_index, mat4 model_matrix)
+static void render_model(int shader_index, int model_index, mat4 model_matrix)
 {
     struct model_data *model = model_get_data(model_index);
 
@@ -546,26 +625,26 @@ static void render_model(int model_index, mat4 model_matrix)
     {
         struct model_mesh *mesh = model->meshes + mesh_index;
 
-        shader_use(render_globals.blinn_phong_shader);
+        shader_use(shader_index);
 
-        shader_set_vec3(render_globals.blinn_phong_shader, "camera_position", render_globals.camera.position);
+        shader_set_vec3(shader_index, "camera_position", render_globals.camera.position);
 
-        shader_set_mat4(render_globals.blinn_phong_shader, "model", model_matrix);
-        shader_set_mat4(render_globals.blinn_phong_shader, "view", render_globals.camera.view);
-        shader_set_mat4(render_globals.blinn_phong_shader, "projection", render_globals.camera.projection);
+        shader_set_mat4(shader_index, "model", model_matrix);
+        shader_set_mat4(shader_index, "view", render_globals.camera.view);
+        shader_set_mat4(shader_index, "projection", render_globals.camera.projection);
 
-        shader_set_bool(render_globals.blinn_phong_shader, "use_nodes", mesh->vertex_type == _vertex_type_skinned);
-        shader_set_int(render_globals.blinn_phong_shader, "node_count", model->node_count);
+        shader_set_bool(shader_index, "use_nodes", mesh->vertex_type == _vertex_type_skinned);
+        shader_set_int(shader_index, "node_count", model->node_count);
 
         for (int node_index = 0; node_index < model->node_count; node_index++)
         {
             struct model_node *node = model->nodes + node_index;
             // TODO: get node matrix from animation state
             
-            shader_set_mat4_v(render_globals.blinn_phong_shader, node->offset_matrix, "node_matrices[%i]", node_index);
+            shader_set_mat4_v(shader_index, node->offset_matrix, "node_matrices[%i]", node_index);
         }
         
-        render_lights(render_globals.blinn_phong_shader);
+        render_lights(shader_index);
 
         glBindVertexArray(mesh->vertex_array);
 
@@ -574,7 +653,7 @@ static void render_model(int model_index, mat4 model_matrix)
             struct model_mesh_part *part = mesh->parts + part_index;
 
             struct material_data *material = model->materials + part->material_index;
-            render_material(material);
+            render_material(shader_index, material);
 
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
 
@@ -585,8 +664,8 @@ static void render_model(int model_index, mat4 model_matrix)
             }
         }
 
-        shader_set_bool(render_globals.blinn_phong_shader, "use_nodes", false);
-        shader_set_int(render_globals.blinn_phong_shader, "node_count", 0);
+        shader_set_bool(shader_index, "use_nodes", false);
+        shader_set_int(shader_index, "node_count", 0);
     }
 }
 
@@ -657,18 +736,18 @@ static void render_lights(int shader_index)
     shader_set_uint(shader_index, "spot_light_count", light_counts[_light_type_spot]);
 }
 
-static void render_material(struct material_data *material)
+static void render_material(int shader_index, struct material_data *material)
 {
-    shader_set_vec3(render_globals.blinn_phong_shader, "material.diffuse_color", material->base_properties.color_diffuse);
+    shader_set_vec3(shader_index, "material.diffuse_color", material->base_properties.color_diffuse);
 
-    shader_set_vec3(render_globals.blinn_phong_shader, "material.specular_color", material->base_properties.color_specular);
-    shader_set_float(render_globals.blinn_phong_shader, "material.specular_amount", material->specular_properties.specular_factor);
-    shader_set_float(render_globals.blinn_phong_shader, "material.specular_shininess", material->specular_properties.glossiness_factor);
+    shader_set_vec3(shader_index, "material.specular_color", material->base_properties.color_specular);
+    shader_set_float(shader_index, "material.specular_amount", material->specular_properties.specular_factor);
+    shader_set_float(shader_index, "material.specular_shininess", material->specular_properties.glossiness_factor);
 
-    shader_set_vec3(render_globals.blinn_phong_shader, "material.ambient_color", material->base_properties.color_ambient);
-    shader_set_float(render_globals.blinn_phong_shader, "material.ambient_amount", 0.1f);
+    shader_set_vec3(shader_index, "material.ambient_color", material->base_properties.color_ambient);
+    shader_set_float(shader_index, "material.ambient_amount", 0.1f);
 
-    shader_set_float(render_globals.blinn_phong_shader, "material.bump_scaling", material->base_properties.bump_scaling);
+    shader_set_float(shader_index, "material.bump_scaling", material->base_properties.bump_scaling);
 
     for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
     {
@@ -680,19 +759,19 @@ static void render_material(struct material_data *material)
         switch (texture->usage)
         {
         case _material_texture_usage_diffuse:
-            shader_set_int(render_globals.blinn_phong_shader, "material.diffuse_texture", texture_index);
+            shader_set_int(shader_index, "material.diffuse_texture", texture_index);
             break;
 
         case _material_texture_usage_specular:
-            shader_set_int(render_globals.blinn_phong_shader, "material.specular_texture", texture_index);
+            shader_set_int(shader_index, "material.specular_texture", texture_index);
             break;
 
         case _material_texture_usage_emissive:
-            shader_set_int(render_globals.blinn_phong_shader, "material.emissive_texture", texture_index);
+            shader_set_int(shader_index, "material.emissive_texture", texture_index);
             break;
 
         case _material_texture_usage_normals:
-            shader_set_int(render_globals.blinn_phong_shader, "material.normal_texture", texture_index);
+            shader_set_int(shader_index, "material.normal_texture", texture_index);
             break;
 
         default:
