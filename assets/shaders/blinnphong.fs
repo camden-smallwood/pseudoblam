@@ -1,5 +1,7 @@
 #version 410 core
 
+uniform sampler2D shadow_texture;
+
 uniform vec3 camera_position;
 
 struct material_data
@@ -173,6 +175,43 @@ vec3 calculate_spot_light(
         light_intensity * light_attenuation);
 }
 
+float compute_shadow(vec3 frag_position, vec3 frag_normal, vec4 fragPosLightSpace)
+{
+    // perform perspective divide
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    // transform to [0,1] range
+    projCoords = projCoords * 0.5 + 0.5;
+    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+    float closestDepth = texture(shadow_texture, projCoords.xy).r; 
+    // get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+    // calculate bias (based on depth map resolution and slope)
+    vec3 normal = normalize(frag_normal);
+    vec3 lightPos = vec3(3, 3, 3); // TODO
+    vec3 lightDir = normalize(lightPos - frag_position);
+    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    // check whether current frag pos is in shadow
+    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+    // PCF
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadow_texture, 0);
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(shadow_texture, projCoords.xy + vec2(x, y) * texelSize).r; 
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+        }    
+    }
+    shadow /= 9.0;
+    
+    // // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+    if(projCoords.z > 1.0)
+        shadow = 0.0;
+        
+    return shadow;
+}
+
 vec3 compute_brightness_contrast(vec3 color, float brightness, float contrast)
 {
     return ((color - 0.5) * (contrast + 0.5)) + brightness;
@@ -187,6 +226,7 @@ in vec3 frag_position;
 in vec3 frag_normal;
 in vec2 frag_texcoord;
 in mat3 frag_tbn;
+in vec4 frag_position_light_space;
 
 out vec4 out_color;
 
@@ -212,6 +252,8 @@ void main()
     color = compute_brightness_contrast(color, brightness, contrast);
     
     // color = compute_gamma(color, 1.2);
+
+    color -= compute_shadow(frag_position, frag_normal, frag_position_light_space);
 
     out_color = vec4(color, 1.0);
 }

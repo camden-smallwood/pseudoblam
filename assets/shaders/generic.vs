@@ -1,5 +1,7 @@
 #version 410 core
 
+uniform mat4 light_space_matrix;
+
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
@@ -23,6 +25,7 @@ out vec3 frag_position;
 out vec3 frag_normal;
 out vec2 frag_texcoord;
 out mat3 frag_tbn;
+out vec4 frag_position_light_space;
 
 void main()
 {
@@ -52,5 +55,7 @@ void main()
     vec3 N = normalize(vec3(model * transform * vec4(normal, 0.0)));
     frag_tbn = mat3(T, B, N);
 
-    gl_Position = projection * view * model * transform * vec4(position, 1);
+    frag_position_light_space = light_space_matrix * vec4(position, 1.0);
+
+    gl_Position = projection * view * model * transform * vec4(position, 1.0);
 }

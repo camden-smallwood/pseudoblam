@@ -60,6 +60,8 @@ struct render_globals
     int shadow_height;
     int shadow_shader;
 
+    mat4 light_space_matrix;
+
     int blinn_phong_shader;
 
     GLuint default_diffuse_texture;
@@ -257,6 +259,7 @@ static void render_initialize_shadows(void)
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -271,8 +274,8 @@ static void render_initialize_scene(void)
 
     camera_initialize(&render_globals.camera);
 
-    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     model_import_from_file(_vertex_type_rigid, "../assets/models/crate_space.fbx");
+    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
 
     render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
     
@@ -524,30 +527,27 @@ static void render_quad(void)
     shader_set_int(render_globals.quad_shader, "quad_texture", texture_index);
     
     glBindVertexArray(render_globals.quad_vertex_array);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_intermediate_texture);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 static void render_shadows(void)
 {
-    vec3 light_position = { 3, 3, 3 }; // TODO
     float near_plane = 1.0f; // TODO
     float far_plane = 7.5f; // TODO
 
-    //lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane);
-    // note that if you use a perspective projection matrix you'll have to change the light position as the current light position isn't enough to reflect the whole scene
-
     mat4 lightProjection;
     glm_ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane, lightProjection);
+    //glm_perspective(glm_rad(45.0f), (GLfloat)render_globals.shadow_width / (GLfloat)render_globals.shadow_height, near_plane, far_plane, lightProjection);
+
+    struct light_data *flashlight = light_get_data(render_globals.flashlight_light_index);
 
     mat4 lightView;
-    glm_lookat(light_position, (vec3){0, 0, 0}, (vec3){0, 1, 0}, lightView);
+    glm_lookat(flashlight->position, flashlight->direction, (vec3){0, 1, 0}, lightView);
 
-    mat4 lightSpaceMatrix;
-    glm_mat4_mul(lightProjection, lightView, lightSpaceMatrix);
+    glm_mat4_mul(lightProjection, lightView, render_globals.light_space_matrix);
 
     shader_use(render_globals.shadow_shader);
-    shader_set_mat4(render_globals.shadow_shader, "light", lightSpaceMatrix);
+    shader_set_mat4(render_globals.shadow_shader, "light_space_matrix", render_globals.light_space_matrix);
 
     glViewport(0, 0, render_globals.shadow_width, render_globals.shadow_height);
     glBindFramebuffer(GL_FRAMEBUFFER, render_globals.shadow_framebuffer);
@@ -564,8 +564,22 @@ static void render_shadows(void)
         
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
+
+        shader_set_mat4(render_globals.shadow_shader, "model", model_matrix);
         
-        render_model(render_globals.shadow_shader, iterator.index, model_matrix);
+        for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
+        {
+            struct model_mesh *mesh = iterator.data->meshes + mesh_index;
+
+            glBindVertexArray(mesh->vertex_array);
+
+            for (int part_index = 0; part_index < mesh->part_count; part_index++)
+            {
+                struct model_mesh_part *part = mesh->parts + part_index;
+
+                glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
+            }
+        }
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -634,6 +648,7 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
 
         shader_set_vec3(shader_index, "camera_position", render_globals.camera.position);
 
+        shader_set_mat4(shader_index, "light_space_matrix", render_globals.light_space_matrix);
         shader_set_mat4(shader_index, "model", model_matrix);
         shader_set_mat4(shader_index, "view", render_globals.camera.view);
         shader_set_mat4(shader_index, "projection", render_globals.camera.projection);
@@ -659,6 +674,11 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
 
             struct material_data *material = model->materials + part->material_index;
             render_material(shader_index, material);
+
+            glActiveTexture(GL_TEXTURE31);
+            glBindTexture(GL_TEXTURE_2D, render_globals.shadow_texture);
+
+            shader_set_int(render_globals.blinn_phong_shader, "shadow_texture", render_globals.shadow_texture);
 
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
 
