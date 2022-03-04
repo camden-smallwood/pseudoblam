@@ -15,6 +15,13 @@ SHADERS.C
 #include "common/common.h"
 #include "render/shaders.h"
 
+/* ---------- private constants */
+
+enum shader_constants
+{
+    MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES = 32,
+};
+
 /* ---------- private structures */
 
 struct
@@ -106,12 +113,12 @@ void shader_use(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
 
-    for (int i = 0; i < 32; i++)
+    for (int texture_index = 0; texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES; texture_index++)
     {
-        if (TEST_BIT(shader->active_textures, i))
+        if (TEST_BIT(shader->active_textures, texture_index))
         {
-            glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(GL_TEXTURE_2D, shader->textures[i]);
+            glActiveTexture(GL_TEXTURE0 + texture_index);
+            glBindTexture(GL_TEXTURE_2D, shader->textures[texture_index]);
         }
     }
 
@@ -172,8 +179,8 @@ void shader_bind_vertex_attributes(
 
 void shader_set_bool(
     int shader_index,
-    const char *name,
-    bool value)
+    bool value,
+    const char *name)
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
@@ -195,15 +202,15 @@ void shader_set_bool_v(
 
     va_end(va);
     
-    shader_set_bool(shader_index, name, value);
+    shader_set_bool(shader_index, value, name);
 
     free(name);
 }
 
 void shader_set_int(
     int shader_index,
-    const char *name,
-    int value)
+    int value,
+    const char *name)
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
@@ -225,15 +232,15 @@ void shader_set_int_v(
 
     va_end(va);
     
-    shader_set_int(shader_index, name, value);
+    shader_set_int(shader_index, value, name);
 
     free(name);
 }
 
 void shader_set_uint(
     int shader_index,
-    const char *name,
-    unsigned int value)
+    unsigned int value,
+    const char *name)
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
@@ -255,15 +262,15 @@ void shader_set_uint_v(
 
     va_end(va);
     
-    shader_set_uint(shader_index, name, value);
+    shader_set_uint(shader_index, value, name);
 
     free(name);
 }
 
 void shader_set_float(
     int shader_index,
-    const char *name,
-    float value)
+    float value,
+    const char *name)
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
@@ -285,15 +292,15 @@ void shader_set_float_v(
 
     va_end(va);
     
-    shader_set_float(shader_index, name, value);
+    shader_set_float(shader_index, value, name);
 
     free(name);
 }
 
 void shader_set_vec3(
     int shader_index,
-    const char *name,
-    vec3 value)
+    vec3 value,
+    const char *name)
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
@@ -315,15 +322,15 @@ void shader_set_vec3_v(
 
     va_end(va);
     
-    shader_set_vec3(shader_index, name, value);
+    shader_set_vec3(shader_index, value, name);
 
     free(name);
 }
 
 void shader_set_mat4(
     int shader_index,
-    const char *name,
-    mat4 value)
+    mat4 value,
+    const char *name)
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
@@ -345,7 +352,7 @@ void shader_set_mat4_v(
 
     va_end(va);
     
-    shader_set_mat4(shader_index, name, value);
+    shader_set_mat4(shader_index, value, name);
 
     free(name);
 }
@@ -353,8 +360,8 @@ void shader_set_mat4_v(
 void shader_set_texture(
     int shader_index,
     GLuint texture,
-    const char *name,
-    int texture_index)
+    int texture_index,
+    const char *name)
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
@@ -385,7 +392,7 @@ void shader_set_texture_v(
 
     va_end(va);
     
-    shader_set_texture(shader_index, texture, name, texture_index);
+    shader_set_texture(shader_index, texture, texture_index, name);
 
     free(name);
 }
@@ -398,12 +405,12 @@ int shader_bind_texture(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
 
-    for (int i = 0; i < 32; i++)
+    for (int texture_index = 0; texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES; texture_index++)
     {
-        if (!TEST_BIT(shader->active_textures, i))
+        if (!TEST_BIT(shader->active_textures, texture_index))
         {
-            shader_set_texture(shader_index, texture, name, i);
-            return i;
+            shader_set_texture(shader_index, texture, texture_index, name);
+            return texture_index;
         }
     }
 
@@ -432,9 +439,9 @@ void shader_unbind_texture(
 void shader_unbind_textures(
     int shader_index)
 {
-    for (int i = 0; i < 32; i++)
+    for (int texture_index = 0; texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES; texture_index++)
     {
-        shader_unbind_texture(shader_index, i);
+        shader_unbind_texture(shader_index, texture_index);
     }
 }
 

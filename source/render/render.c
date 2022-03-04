@@ -45,9 +45,9 @@ struct render_globals
 
     struct camera_data camera;
 
-    GLuint quad_texture;
-    GLuint quad_renderbuffer;
     GLuint quad_framebuffer;
+    GLuint quad_renderbuffer;
+    GLuint quad_texture;
     GLuint quad_intermediate_framebuffer;
     GLuint quad_intermediate_texture;
     GLuint quad_vertex_array;
@@ -141,9 +141,6 @@ void render_handle_screen_resize(int width, int height)
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, render_globals.sample_count, GL_DEPTH24_STENCIL8, render_globals.screen_width, render_globals.screen_height);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-    // Resize the viewport
-    glViewport(0, 0, width, height);
-    
     camera_handle_screen_resize(&render_globals.camera, width, height);
 }
 
@@ -493,8 +490,8 @@ static void render_shadows(void)
     float far_plane = 7.5f; // TODO
 
     mat4 lightProjection;
-    glm_ortho(-5.0f, 5.0f, -5.0f, 5.0f, near_plane, far_plane, lightProjection);
-    // glm_perspective(glm_rad(45.0f), (GLfloat)render_globals.shadow_width / (GLfloat)render_globals.shadow_height, near_plane, far_plane, lightProjection);
+    // glm_ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane, lightProjection);
+    glm_perspective(glm_rad(45.0f), (GLfloat)render_globals.shadow_width / (GLfloat)render_globals.shadow_height, near_plane, far_plane, lightProjection);
 
     mat4 lightView;
     glm_lookat((vec3){-2.0f, 4.0f, -1.0f}, (vec3){0, 0, 0}, (vec3){0, 1, 0}, lightView);
@@ -520,8 +517,8 @@ static void render_shadows(void)
         glm_mat4_identity(model_matrix);
 
         shader_use(render_globals.shadow_shader);
-        shader_set_mat4(render_globals.shadow_shader, "light_space_matrix", render_globals.light_space_matrix);
-        shader_set_mat4(render_globals.shadow_shader, "model", model_matrix);
+        shader_set_mat4(render_globals.shadow_shader, render_globals.light_space_matrix, "light_space_matrix");
+        shader_set_mat4(render_globals.shadow_shader, model_matrix, "model");
         
         for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
         {
@@ -602,15 +599,15 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
 
         shader_use(shader_index);
 
-        shader_set_vec3(shader_index, "camera_position", render_globals.camera.position);
+        shader_set_vec3(shader_index, render_globals.camera.position, "camera_position");
 
-        shader_set_mat4(shader_index, "light_space_matrix", render_globals.light_space_matrix);
-        shader_set_mat4(shader_index, "model", model_matrix);
-        shader_set_mat4(shader_index, "view", render_globals.camera.view);
-        shader_set_mat4(shader_index, "projection", render_globals.camera.projection);
+        shader_set_mat4(shader_index, render_globals.light_space_matrix, "light_space_matrix");
+        shader_set_mat4(shader_index, model_matrix, "model");
+        shader_set_mat4(shader_index, render_globals.camera.view, "view");
+        shader_set_mat4(shader_index, render_globals.camera.projection, "projection");
 
-        shader_set_bool(shader_index, "use_nodes", mesh->vertex_type == _vertex_type_skinned);
-        shader_set_int(shader_index, "node_count", model->node_count);
+        shader_set_bool(shader_index, mesh->vertex_type == _vertex_type_skinned, "use_nodes");
+        shader_set_int(shader_index, model->node_count, "node_count");
 
         for (int node_index = 0; node_index < model->node_count; node_index++)
         {
@@ -646,8 +643,8 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             }
         }
 
-        shader_set_bool(shader_index, "use_nodes", false);
-        shader_set_int(shader_index, "node_count", 0);
+        shader_set_bool(shader_index, false, "use_nodes");
+        shader_set_int(shader_index, 0, "node_count");
     }
 }
 
@@ -713,49 +710,53 @@ static void render_lights(int shader_index)
         light_counts[light->type]++;
     }
 
-    shader_set_uint(shader_index, "directional_light_count", light_counts[_light_type_directional]);
-    shader_set_uint(shader_index, "point_light_count", light_counts[_light_type_point]);
-    shader_set_uint(shader_index, "spot_light_count", light_counts[_light_type_spot]);
+    shader_set_uint(shader_index, light_counts[_light_type_directional], "directional_light_count");
+    shader_set_uint(shader_index, light_counts[_light_type_point], "point_light_count");
+    shader_set_uint(shader_index, light_counts[_light_type_spot], "spot_light_count");
 }
 
 static void render_material(int shader_index, struct material_data *material)
 {
-    shader_set_vec3(shader_index, "material.diffuse_color", material->base_properties.color_diffuse);
+    shader_set_vec3(shader_index, material->base_properties.color_diffuse, "material.diffuse_color");
 
-    shader_set_vec3(shader_index, "material.specular_color", material->base_properties.color_specular);
-    shader_set_float(shader_index, "material.specular_amount", material->specular_properties.specular_factor);
-    shader_set_float(shader_index, "material.specular_shininess", material->specular_properties.glossiness_factor);
+    shader_set_vec3(shader_index, material->base_properties.color_specular, "material.specular_color");
+    shader_set_float(shader_index, material->specular_properties.specular_factor, "material.specular_amount");
+    shader_set_float(shader_index, material->specular_properties.glossiness_factor, "material.specular_shininess");
 
-    shader_set_vec3(shader_index, "material.ambient_color", material->base_properties.color_ambient);
-    shader_set_float(shader_index, "material.ambient_amount", 0.1f);
+    shader_set_vec3(shader_index, material->base_properties.color_ambient, "material.ambient_color");
+    shader_set_float(shader_index, 0.1f, "material.ambient_amount");
 
-    shader_set_float(shader_index, "material.bump_scaling", material->base_properties.bump_scaling);
+    shader_set_float(shader_index, material->base_properties.bump_scaling, "material.bump_scaling");
 
     for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
     {
         struct material_texture *texture = material->textures + texture_index;
+        
+        const char *texture_variable_name;
 
         switch (texture->usage)
         {
         case _material_texture_usage_diffuse:
-            shader_bind_texture(shader_index, texture->id, "material.diffuse_texture");
+            texture_variable_name = "material.diffuse_texture";
             break;
 
         case _material_texture_usage_specular:
-            shader_bind_texture(shader_index, texture->id, "material.specular_texture");
+            texture_variable_name = "material.specular_texture";
             break;
 
         case _material_texture_usage_emissive:
-            shader_bind_texture(shader_index, texture->id, "material.emissive_texture");
+            texture_variable_name = "material.emissive_texture";
             break;
 
         case _material_texture_usage_normals:
-            shader_bind_texture(shader_index, texture->id, "material.normal_texture");
+            texture_variable_name = "material.normal_texture";
             break;
 
         default:
             fprintf(stderr, "ERROR: unhandled texture usage - \"%s\"\n", material_texture_usage_to_string(texture->usage));
             exit(EXIT_FAILURE);
         }
+
+        shader_bind_texture(shader_index, texture->id, texture_variable_name);
     }
 }
