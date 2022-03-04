@@ -104,6 +104,17 @@ void shader_use(
     int shader_index)
 {
     struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+
+    for (int i = 0; i < 32; i++)
+    {
+        if (TEST_BIT(shader->active_textures, i))
+        {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, shader->textures[i]);
+        }
+    }
+
     glUseProgram(shader->program);
 }
 
@@ -337,6 +348,94 @@ void shader_set_mat4_v(
     shader_set_mat4(shader_index, name, value);
 
     free(name);
+}
+
+void shader_set_texture(
+    int shader_index,
+    GLuint texture,
+    const char *name,
+    int texture_index)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+
+    assert(!TEST_BIT(shader->active_textures, texture_index));
+    SET_BIT(shader->active_textures, texture_index, true);
+
+    shader->textures[texture_index] = texture;
+    
+    glActiveTexture(GL_TEXTURE0 + texture_index);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glUniform1i(glGetUniformLocation(shader->program, name), texture_index);
+}
+
+void shader_set_texture_v(
+    int shader_index,
+    GLuint texture,
+    int texture_index,
+    const char *fmt,
+    ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
+    char *name;
+    vasprintf(&name, fmt, va);
+
+    va_end(va);
+    
+    shader_set_texture(shader_index, texture, name, texture_index);
+
+    free(name);
+}
+
+int shader_bind_texture(
+    int shader_index,
+    GLuint texture,
+    const char *name)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+
+    for (int i = 0; i < 32; i++)
+    {
+        if (!TEST_BIT(shader->active_textures, i))
+        {
+            shader_set_texture(shader_index, texture, name, i);
+            return i;
+        }
+    }
+
+    fprintf(stderr, "ERROR: too many textures bound\n");
+    exit(EXIT_FAILURE);
+}
+
+void shader_unbind_texture(
+    int shader_index,
+    int texture_index)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+
+    if (TEST_BIT(shader->active_textures, texture_index))
+    {
+        SET_BIT(shader->active_textures, texture_index, false);
+
+        shader->textures[texture_index] = 0;
+
+        glActiveTexture(GL_TEXTURE0 + texture_index);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+}
+
+void shader_unbind_textures(
+    int shader_index)
+{
+    for (int i = 0; i < 32; i++)
+    {
+        shader_unbind_texture(shader_index, i);
+    }
 }
 
 /* ---------- private code */

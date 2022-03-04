@@ -175,49 +175,60 @@ vec3 calculate_spot_light(
         light_intensity * light_attenuation);
 }
 
-float compute_shadow(vec3 frag_position, vec3 frag_normal, vec4 fragPosLightSpace)
+float calculate_shadow(
+    vec3 frag_position,
+    vec3 frag_normal,
+    vec4 fragPosLightSpace,
+    vec3 lightPos,
+    vec3 lightDir)
 {
     // perform perspective divide
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    
     // transform to [0,1] range
     projCoords = projCoords * 0.5 + 0.5;
+
     // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
     float closestDepth = texture(shadow_texture, projCoords.xy).r; 
+
     // get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
+
     // calculate bias (based on depth map resolution and slope)
     vec3 normal = normalize(frag_normal);
-    vec3 lightPos = vec3(3, 3, 3); // TODO
-    vec3 lightDir = normalize(lightPos - frag_position);
+    
     float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    
     // check whether current frag pos is in shadow
     // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
-    // PCF
+    // PCF:
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadow_texture, 0);
-    for(int x = -1; x <= 1; ++x)
+
+    for (int x = -1; x <= 1; x++)
     {
-        for(int y = -1; y <= 1; ++y)
+        for (int y = -1; y <= 1; y++)
         {
-            float pcfDepth = texture(shadow_texture, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
-        }    
+            float pcfDepth = texture(shadow_texture, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;
+        }
     }
+
     shadow /= 9.0;
     
-    // // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
-    if(projCoords.z > 1.0)
+    // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+    if (projCoords.z > 1.0)
         shadow = 0.0;
-        
-    return shadow;
+    
+    return 1.0 - shadow;
 }
 
-vec3 compute_brightness_contrast(vec3 color, float brightness, float contrast)
+vec3 calculate_brightness_contrast(vec3 color, float brightness, float contrast)
 {
     return ((color - 0.5) * (contrast + 0.5)) + brightness;
 }
 
-vec3 compute_gamma(vec3 value, float param)
+vec3 calculate_gamma(vec3 value, float param)
 {
     return vec3(pow(abs(value.r), param), pow(abs(value.g), param), pow(abs(value.b), param));
 }
@@ -232,28 +243,37 @@ out vec4 out_color;
 
 void main()
 {
-    // vec3 normal = normalize(frag_normal);
     vec3 normal = normalize(frag_tbn * (texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0) * material.bump_scaling);
     vec3 camera_direction = normalize(camera_position - frag_position);
 
     vec3 color = vec3(0.0);
+    float shadow = 0.0;
 
     for (uint i = 0; i < directional_light_count; i++)
+    {
         color += calculate_directional_light(directional_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        shadow += calculate_shadow(frag_position, frag_normal, frag_position_light_space, directional_lights[i].position, directional_lights[i].direction);
+    }
     
     for (uint i = 0; i < point_light_count; i++)
+    {
         color += calculate_point_light(point_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        shadow += calculate_shadow(frag_position, frag_normal, frag_position_light_space, point_lights[i].position, normalize(point_lights[i].position - frag_position));
+    }
     
     for (uint i = 0; i < spot_light_count; i++)
+    {
         color += calculate_spot_light(spot_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        shadow += calculate_shadow(frag_position, frag_normal, frag_position_light_space, spot_lights[i].position, spot_lights[i].direction);
+    }
+
+    color *= shadow / (directional_light_count + point_light_count + spot_light_count);
     
     float brightness = 77.0 / 127.0;
     float contrast = 77.0 / 127.0;
-    color = compute_brightness_contrast(color, brightness, contrast);
+    color = calculate_brightness_contrast(color, brightness, contrast);
     
-    // color = compute_gamma(color, 1.2);
-
-    color -= compute_shadow(frag_position, frag_normal, frag_position_light_space);
+    color = calculate_gamma(color, 1.2);
 
     out_color = vec4(color, 1.0);
 }

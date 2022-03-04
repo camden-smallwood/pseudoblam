@@ -298,53 +298,13 @@ static void render_initialize_scene(void)
     
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    glm_vec3_copy((vec3){1.2f, 3.0f, 2.0f}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.2f, 0.1f}, light->diffuse_color);
+    glm_vec3_copy((vec3){-2.0f, 4.0f, -1.0f}, light->position);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
-
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){0.7f, 2.0f, 1.0f}, light->position);
-    glm_vec3_copy((vec3){0.1f, 0.2f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
-
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){2.3f, 3.3f, -4.0f}, light->position);
-    glm_vec3_copy((vec3){0.1f, 0.8f, 0.2f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
-
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){-4.0f, 2.0f, -12.0f}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.2f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 10.0f;
-    light->linear = 0.9f;
-    light->quadratic = 0.32f;
-
-    light = light_get_data(light_new());
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){0.0f, 4.0f, -3.0}, light->position);
-    glm_vec3_copy((vec3){0.8f, 0.8f, 0.8f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
+    light->linear = 0.009f;
+    light->quadratic = 0.0032f;
 }
 
 static void render_initialize_models(void)
@@ -518,16 +478,13 @@ static void render_quad(void)
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
-    // TODO: move to texture abstraction code
-    int texture_index = 0;
-    glActiveTexture(GL_TEXTURE0 + texture_index);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_intermediate_texture);
-
     shader_use(render_globals.quad_shader);
-    shader_set_int(render_globals.quad_shader, "quad_texture", texture_index);
-    
+    shader_bind_texture(render_globals.quad_shader, render_globals.quad_intermediate_texture, "quad_texture");
+
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    shader_unbind_textures(render_globals.quad_shader);
 }
 
 static void render_shadows(void)
@@ -536,20 +493,17 @@ static void render_shadows(void)
     float far_plane = 7.5f; // TODO
 
     mat4 lightProjection;
-    glm_ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane, lightProjection);
-    //glm_perspective(glm_rad(45.0f), (GLfloat)render_globals.shadow_width / (GLfloat)render_globals.shadow_height, near_plane, far_plane, lightProjection);
-
-    struct light_data *flashlight = light_get_data(render_globals.flashlight_light_index);
+    glm_ortho(-5.0f, 5.0f, -5.0f, 5.0f, near_plane, far_plane, lightProjection);
+    // glm_perspective(glm_rad(45.0f), (GLfloat)render_globals.shadow_width / (GLfloat)render_globals.shadow_height, near_plane, far_plane, lightProjection);
 
     mat4 lightView;
-    glm_lookat(flashlight->position, flashlight->direction, (vec3){0, 1, 0}, lightView);
+    glm_lookat((vec3){-2.0f, 4.0f, -1.0f}, (vec3){0, 0, 0}, (vec3){0, 1, 0}, lightView);
 
     glm_mat4_mul(lightProjection, lightView, render_globals.light_space_matrix);
 
-    shader_use(render_globals.shadow_shader);
-    shader_set_mat4(render_globals.shadow_shader, "light_space_matrix", render_globals.light_space_matrix);
-
     glViewport(0, 0, render_globals.shadow_width, render_globals.shadow_height);
+    
+    glEnable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, render_globals.shadow_framebuffer);
     
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -565,6 +519,8 @@ static void render_shadows(void)
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
 
+        shader_use(render_globals.shadow_shader);
+        shader_set_mat4(render_globals.shadow_shader, "light_space_matrix", render_globals.light_space_matrix);
         shader_set_mat4(render_globals.shadow_shader, "model", model_matrix);
         
         for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
@@ -589,8 +545,8 @@ static void render_shadows(void)
 
 static void render_models(void)
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
     glEnable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -675,17 +631,18 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
             render_material(shader_index, material);
 
-            glActiveTexture(GL_TEXTURE31);
-            glBindTexture(GL_TEXTURE_2D, render_globals.shadow_texture);
-
-            shader_set_int(render_globals.blinn_phong_shader, "shadow_texture", render_globals.shadow_texture);
+            int shadow_texture_index = shader_bind_texture(
+                render_globals.blinn_phong_shader,
+                render_globals.shadow_texture,
+                "shadow_texture");
 
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
 
+            shader_unbind_texture(render_globals.blinn_phong_shader, shadow_texture_index);
+
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {
-                glActiveTexture(GL_TEXTURE0 + texture_index);
-                glBindTexture(GL_TEXTURE_2D, 0);
+                shader_unbind_texture(render_globals.blinn_phong_shader, texture_index);
             }
         }
 
@@ -778,25 +735,22 @@ static void render_material(int shader_index, struct material_data *material)
     {
         struct material_texture *texture = material->textures + texture_index;
 
-        glActiveTexture(GL_TEXTURE0 + texture_index);
-        glBindTexture(GL_TEXTURE_2D, texture->id);
-
         switch (texture->usage)
         {
         case _material_texture_usage_diffuse:
-            shader_set_int(shader_index, "material.diffuse_texture", texture_index);
+            shader_bind_texture(shader_index, texture->id, "material.diffuse_texture");
             break;
 
         case _material_texture_usage_specular:
-            shader_set_int(shader_index, "material.specular_texture", texture_index);
+            shader_bind_texture(shader_index, texture->id, "material.specular_texture");
             break;
 
         case _material_texture_usage_emissive:
-            shader_set_int(shader_index, "material.emissive_texture", texture_index);
+            shader_bind_texture(shader_index, texture->id, "material.emissive_texture");
             break;
 
         case _material_texture_usage_normals:
-            shader_set_int(shader_index, "material.normal_texture", texture_index);
+            shader_bind_texture(shader_index, texture->id, "material.normal_texture");
             break;
 
         default:
