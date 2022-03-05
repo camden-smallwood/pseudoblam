@@ -14,7 +14,6 @@ SHELL.C
 #include "input/input.h"
 #include "models/models.h"
 #include "render/shaders.h"
-#include "render/text.h"
 #include "render/lights.h"
 #include "render/render.h"
 
@@ -58,13 +57,6 @@ static const struct shell_component shell_components[] =
         "shaders",
         shaders_initialize,
         shaders_dispose,
-        NULL,
-        NULL,
-    },
-    {
-        "text",
-        text_initialize,
-        text_dispose,
         NULL,
         NULL,
     },

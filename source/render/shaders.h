@@ -40,6 +40,9 @@ void shader_set_uint_v(int shader_index, unsigned int value, const char *fmt, ..
 void shader_set_float(int shader_index, float value, const char *name);
 void shader_set_float_v(int shader_index, float value, const char *fmt, ...);
 
+void shader_set_vec2(int shader_index, vec2 value, const char *name);
+void shader_set_vec2_v(int shader_index, vec2 value, const char *fmt, ...);
+
 void shader_set_vec3(int shader_index, vec3 value, const char *name);
 void shader_set_vec3_v(int shader_index, vec3 value, const char *fmt, ...);
 

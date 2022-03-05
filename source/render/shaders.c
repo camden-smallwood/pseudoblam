@@ -297,6 +297,36 @@ void shader_set_float_v(
     free(name);
 }
 
+void shader_set_vec2(
+    int shader_index,
+    vec2 value,
+    const char *name)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+    
+    glUniform2fv(glGetUniformLocation(shader->program, name), 1, value);
+}
+
+void shader_set_vec2_v(
+    int shader_index,
+    vec2 value,
+    const char *fmt,
+    ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
+    char *name;
+    vasprintf(&name, fmt, va);
+
+    va_end(va);
+    
+    shader_set_vec2(shader_index, value, name);
+
+    free(name);
+}
+
 void shader_set_vec3(
     int shader_index,
     vec3 value,

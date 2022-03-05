@@ -79,7 +79,7 @@ vec3 calculate_light(
     float light_attenuation)
 {
     float light_distance = length(light_direction);
-    // light_distance = light_distance * light_distance;
+    light_distance = light_distance * light_distance;
 
     vec3 diffuse_texture = vec3(texture(material.diffuse_texture, frag_texcoord));
     vec3 specular_texture = vec3(texture(material.specular_texture, frag_texcoord));
@@ -223,23 +223,14 @@ float calculate_shadow(
     return 1.0 - shadow;
 }
 
-vec3 calculate_brightness_contrast(vec3 color, float brightness, float contrast)
-{
-    return ((color - 0.5) * (contrast + 0.5)) + brightness;
-}
-
-vec3 calculate_gamma(vec3 value, float param)
-{
-    return vec3(pow(abs(value.r), param), pow(abs(value.g), param), pow(abs(value.b), param));
-}
-
 in vec3 frag_position;
 in vec3 frag_normal;
 in vec2 frag_texcoord;
 in mat3 frag_tbn;
 in vec4 frag_position_light_space;
 
-out vec4 out_color;
+layout(location = 0) out vec4 out_base_color;
+layout(location = 1) out vec4 out_hdr_color;
 
 void main()
 {
@@ -269,11 +260,12 @@ void main()
 
     color *= shadow / (directional_light_count + point_light_count + spot_light_count);
     
-    float brightness = 77.0 / 127.0;
-    float contrast = 77.0 / 127.0;
-    color = calculate_brightness_contrast(color, brightness, contrast);
-    
-    color = calculate_gamma(color, 1.2);
+    out_base_color = vec4(color, 1.0);
 
-    out_color = vec4(color, 1.0);
+    float brightness = dot(color, vec3(0.2126, 0.5152, 0.0722));
+
+    if (brightness > 1.0)
+        out_hdr_color = vec4(color, 1.0);
+    else
+        out_hdr_color = vec4(0.0, 0.0, 0.0, 1.0);
 }
