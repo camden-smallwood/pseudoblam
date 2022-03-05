@@ -19,10 +19,88 @@ RENDER.C
 #include "camera/camera.h"
 #include "input/input.h"
 #include "models/models.h"
+#include "textures/dds.h"
+
 #include "render/lights.h"
 #include "render/shaders.h"
 #include "render/render.h"
-#include "textures/dds.h"
+#include "render/textures.h"
+
+/* ---------- render buffers */
+
+enum render_buffer_flags
+{
+    _render_buffer_has_multiple_samples_bit,
+    NUMBER_OF_RENDER_BUFFER_FLAGS
+};
+
+struct render_buffer
+{
+    unsigned int flags;
+
+    int samples;
+    int width;
+    int height;
+
+    GLenum format;
+    GLuint id;
+};
+
+void render_buffer_initialize(struct render_buffer *buffer, int samples, int format, int width, int height);
+void render_buffer_dispose(struct render_buffer *buffer);
+void render_buffer_resize(struct render_buffer *buffer, int samples, int width, int height);
+
+void render_buffer_initialize(
+    struct render_buffer *buffer,
+    int samples,
+    int format,
+    int width,
+    int height)
+{
+    assert(buffer);
+
+    buffer->format = (GLenum)format;
+
+    glGenRenderbuffers(1, &buffer->id);
+
+    render_buffer_resize(buffer, samples, width, height);
+}
+
+void render_buffer_dispose(
+    struct render_buffer *buffer)
+{
+    assert(buffer);
+    glDeleteRenderbuffers(1, &buffer->id);
+}
+
+void render_buffer_resize(
+    struct render_buffer *buffer,
+    int samples,
+    int width,
+    int height)
+{
+    assert(buffer);
+
+    GLint maximum_samples;
+    glGetIntegerv(GL_MAX_SAMPLES, &maximum_samples);
+    assert(samples <= maximum_samples);
+
+    SET_BIT(buffer->flags, _render_buffer_has_multiple_samples_bit, samples);
+    
+    buffer->samples = samples;
+    buffer->width = width;
+    buffer->height = height;
+
+    glGenRenderbuffers(1, &buffer->id);
+    glBindRenderbuffer(GL_RENDERBUFFER, buffer->id);
+
+    if (TEST_BIT(buffer->flags, _render_buffer_has_multiple_samples_bit))
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, buffer->format, width, height);
+    else
+        glRenderbufferStorage(GL_RENDERBUFFER, buffer->format, width, height);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+}
 
 /* ---------- private constants */
 
@@ -46,7 +124,7 @@ struct render_globals
     struct camera_data camera;
 
     GLuint quad_framebuffer;
-    GLuint quad_renderbuffer;
+    struct render_buffer quad_renderbuffer;
     GLuint quad_texture;
     GLuint quad_intermediate_framebuffer;
     GLuint quad_intermediate_texture;
@@ -128,6 +206,10 @@ void render_handle_screen_resize(int width, int height)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    // render_texture_resize(
+    //     &render_globals.quad_texture,
+    //     render_globals.screen_width,
+    //     render_globals.screen_height);
 
     // Resize the quad intermediate texture
     glBindTexture(GL_TEXTURE_2D, render_globals.quad_intermediate_texture);
@@ -135,13 +217,21 @@ void render_handle_screen_resize(int width, int height)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
+    // render_texture_resize(
+    //     &render_globals.quad_intermediate_texture,
+    //     render_globals.screen_width,
+    //     render_globals.screen_height);
     
-    // Resize the quad renderbuffer
-    glBindRenderbuffer(GL_RENDERBUFFER, render_globals.quad_renderbuffer);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, render_globals.sample_count, GL_DEPTH24_STENCIL8, render_globals.screen_width, render_globals.screen_height);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    render_buffer_resize(
+        &render_globals.quad_renderbuffer,
+        render_globals.sample_count,
+        render_globals.screen_width,
+        render_globals.screen_height);
 
-    camera_handle_screen_resize(&render_globals.camera, width, height);
+    camera_handle_screen_resize(
+        &render_globals.camera,
+        width,
+        height);
 }
 
 void render_update(float delta_ticks)
@@ -207,11 +297,14 @@ static void render_initialize_quad(void)
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_texture, 0);
     
-    glGenRenderbuffers(1, &render_globals.quad_renderbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, render_globals.quad_renderbuffer);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, render_globals.sample_count, GL_DEPTH24_STENCIL8, render_globals.screen_width, render_globals.screen_height);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_globals.quad_renderbuffer);
+    render_buffer_initialize(
+        &render_globals.quad_renderbuffer,
+        render_globals.sample_count,
+        GL_DEPTH24_STENCIL8,
+        render_globals.screen_width,
+        render_globals.screen_height);
+
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_globals.quad_renderbuffer.id);
 
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -487,11 +580,15 @@ static void render_quad(void)
 static void render_shadows(void)
 {
     float near_plane = 1.0f; // TODO
-    float far_plane = 7.5f; // TODO
+    float far_plane = 5.5f; // TODO
 
     mat4 lightProjection;
-    // glm_ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane, lightProjection);
-    glm_perspective(glm_rad(45.0f), (GLfloat)render_globals.shadow_width / (GLfloat)render_globals.shadow_height, near_plane, far_plane, lightProjection);
+    
+    glm_perspective(
+        glm_rad(45.0f),
+        (GLfloat)render_globals.shadow_width / (GLfloat)render_globals.shadow_height,
+        near_plane, far_plane,
+        lightProjection);
 
     mat4 lightView;
     glm_lookat((vec3){-2.0f, 4.0f, -1.0f}, (vec3){0, 0, 0}, (vec3){0, 1, 0}, lightView);

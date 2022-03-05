@@ -55,7 +55,7 @@ void main()
     vec3 N = normalize(vec3(model * transform * vec4(normal, 0.0)));
     frag_tbn = mat3(T, B, N);
 
-    frag_position_light_space = light_space_matrix * vec4(position, 1.0);
+    frag_position_light_space = light_space_matrix * model * vec4(position, 1.0);
 
     gl_Position = projection * view * model * transform * vec4(position, 1.0);
 }
