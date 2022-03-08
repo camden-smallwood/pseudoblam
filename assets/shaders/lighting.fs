@@ -128,13 +128,9 @@ void main()
         vec3 diffuse_color = spot_lights[i].diffuse_color * diffuse_amount * albedo_specular.rgb;
 
         // specular
-        vec3 light_reflection = reflect(-light_direction, frag_normal);
         vec3 light_halfway_direction = normalize(light_direction + camera_direction);
-        // float specular_amount = pow(max(dot(camera_direction, light_reflection), 0.0), material.specular_shininess);
-        float specular_amount = pow(max(dot(camera_direction, light_reflection), 0.0), material_specular_shininess);
-        specular_amount += pow(max(dot(frag_normal, light_halfway_direction), 0.0), material_specular_shininess);
-        specular_amount /= 2.0;
-        vec3 specular_color = spot_lights[i].specular_color * specular_amount * albedo_specular.a;// * material_specular_amount;
+        float specular_amount = pow(max(dot(frag_normal, light_halfway_direction), 0.0), material_specular_shininess);
+        vec3 specular_color = spot_lights[i].specular_color * specular_amount * albedo_specular.a * material_specular_amount;
 
         // spotlight intensity
         float light_theta = dot(light_direction, normalize(-spot_lights[i].direction));
@@ -156,5 +152,12 @@ void main()
 
     out_base_color = vec4(light_color, 1.0);
 
-    out_hdr_color = max(vec4(0.0), vec4(out_base_color.rgb + emissive_color, 1.0) - 0.2);
+    float brightness = dot(light_color, vec3(0.2126, 0.7152, 0.0722));
+
+    if (brightness > 1.0)
+        out_hdr_color = vec4(light_color, 1.0);
+    else
+        out_hdr_color = vec4(0.0, 0.0, 0.0, 1.0);
+    
+    out_hdr_color += vec4(emissive_color, 1.0);
 }
