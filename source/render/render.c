@@ -46,6 +46,7 @@ struct render_geometry_pass_data
     GLuint position_texture;
     GLuint normal_texture;
     GLuint albedo_specular_texture;
+    GLuint material_texture;
 };
 
 struct render_lighting_pass_data
@@ -54,6 +55,8 @@ struct render_lighting_pass_data
 
     GLuint framebuffer;
     GLuint texture;
+
+    mat4 light_space_matrix;
 };
 
 struct render_transparent_pass_data
@@ -93,12 +96,8 @@ struct
     GLuint default_normals_texture;
     GLuint default_emissive_texture;
 
-    int blinn_phong_shader;
-
     int weapon_model_index;
     int flashlight_light_index;
-
-    mat4 light_space_matrix;
 } static render_globals;
 
 /* ---------- private prototypes */
@@ -227,8 +226,16 @@ static void render_initialize_geometry_pass(void)
     glBindTexture(GL_TEXTURE_2D, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, render_globals.geometry_pass.albedo_specular_texture, 0);
 
-    GLenum attachments[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-    glDrawBuffers(3, attachments);
+    glGenTextures(1, &render_globals.geometry_pass.material_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.geometry_pass.material_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, render_globals.geometry_pass.material_texture, 0);
+
+    GLenum attachments[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+    glDrawBuffers(4, attachments);
 
     renderbuffer_initialize(
         &render_globals.geometry_pass.depth_buffer,
@@ -332,8 +339,6 @@ static void render_initialize_quad(void)
 
 static void render_initialize_scene(void)
 {
-    render_globals.blinn_phong_shader = shader_new("../assets/shaders/generic.vs", "../assets/shaders/blinnphong.fs");
-
     render_globals.default_diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
     render_globals.default_specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
     render_globals.default_normals_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
@@ -480,7 +485,6 @@ static void render_initialize_models(void)
             glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
 
             shader_bind_vertex_attributes(render_globals.geometry_pass.albedo_shader_index, mesh->vertex_type);
-            shader_bind_vertex_attributes(render_globals.blinn_phong_shader, mesh->vertex_type);
         }
     }
 }
@@ -621,6 +625,11 @@ static void render_lighting_pass(void)
         render_globals.geometry_pass.albedo_specular_texture,
         "albedo_specular_texture");
 
+    shader_bind_texture(
+        render_globals.lighting_pass.shader_index,
+        render_globals.geometry_pass.material_texture,
+        "material_texture");
+    
     render_lights(render_globals.lighting_pass.shader_index);
 
     glBindVertexArray(render_globals.quad_vertex_array);
@@ -683,7 +692,6 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
 
         shader_set_vec3(shader_index, render_globals.camera.position, "camera_position");
 
-        shader_set_mat4(shader_index, render_globals.light_space_matrix, "light_space_matrix");
         shader_set_mat4(shader_index, model_matrix, "model");
         shader_set_mat4(shader_index, render_globals.camera.view, "view");
         shader_set_mat4(shader_index, render_globals.camera.projection, "projection");
@@ -708,14 +716,7 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
             render_material(shader_index, material);
 
-            // int shadow_texture_index = shader_bind_texture(
-            //     shader_index,
-            //     render_globals.shadow_texture,
-            //     "shadow_texture");
-
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
-
-            // shader_unbind_texture(shader_index, shadow_texture_index);
 
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {
