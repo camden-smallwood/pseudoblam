@@ -24,82 +24,7 @@ RENDER.C
 #include "render/lights.h"
 #include "render/shaders.h"
 #include "render/render.h"
-
-/* ---------- render buffers */
-
-enum renderbuffer_flags
-{
-    _renderbuffer_has_multiple_samples_bit,
-    NUMBER_OF_RENDERBUFFER_FLAGS
-};
-
-struct renderbuffer
-{
-    unsigned int flags;
-
-    int samples;
-    int width;
-    int height;
-
-    GLenum format;
-    GLuint id;
-};
-
-void renderbuffer_initialize(struct renderbuffer *buffer, int samples, int format, int width, int height);
-void renderbuffer_dispose(struct renderbuffer *buffer);
-void renderbuffer_resize(struct renderbuffer *buffer, int samples, int width, int height);
-
-void renderbuffer_initialize(
-    struct renderbuffer *buffer,
-    int samples,
-    int format,
-    int width,
-    int height)
-{
-    assert(buffer);
-
-    buffer->format = (GLenum)format;
-
-    glGenRenderbuffers(1, &buffer->id);
-
-    renderbuffer_resize(buffer, samples, width, height);
-}
-
-void renderbuffer_dispose(
-    struct renderbuffer *buffer)
-{
-    assert(buffer);
-    glDeleteRenderbuffers(1, &buffer->id);
-}
-
-void renderbuffer_resize(
-    struct renderbuffer *buffer,
-    int samples,
-    int width,
-    int height)
-{
-    assert(buffer);
-
-    GLint maximum_samples;
-    glGetIntegerv(GL_MAX_SAMPLES, &maximum_samples);
-    assert(samples <= maximum_samples);
-
-    SET_BIT(buffer->flags, _renderbuffer_has_multiple_samples_bit, samples);
-    
-    buffer->samples = samples;
-    buffer->width = width;
-    buffer->height = height;
-
-    glGenRenderbuffers(1, &buffer->id);
-    glBindRenderbuffer(GL_RENDERBUFFER, buffer->id);
-
-    if (TEST_BIT(buffer->flags, _renderbuffer_has_multiple_samples_bit))
-        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, buffer->format, width, height);
-    else
-        glRenderbufferStorage(GL_RENDERBUFFER, buffer->format, width, height);
-
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-}
+#include "render/renderbuffer.h"
 
 /* ---------- private constants */
 
@@ -111,7 +36,39 @@ enum render_flags
 
 /* ---------- private variables */
 
-struct render_globals
+struct render_geometry_pass_data
+{
+    int albedo_shader_index;
+
+    GLuint framebuffer;
+    struct renderbuffer depth_buffer;
+
+    GLuint position_texture;
+    GLuint normal_texture;
+    GLuint albedo_specular_texture;
+};
+
+struct render_lighting_pass_data
+{
+    int shader_index;
+
+    GLuint framebuffer;
+    GLuint texture;
+};
+
+struct render_transparent_pass_data
+{
+    GLuint framebuffer;
+    GLuint texture;
+};
+
+struct render_postprocess_pass_data
+{
+    GLuint framebuffer;
+    GLuint texture;
+};
+
+struct
 {
     unsigned int flags;
 
@@ -122,54 +79,37 @@ struct render_globals
 
     struct camera_data camera;
 
-    GLuint quad_vertex_array;
-    GLuint quad_vertex_buffer;
+    struct render_geometry_pass_data geometry_pass;
+    struct render_lighting_pass_data lighting_pass;
+    struct render_transparent_pass_data transparent_pass;
+    struct render_postprocess_pass_data postprocess_pass;
 
     int quad_shader;
-    int quad_hdr_shader;
-    int quad_blur_shader;
-
-    GLuint quad_framebuffer_multisampled;
-    GLuint quad_base_texture_multisampled;
-    GLuint quad_hdr_texture_multisampled;
-
-    struct renderbuffer quad_depth_renderbuffer;
-
-    GLuint quad_framebuffer;
-    GLuint quad_base_texture;
-    GLuint quad_hdr_texture;
-
-    GLuint quad_blur_framebuffer;
-    GLuint quad_blur_texture;
-
-    GLuint quad_final_framebuffer;
-    GLuint quad_final_texture;
-
-    GLuint shadow_framebuffer;
-    GLuint shadow_texture;
-    int shadow_width;
-    int shadow_height;
-    int shadow_shader;
-
-    mat4 light_space_matrix;
-
-    int blinn_phong_shader;
+    GLuint quad_vertex_array;
+    GLuint quad_vertex_buffer;
 
     GLuint default_diffuse_texture;
     GLuint default_specular_texture;
     GLuint default_normals_texture;
     GLuint default_emissive_texture;
 
-    int weapon_model_index;
+    int blinn_phong_shader;
 
+    int weapon_model_index;
     int flashlight_light_index;
+
+    mat4 light_space_matrix;
 } static render_globals;
 
 /* ---------- private prototypes */
 
 static void render_initialize_gl(void);
+static void render_initialize_geometry_pass(void);
+static void render_initialize_lighting_pass(void);
+static void render_initialize_transparent_pass(void);
+static void render_initialize_postprocess_pass(void);
 static void render_initialize_quad(void);
-static void render_initialize_shadows(void);
+
 static void render_initialize_scene(void);
 static void render_initialize_models(void);
 
@@ -177,9 +117,11 @@ static void render_update_input(void);
 static void render_update_flashlight(void);
 
 static void render_frame(void);
+static void render_geometry_pass(void);
+static void render_lighting_pass(void);
+static void render_transparent_pass(void);
+static void render_postprocess_pass(void);
 static void render_quad(void);
-static void render_shadows(void);
-static void render_models(void);
 
 static void render_model(int shader_index, int model_index, mat4 model_matrix);
 static void render_lights(int shader_index);
@@ -197,8 +139,14 @@ void render_initialize(void)
     render_globals.sample_count = 4;
 
     render_initialize_gl();
+    
+    render_initialize_geometry_pass();
+    render_initialize_lighting_pass();
+    render_initialize_transparent_pass();
+    render_initialize_postprocess_pass();
+
     render_initialize_quad();
-    render_initialize_shadows();
+    
     render_initialize_scene();
     render_initialize_models();
 }
@@ -212,60 +160,6 @@ void render_handle_screen_resize(int width, int height)
 {
     render_globals.screen_width = width;
     render_globals.screen_height = height;
-
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_base_texture_multisampled);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, render_globals.sample_count, GL_RGB, render_globals.screen_width, render_globals.screen_height, GL_TRUE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_hdr_texture_multisampled);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, render_globals.sample_count, GL_RGB, render_globals.screen_width, render_globals.screen_height, GL_TRUE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-
-    renderbuffer_resize(
-        &render_globals.quad_depth_renderbuffer,
-        render_globals.sample_count,
-        render_globals.screen_width,
-        render_globals.screen_height);
-
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_base_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, render_globals.screen_width, render_globals.screen_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_hdr_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, render_globals.screen_width, render_globals.screen_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_blur_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_final_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
     
     camera_handle_screen_resize(
         &render_globals.camera,
@@ -302,6 +196,117 @@ static void render_initialize_gl(void)
     glFrontFace(GL_CCW);
 }
 
+static void render_initialize_geometry_pass(void)
+{
+    render_globals.geometry_pass.albedo_shader_index = shader_new("../assets/shaders/generic.vs", "../assets/shaders/albedo.fs");
+
+    glGenFramebuffers(1, &render_globals.geometry_pass.framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.geometry_pass.framebuffer);
+
+    glGenTextures(1, &render_globals.geometry_pass.position_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.geometry_pass.position_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.geometry_pass.position_texture, 0);
+
+    glGenTextures(1, &render_globals.geometry_pass.normal_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.geometry_pass.normal_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, render_globals.geometry_pass.normal_texture, 0);
+
+    glGenTextures(1, &render_globals.geometry_pass.albedo_specular_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.geometry_pass.albedo_specular_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, render_globals.geometry_pass.albedo_specular_texture, 0);
+
+    GLenum attachments[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, attachments);
+
+    renderbuffer_initialize(
+        &render_globals.geometry_pass.depth_buffer,
+        0,
+        GL_DEPTH_COMPONENT,
+        render_globals.screen_width,
+        render_globals.screen_height);
+
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_globals.geometry_pass.depth_buffer.id);
+
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void render_initialize_lighting_pass(void)
+{
+    render_globals.lighting_pass.shader_index = shader_new(
+        "../assets/shaders/quad.vs",
+        "../assets/shaders/lighting.fs");
+
+    glGenFramebuffers(1, &render_globals.lighting_pass.framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.lighting_pass.framebuffer);
+
+    glGenTextures(1, &render_globals.lighting_pass.texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.lighting_pass.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.lighting_pass.texture, 0);
+
+    GLenum attachments[] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers(1, attachments);
+
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void render_initialize_transparent_pass(void)
+{
+    glGenFramebuffers(1, &render_globals.transparent_pass.framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.transparent_pass.framebuffer);
+
+    glGenTextures(1, &render_globals.transparent_pass.texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.transparent_pass.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.transparent_pass.texture, 0);
+
+    GLenum attachments[] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers(1, attachments);
+
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void render_initialize_postprocess_pass(void)
+{
+    glGenFramebuffers(1, &render_globals.postprocess_pass.framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+
+    glGenTextures(1, &render_globals.postprocess_pass.texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.postprocess_pass.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.postprocess_pass.texture, 0);
+
+    GLenum attachments[] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers(1, attachments);
+
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 static void render_initialize_quad(void)
 {
     struct vertex_flat quad_vertices[] =
@@ -321,150 +326,8 @@ static void render_initialize_quad(void)
     glBindBuffer(GL_ARRAY_BUFFER, render_globals.quad_vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
     
-    // ---------------------------------------------------
-
     render_globals.quad_shader = shader_new("../assets/shaders/quad.vs", "../assets/shaders/quad.fs");
-    render_globals.quad_hdr_shader = shader_new("../assets/shaders/quad.vs", "../assets/shaders/bloom.fs");
-    render_globals.quad_blur_shader = shader_new("../assets/shaders/quad.vs", "../assets/shaders/blur.fs");
     shader_bind_vertex_attributes(render_globals.quad_shader, _vertex_type_flat);
-
-    // ---------------------------------------------------
-
-    glGenFramebuffers(1, &render_globals.quad_framebuffer_multisampled);
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer_multisampled);
-    
-    glGenTextures(1, &render_globals.quad_base_texture_multisampled);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_base_texture_multisampled);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, render_globals.sample_count, GL_RGB, render_globals.screen_width, render_globals.screen_height, GL_TRUE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_base_texture_multisampled, 0);
-    
-    glGenTextures(1, &render_globals.quad_hdr_texture_multisampled);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_hdr_texture_multisampled);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, render_globals.sample_count, GL_RGB, render_globals.screen_width, render_globals.screen_height, GL_TRUE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D_MULTISAMPLE, render_globals.quad_hdr_texture_multisampled, 0);
-    
-    renderbuffer_initialize(
-        &render_globals.quad_depth_renderbuffer,
-        render_globals.sample_count,
-        GL_DEPTH24_STENCIL8,
-        render_globals.screen_width,
-        render_globals.screen_height);
-
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_globals.quad_depth_renderbuffer.id);
-
-    GLenum quad_attachments[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-    glDrawBuffers(2, quad_attachments);
-
-    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // ---------------------------------------------------
-
-    glGenFramebuffers(1, &render_globals.quad_framebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer);
-    
-    glGenTextures(1, &render_globals.quad_base_texture);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_base_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.quad_base_texture, 0);
-
-    glGenTextures(1, &render_globals.quad_hdr_texture);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_hdr_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, render_globals.quad_hdr_texture, 0);
-
-    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // ---------------------------------------------------
-
-    glGenFramebuffers(1, &render_globals.quad_blur_framebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_blur_framebuffer);
-
-    glGenTextures(1, &render_globals.quad_blur_texture);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_blur_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.quad_blur_texture, 0);
-
-    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // ---------------------------------------------------
-
-    glGenFramebuffers(1, &render_globals.quad_final_framebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_final_framebuffer);
-
-    glGenTextures(1, &render_globals.quad_final_texture);
-    glBindTexture(GL_TEXTURE_2D, render_globals.quad_final_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.quad_final_texture, 0);
-
-    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-static void render_initialize_shadows(void)
-{
-    render_globals.shadow_width = 2048;
-    render_globals.shadow_height = 2048;
-
-    render_globals.shadow_shader = shader_new("../assets/shaders/shadows.vs", "../assets/shaders/shadows.fs");
-
-    glGenFramebuffers(1, &render_globals.shadow_framebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.shadow_framebuffer);
-
-    glGenTextures(1, &render_globals.shadow_texture);
-    glBindTexture(GL_TEXTURE_2D, render_globals.shadow_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, render_globals.shadow_width, render_globals.shadow_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, (vec4){1, 1, 1, 1});
-    
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, render_globals.shadow_texture, 0);
-    
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    
-    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void render_initialize_scene(void)
@@ -616,7 +479,7 @@ static void render_initialize_models(void)
             glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
             glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
 
-            shader_bind_vertex_attributes(render_globals.shadow_shader, mesh->vertex_type);
+            shader_bind_vertex_attributes(render_globals.geometry_pass.albedo_shader_index, mesh->vertex_type);
             shader_bind_vertex_attributes(render_globals.blinn_phong_shader, mesh->vertex_type);
         }
     }
@@ -672,93 +535,20 @@ static void render_update_flashlight(void)
 
 static void render_frame(void)
 {
-    render_shadows();
-    render_models();
+    render_geometry_pass();
+    render_lighting_pass();
+    render_transparent_pass();
+    render_postprocess_pass();
     render_quad();
 }
 
-static void render_quad(void)
-{
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_DEPTH_TEST);
-
-    shader_use(render_globals.quad_shader);
-    shader_bind_texture(render_globals.quad_shader, render_globals.quad_final_texture, "quad_texture");
-
-    glBindVertexArray(render_globals.quad_vertex_array);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    shader_unbind_textures(render_globals.quad_shader);
-}
-
-static void render_shadows(void)
-{
-    glViewport(0, 0, render_globals.shadow_width, render_globals.shadow_height);
-    
-    glEnable(GL_DEPTH_TEST);
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.shadow_framebuffer);
-    
-    glClear(GL_DEPTH_BUFFER_BIT);
-
-    struct model_iterator iterator;
-    model_iterator_new(&iterator);
-
-    while (model_iterator_next(&iterator) != -1)
-    {
-        if (iterator.index == render_globals.weapon_model_index)
-            continue;
-        
-        mat4 model_matrix;
-        glm_mat4_identity(model_matrix);
-
-        float near_plane = 1.0f; // TODO
-        float far_plane = 5.5f; // TODO
-
-        mat4 lightProjection;
-        glm_perspective(
-            glm_rad(45.0f),
-            (GLfloat)render_globals.shadow_width / (GLfloat)render_globals.shadow_height,
-            near_plane, far_plane,
-            lightProjection);
-
-        mat4 lightView;
-        glm_lookat((vec3){-2.0f, 4.0f, -1.0f}, (vec3){0, 0, 0}, (vec3){0, 1, 0}, lightView);
-
-        glm_mat4_mul(lightProjection, lightView, render_globals.light_space_matrix);
-
-        shader_use(render_globals.shadow_shader);
-        shader_set_mat4(render_globals.shadow_shader, render_globals.light_space_matrix, "light_space_matrix");
-        shader_set_mat4(render_globals.shadow_shader, model_matrix, "model");
-        
-        for (int mesh_index = 0; mesh_index < iterator.data->mesh_count; mesh_index++)
-        {
-            struct model_mesh *mesh = iterator.data->meshes + mesh_index;
-
-            glBindVertexArray(mesh->vertex_array);
-
-            for (int part_index = 0; part_index < mesh->part_count; part_index++)
-            {
-                struct model_mesh_part *part = mesh->parts + part_index;
-
-                glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
-            }
-        }
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-static void render_models(void)
+static void render_geometry_pass(void)
 {
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
-    
-    // ------------------------------------------------------
-    // Render models to multisampled textures:
-    // ------------------------------------------------------
-    
     glEnable(GL_DEPTH_TEST);
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_framebuffer_multisampled);
-    
+
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.geometry_pass.framebuffer);
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     struct model_iterator iterator;
@@ -772,7 +562,10 @@ static void render_models(void)
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
         
-        render_model(render_globals.blinn_phong_shader, iterator.index, model_matrix);
+        render_model(
+            render_globals.geometry_pass.albedo_shader_index,
+            iterator.index,
+            model_matrix);
     }
 
     if (render_globals.weapon_model_index != -1)
@@ -788,78 +581,94 @@ static void render_models(void)
         glm_mat4_inv(render_globals.camera.view, inverted_view);
         glm_mat4_mul(inverted_view, model_matrix, model_matrix);
 
-        render_model(render_globals.blinn_phong_shader, render_globals.weapon_model_index, model_matrix);
+        render_model(
+            render_globals.geometry_pass.albedo_shader_index,
+            render_globals.weapon_model_index,
+            model_matrix);
     }
 
-    // ------------------------------------------------------
-    // Downsample textures from multisampling:
-    // ------------------------------------------------------
-    
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.quad_framebuffer_multisampled);
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.quad_framebuffer);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    glBlitFramebuffer(
-        0, 0, render_globals.screen_width, render_globals.screen_height,
-        0, 0, render_globals.screen_width, render_globals.screen_height,
-        GL_COLOR_BUFFER_BIT,
-        GL_NEAREST);
-    
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.quad_framebuffer_multisampled);
-    glReadBuffer(GL_COLOR_ATTACHMENT1);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.quad_framebuffer);
-    glDrawBuffer(GL_COLOR_ATTACHMENT1);
-    glBlitFramebuffer(
-        0, 0, render_globals.screen_width, render_globals.screen_height,
-        0, 0, render_globals.screen_width, render_globals.screen_height,
-        GL_COLOR_BUFFER_BIT,
-        GL_NEAREST);
-    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
-    // ------------------------------------------------------
-    // Blur necessary textures for blending:
-    // ------------------------------------------------------
-
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_blur_framebuffer);
-    
-    glClear(GL_COLOR_BUFFER_BIT);
+static void render_lighting_pass(void)
+{
+    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
 
-    shader_use(render_globals.quad_blur_shader);
-    shader_bind_texture(render_globals.quad_blur_shader, render_globals.quad_hdr_texture, "blur_texture");
-    shader_set_float(render_globals.quad_blur_shader, 1000.0f, "blur_amount");
-    shader_set_bool(render_globals.quad_blur_shader, true, "blur_horizontal");
-    // shader_set_bool(render_globals.quad_blur_shader, true, "blur_vertical");
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.lighting_pass.framebuffer);
+    
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    shader_use(render_globals.lighting_pass.shader_index);
+    
+    shader_set_vec3(
+        render_globals.lighting_pass.shader_index,
+        render_globals.camera.position,
+        "camera_position");
+
+    shader_bind_texture(
+        render_globals.lighting_pass.shader_index,
+        render_globals.geometry_pass.position_texture,
+        "position_texture");
+    
+    shader_bind_texture(
+        render_globals.lighting_pass.shader_index,
+        render_globals.geometry_pass.normal_texture,
+        "normal_texture");
+    
+    shader_bind_texture(
+        render_globals.lighting_pass.shader_index,
+        render_globals.geometry_pass.albedo_specular_texture,
+        "albedo_specular_texture");
+
+    render_lights(render_globals.lighting_pass.shader_index);
 
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    shader_unbind_textures(render_globals.quad_blur_shader);
-    
+    shader_unbind_textures(render_globals.lighting_pass.shader_index);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
-    // ------------------------------------------------------
-    // Blend textures for final result:
-    // ------------------------------------------------------
-
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.quad_final_framebuffer);
-    
-    glClear(GL_COLOR_BUFFER_BIT);
+static void render_transparent_pass(void)
+{
+    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
 
-    shader_use(render_globals.quad_hdr_shader);
-    shader_bind_texture(render_globals.quad_hdr_shader, render_globals.quad_base_texture, "base_texture");
-    shader_bind_texture(render_globals.quad_hdr_shader, render_globals.quad_blur_texture, "hdr_texture");
-    shader_set_bool(render_globals.quad_hdr_shader, true, "bloom");
-    shader_set_float(render_globals.quad_hdr_shader, 1.0f, "exposure");
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.lighting_pass.framebuffer);
+    
+    // TODO
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void render_postprocess_pass(void)
+{
+    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
+    glDisable(GL_DEPTH_TEST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+    
+    // TODO
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void render_quad(void)
+{
+    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
+    glDisable(GL_DEPTH_TEST);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    shader_use(render_globals.quad_shader);
+    shader_bind_texture(render_globals.quad_shader, render_globals.lighting_pass.texture, "quad_texture");
 
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    shader_unbind_textures(render_globals.quad_hdr_shader);
-    
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    shader_unbind_textures(render_globals.quad_shader);
 }
 
 static void render_model(int shader_index, int model_index, mat4 model_matrix)
@@ -890,8 +699,6 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             shader_set_mat4_v(shader_index, node->offset_matrix, "node_matrices[%i]", node_index);
         }
         
-        render_lights(shader_index);
-
         glBindVertexArray(mesh->vertex_array);
 
         for (int part_index = 0; part_index < mesh->part_count; part_index++)
@@ -901,18 +708,18 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
             render_material(shader_index, material);
 
-            int shadow_texture_index = shader_bind_texture(
-                render_globals.blinn_phong_shader,
-                render_globals.shadow_texture,
-                "shadow_texture");
+            // int shadow_texture_index = shader_bind_texture(
+            //     shader_index,
+            //     render_globals.shadow_texture,
+            //     "shadow_texture");
 
             glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
 
-            shader_unbind_texture(render_globals.blinn_phong_shader, shadow_texture_index);
+            // shader_unbind_texture(shader_index, shadow_texture_index);
 
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {
-                shader_unbind_texture(render_globals.blinn_phong_shader, texture_index);
+                shader_unbind_texture(shader_index, texture_index);
             }
         }
 

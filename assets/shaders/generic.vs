@@ -47,7 +47,7 @@ void main()
     }
 
     frag_position = vec3(model * transform * vec4(position, 1));
-    frag_normal = vec3(model * vec4(normal, 1.0));
+    frag_normal = vec3(model * transform * vec4(normal, 1.0));
     frag_texcoord = texcoord;
     
     vec3 T = normalize(vec3(model * transform * vec4(tangent, 0.0)));
@@ -55,7 +55,7 @@ void main()
     vec3 N = normalize(vec3(model * transform * vec4(normal, 0.0)));
     frag_tbn = mat3(T, B, N);
 
-    frag_position_light_space = light_space_matrix * model * vec4(position, 1.0);
+    frag_position_light_space = light_space_matrix * model * transform * vec4(position, 1.0);
 
     gl_Position = projection * view * model * transform * vec4(position, 1.0);
 }

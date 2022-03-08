@@ -185,7 +185,12 @@ void shader_set_bool(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
     
-    glUniform1i(glGetUniformLocation(shader->program, name), value);
+    GLint location = glGetUniformLocation(shader->program, name);
+
+    if (location != -1)
+    {
+        glUniform1i(location, value);
+    }
 }
 
 void shader_set_bool_v(
@@ -215,7 +220,12 @@ void shader_set_int(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
     
-    glUniform1i(glGetUniformLocation(shader->program, name), value);
+    GLint location = glGetUniformLocation(shader->program, name);
+
+    if (location != -1)
+    {
+        glUniform1i(location, value);
+    }
 }
 
 void shader_set_int_v(
@@ -245,7 +255,12 @@ void shader_set_uint(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
     
-    glUniform1ui(glGetUniformLocation(shader->program, name), value);
+    GLint location = glGetUniformLocation(shader->program, name);
+
+    if (location != -1)
+    {
+        glUniform1ui(location, value);
+    }
 }
 
 void shader_set_uint_v(
@@ -275,7 +290,12 @@ void shader_set_float(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
     
-    glUniform1f(glGetUniformLocation(shader->program, name), value);
+    GLint location = glGetUniformLocation(shader->program, name);
+
+    if (location != -1)
+    {
+        glUniform1f(location, value);
+    }
 }
 
 void shader_set_float_v(
@@ -305,7 +325,12 @@ void shader_set_vec2(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
     
-    glUniform2fv(glGetUniformLocation(shader->program, name), 1, value);
+    GLint location = glGetUniformLocation(shader->program, name);
+
+    if (location != -1)
+    {
+        glUniform2fv(location, 1, value);
+    }
 }
 
 void shader_set_vec2_v(
@@ -334,8 +359,13 @@ void shader_set_vec3(
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
-    
-    glUniform3fv(glGetUniformLocation(shader->program, name), 1, value);
+
+    GLint location = glGetUniformLocation(shader->program, name);
+
+    if (location != -1)
+    {
+        glUniform3fv(location, 1, value);
+    }
 }
 
 void shader_set_vec3_v(
@@ -365,7 +395,12 @@ void shader_set_mat4(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
 
-    glUniformMatrix4fv(glGetUniformLocation(shader->program, name), 1, GL_FALSE, &value[0][0]);
+    GLint location = glGetUniformLocation(shader->program, name);
+
+    if (location != -1)
+    {
+        glUniformMatrix4fv(location, 1, GL_FALSE, &value[0][0]);
+    }
 }
 
 void shader_set_mat4_v(
@@ -396,15 +431,20 @@ void shader_set_texture(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
 
-    assert(!TEST_BIT(shader->active_textures, texture_index));
-    SET_BIT(shader->active_textures, texture_index, true);
+    GLint location = glGetUniformLocation(shader->program, name);
 
-    shader->textures[texture_index] = texture;
-    
-    glActiveTexture(GL_TEXTURE0 + texture_index);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    if (location != -1)
+    {
+        assert(!TEST_BIT(shader->active_textures, texture_index));
+        SET_BIT(shader->active_textures, texture_index, true);
 
-    glUniform1i(glGetUniformLocation(shader->program, name), texture_index);
+        shader->textures[texture_index] = texture;
+        
+        glActiveTexture(GL_TEXTURE0 + texture_index);
+        glBindTexture(GL_TEXTURE_2D, texture);
+
+        glUniform1i(location, texture_index);
+    }
 }
 
 void shader_set_texture_v(

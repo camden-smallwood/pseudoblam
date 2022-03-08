@@ -9,6 +9,8 @@ in vec2 frag_texcoord;
 
 out vec4 out_color;
 
+const float weights[5] = float[] (0.2270270270, 0.1945945946, 0.1216216216, 0.0540540541, 0.0162162162);
+
 float gauss(float x, float s2)
 {
     float c = 1.0 / (2.0 * 3.14159265359 * s2);
@@ -18,21 +20,6 @@ float gauss(float x, float s2)
 
 void main()
 {
-    float weights[5] = float[](0, 0, 0, 0, 0);
-    weights[0] = gauss(0.0, blur_amount);
-    float sum = weights[0];
-
-    for (int i = 1; i < 5; i++)
-    {
-        weights[i] = gauss(i, blur_amount);
-        sum += 2.0 * weights[i];
-    }
-
-    for (int i = 0; i < 5; i++)
-    {
-        weights[i] /= sum;
-    }
-
     vec2 texel_size = 1.0 / textureSize(blur_texture, 0);
     vec3 color = texture(blur_texture, frag_texcoord).rgb * weights[0];
 

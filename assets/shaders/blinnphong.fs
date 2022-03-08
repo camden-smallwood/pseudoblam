@@ -76,28 +76,26 @@ vec3 calculate_light(
     vec3 light_diffuse_color,
     vec3 light_ambient_color,
     vec3 light_specular_color,
-    float light_attenuation)
+    float light_attenuation,
+    out vec3 emissive)
 {
-    float light_distance = length(light_direction);
-    light_distance = light_distance * light_distance;
-
     vec3 diffuse_texture = vec3(texture(material.diffuse_texture, frag_texcoord));
     vec3 specular_texture = vec3(texture(material.specular_texture, frag_texcoord));
 
     // ambient shading
-    vec3 ambient = material.ambient_amount * (material.ambient_color + light_ambient_color) * light_attenuation;
+    vec3 ambient = light_ambient_color * material.ambient_amount * material.ambient_color * light_attenuation;
 
     // diffuse shading
     float diffuse_amount = max(dot(normal, light_direction), 0.0);
-    vec3 diffuse = diffuse_amount * (material.diffuse_color + light_diffuse_color) * diffuse_texture * light_attenuation;
+    vec3 diffuse = light_diffuse_color * diffuse_amount * diffuse_texture * light_attenuation;
 
     // specular shading
     vec3 light_halfway_direction = normalize(light_direction + camera_direction);
     float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
-    vec3 specular = (light_specular_color * specular_amount) * light_attenuation * (specular_texture * material.specular_amount);
+    vec3 specular = light_specular_color * specular_amount * specular_texture * light_attenuation;
 
     // emissive
-    vec3 emissive = vec3(texture(material.emissive_texture, frag_texcoord));
+    emissive = vec3(texture(material.emissive_texture, frag_texcoord));
 
     return ambient + diffuse + specular + emissive;
 }
@@ -108,7 +106,8 @@ vec3 calculate_directional_light(
     vec3 frag_position,
     vec2 frag_texcoord,
     vec3 normal,
-    vec3 camera_direction)
+    vec3 camera_direction,
+    out vec3 emissive)
 {
     vec3 light_direction = normalize(-light.direction);
 
@@ -121,7 +120,8 @@ vec3 calculate_directional_light(
         light.diffuse_color,
         light.ambient_color,
         light.specular_color,
-        1.0);
+        1.0,
+        emissive);
 }
 
 vec3 calculate_point_light(
@@ -130,7 +130,8 @@ vec3 calculate_point_light(
     vec3 frag_position,
     vec2 frag_texcoord,
     vec3 normal,
-    vec3 camera_direction)
+    vec3 camera_direction,
+    out vec3 emissive)
 {
     vec3 light_direction = normalize(light.position - frag_position);
     float light_distance = length(light.position - frag_position);
@@ -145,7 +146,8 @@ vec3 calculate_point_light(
         light.diffuse_color,
         light.ambient_color,
         light.specular_color,
-        light_attenuation);
+        light_attenuation,
+        emissive);
 }
 
 vec3 calculate_spot_light(
@@ -154,7 +156,8 @@ vec3 calculate_spot_light(
     vec3 frag_position,
     vec2 frag_texcoord,
     vec3 normal,
-    vec3 camera_direction)
+    vec3 camera_direction,
+    out vec3 emissive)
 {
     vec3 light_direction = normalize(light.position - frag_position);
     float light_distance = length(light.position - frag_position);
@@ -172,7 +175,28 @@ vec3 calculate_spot_light(
         light.diffuse_color,
         light.ambient_color,
         light.specular_color,
-        light_intensity * light_attenuation);
+        light_intensity * light_attenuation,
+        emissive);
+
+    vec3 diffuse_texture = vec3(texture(material.diffuse_texture, frag_texcoord));
+    vec3 specular_texture = vec3(texture(material.specular_texture, frag_texcoord));
+
+    // ambient shading
+    vec3 ambient = light_ambient_color * material.ambient_amount * material.ambient_color * light_attenuation;
+
+    // diffuse shading
+    float diffuse_amount = max(dot(normal, light_direction), 0.0);
+    vec3 diffuse = light_diffuse_color * diffuse_amount * diffuse_texture * light_attenuation;
+
+    // specular shading
+    vec3 light_halfway_direction = normalize(light_direction + camera_direction);
+    float specular_amount = pow(max(dot(normal, light_halfway_direction), 0.0), material.specular_shininess);
+    vec3 specular = light_specular_color * specular_amount * specular_texture * light_attenuation;
+
+    // emissive
+    emissive = vec3(texture(material.emissive_texture, frag_texcoord));
+
+    return ambient + diffuse + specular + emissive;
 }
 
 float calculate_shadow(
@@ -238,23 +262,24 @@ void main()
     vec3 camera_direction = normalize(camera_position - frag_position);
 
     vec3 color = vec3(0.0);
+    vec3 emissive = vec3(0.0);
     float shadow = 0.0;
 
     for (uint i = 0; i < directional_light_count; i++)
     {
-        color += calculate_directional_light(directional_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        color += calculate_directional_light(directional_lights[i], material, frag_position, frag_texcoord, normal, camera_direction, emissive);
         shadow += calculate_shadow(frag_position, frag_normal, frag_position_light_space, directional_lights[i].position, directional_lights[i].direction);
     }
     
     for (uint i = 0; i < point_light_count; i++)
     {
-        color += calculate_point_light(point_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        color += calculate_point_light(point_lights[i], material, frag_position, frag_texcoord, normal, camera_direction, emissive);
         shadow += calculate_shadow(frag_position, frag_normal, frag_position_light_space, point_lights[i].position, normalize(point_lights[i].position - frag_position));
     }
     
     for (uint i = 0; i < spot_light_count; i++)
     {
-        color += calculate_spot_light(spot_lights[i], material, frag_position, frag_texcoord, normal, camera_direction);
+        color += calculate_spot_light(spot_lights[i], material, frag_position, frag_texcoord, normal, camera_direction, emissive);
         shadow += calculate_shadow(frag_position, frag_normal, frag_position_light_space, spot_lights[i].position, spot_lights[i].direction);
     }
 
@@ -268,4 +293,6 @@ void main()
         out_hdr_color = vec4(color, 1.0);
     else
         out_hdr_color = vec4(0.0, 0.0, 0.0, 1.0);
+    
+    out_hdr_color += vec4(emissive * 10, 1.0);
 }

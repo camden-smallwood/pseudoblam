@@ -29,8 +29,8 @@ void main()
 
     vec3 color = vec3(1.0) - exp(-hdr_color * exposure);
 
-    color = calculate_brightness_contrast(color, 77.0 / 127.0, 77.0 / 127.0);
-    color = calculate_gamma(color, 1.2);
+    // color = calculate_brightness_contrast(color, 0.7, 0.7);
+    // color = calculate_gamma(color, 1.0 / 2.2);
 
     // const float gamma = 2.2;
     // color = pow(color, vec3(1.0 / gamma));
