@@ -7,7 +7,7 @@ uniform float exposure;
 
 in vec2 frag_texcoord;
 
-out vec4 out_color;
+layout(location = 0) out vec4 out_color;
 
 vec3 calculate_brightness_contrast(vec3 color, float brightness, float contrast)
 {
@@ -24,16 +24,13 @@ void main()
     vec3 hdr_color = texture(base_texture, frag_texcoord).rgb;
     vec3 bloom_color = texture(hdr_texture, frag_texcoord).rgb;
 
-    if (bloom)
-        hdr_color += bloom_color;
-
-    vec3 color = vec3(1.0) - exp(-hdr_color * exposure);
-
-    // color = calculate_brightness_contrast(color, 0.7, 0.7);
+    vec3 color = hdr_color * 0.7 + bloom_color * 1.0;
+    
+    // color = calculate_brightness_contrast(color, 77.0 / 127.0, 77.0 / 127.0);
     // color = calculate_gamma(color, 1.0 / 2.2);
-
-    // const float gamma = 2.2;
-    // color = pow(color, vec3(1.0 / gamma));
+    
+    const float gamma = 1.7;
+    color = pow(color, vec3(1.0 / gamma));
 
     out_color = vec4(color, 1.0);
 }

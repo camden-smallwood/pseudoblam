@@ -49,10 +49,12 @@ uniform sampler2D position_texture;
 uniform sampler2D normal_texture;
 uniform sampler2D albedo_specular_texture;
 uniform sampler2D material_texture;
+uniform sampler2D emissive_texture;
 
 in vec2 frag_texcoord;
 
-out vec4 out_color;
+layout(location = 0) out vec4 out_base_color;
+layout(location = 1) out vec4 out_hdr_color;
 
 void main()
 {
@@ -62,8 +64,11 @@ void main()
     vec4 albedo_specular = texture(albedo_specular_texture, frag_texcoord);
     
     vec4 material = texture(material_texture, frag_texcoord);
-    float material_specular_amount = material.r;
-    float material_specular_shininess = material.g;
+    float material_ambient_amount = material.r;
+    float material_specular_amount = material.g;
+    float material_specular_shininess = material.b;
+
+    vec3 emissive_color = texture(emissive_texture, frag_texcoord).rgb;
 
     vec3 light_color = albedo_specular.rgb * 0.1; // hard-coded ambient component
     vec3 camera_direction = normalize(camera_position - frag_position);
@@ -71,11 +76,12 @@ void main()
     for (uint i = 0; i < directional_light_count; i++)
     {
         // ambient
-        vec3 ambient_color = directional_lights[i].ambient_color * albedo_specular.rgb;
+        vec3 ambient_color = directional_lights[i].ambient_color * albedo_specular.rgb * material_ambient_amount;
 
         // diffuse
         vec3 light_direction = normalize(-directional_lights[i].direction);
-        vec3 diffuse_color = max(dot(frag_normal, light_direction), 0.0) * albedo_specular.rgb * directional_lights[i].diffuse_color;
+        float diffuse_amount = max(dot(frag_normal, light_direction), 0.0);
+        vec3 diffuse_color = directional_lights[i].diffuse_color * diffuse_amount * albedo_specular.rgb;
 
         // specular
         vec3 light_halfway_direction = normalize(light_direction + camera_direction);
@@ -92,7 +98,8 @@ void main()
 
         // diffuse
         vec3 light_direction = normalize(point_lights[i].position - frag_position);
-        vec3 diffuse_color = max(dot(frag_normal, light_direction), 0.0) * albedo_specular.rgb * point_lights[i].diffuse_color;
+        float diffuse_amount = max(dot(light_direction, frag_normal), 0.0);
+        vec3 diffuse_color = point_lights[i].diffuse_color * diffuse_amount * albedo_specular.rgb;
 
         // specular
         vec3 light_halfway_direction = normalize(light_direction + camera_direction);
@@ -100,8 +107,9 @@ void main()
         vec3 specular_color = point_lights[i].specular_color * specular_amount * albedo_specular.a * material_specular_amount;
         
         // attenuation
-        float light_distance = length(point_lights[i].position - frag_position);
+        float light_distance = length(frag_position - point_lights[i].position);
         float light_attenuation = 1.0 / (point_lights[i].constant + point_lights[i].linear * light_distance + point_lights[i].quadratic * (light_distance * light_distance));
+
         ambient_color *= light_attenuation;
         diffuse_color *= light_attenuation;
         specular_color *= light_attenuation;
@@ -116,15 +124,20 @@ void main()
 
         // diffuse
         vec3 light_direction = normalize(spot_lights[i].position - frag_position);
-        vec3 diffuse_color = max(dot(frag_normal, light_direction), 0.0) * albedo_specular.rgb * spot_lights[i].diffuse_color;
+        float diffuse_amount = max(dot(frag_normal, light_direction), 0.0);
+        vec3 diffuse_color = spot_lights[i].diffuse_color * diffuse_amount * albedo_specular.rgb;
 
         // specular
+        vec3 light_reflection = reflect(-light_direction, frag_normal);
         vec3 light_halfway_direction = normalize(light_direction + camera_direction);
-        float specular_amount = pow(max(dot(frag_normal, light_halfway_direction), 0.0), material_specular_shininess);
-        vec3 specular_color = spot_lights[i].specular_color * specular_amount * albedo_specular.a * material_specular_amount;
+        // float specular_amount = pow(max(dot(camera_direction, light_reflection), 0.0), material.specular_shininess);
+        float specular_amount = pow(max(dot(camera_direction, light_reflection), 0.0), material_specular_shininess);
+        specular_amount += pow(max(dot(frag_normal, light_halfway_direction), 0.0), material_specular_shininess);
+        specular_amount /= 2.0;
+        vec3 specular_color = spot_lights[i].specular_color * specular_amount * albedo_specular.a;// * material_specular_amount;
 
         // spotlight intensity
-        float light_theta = dot(light_direction, normalize(-spot_lights[i].direction)); 
+        float light_theta = dot(light_direction, normalize(-spot_lights[i].direction));
         float light_epsilon = spot_lights[i].inner_cutoff - spot_lights[i].outer_cutoff;
         float light_intensity = clamp((light_theta - spot_lights[i].outer_cutoff) / light_epsilon, 0.0, 1.0);
 
@@ -139,5 +152,9 @@ void main()
         light_color += ambient_color + diffuse_color + specular_color;
     }
 
-    out_color = vec4(light_color, 1.0);
+    light_color += emissive_color;
+
+    out_base_color = vec4(light_color, 1.0);
+
+    out_hdr_color = max(vec4(0.0), vec4(out_base_color.rgb + emissive_color, 1.0) - 0.2);
 }
