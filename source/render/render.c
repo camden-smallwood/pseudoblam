@@ -38,7 +38,7 @@ enum render_flags
 
 struct render_geometry_pass_data
 {
-    int albedo_shader_index;
+    int shader_index;
 
     GLuint framebuffer;
     struct renderbuffer depth_buffer;
@@ -63,6 +63,7 @@ struct render_lighting_pass_data
 
 struct render_transparent_pass_data
 {
+    int shader_index;
     GLuint framebuffer;
     GLuint texture;
 };
@@ -83,6 +84,9 @@ struct render_postprocess_hdr_pass_data
 
 struct render_postprocess_pass_data
 {
+    GLuint framebuffer;
+    GLuint texture;
+
     struct render_postprocess_blur_pass_data blur_pass;
     struct render_postprocess_hdr_pass_data hdr_pass;
 };
@@ -218,7 +222,7 @@ static void render_initialize_gl(void)
 
 static void render_initialize_geometry_pass(void)
 {
-    render_globals.geometry_pass.albedo_shader_index = shader_new(
+    render_globals.geometry_pass.shader_index = shader_new(
         "../assets/shaders/model.vs",
         "../assets/shaders/geometry.fs");
 
@@ -320,6 +324,23 @@ static void render_initialize_transparent_pass(void)
 
 static void render_initialize_postprocess_pass(void)
 {
+    glGenFramebuffers(1, &render_globals.postprocess_pass.framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+
+    glGenTextures(1, &render_globals.postprocess_pass.texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.postprocess_pass.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.postprocess_pass.texture, 0);
+
+    GLenum attachments[] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers(1, attachments);
+
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     render_initialize_postprocess_blur_pass();
     render_initialize_postprocess_hdr_pass();
 }
@@ -545,7 +566,7 @@ static void render_initialize_models(void)
             glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
             glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
 
-            shader_bind_vertex_attributes(render_globals.geometry_pass.albedo_shader_index, mesh->vertex_type);
+            shader_bind_vertex_attributes(render_globals.geometry_pass.shader_index, mesh->vertex_type);
         }
     }
 }
@@ -628,7 +649,7 @@ static void render_geometry_pass(void)
         glm_mat4_identity(model_matrix);
         
         render_model(
-            render_globals.geometry_pass.albedo_shader_index,
+            render_globals.geometry_pass.shader_index,
             iterator.index,
             model_matrix);
     }
@@ -647,7 +668,7 @@ static void render_geometry_pass(void)
         glm_mat4_mul(inverted_view, model_matrix, model_matrix);
 
         render_model(
-            render_globals.geometry_pass.albedo_shader_index,
+            render_globals.geometry_pass.shader_index,
             render_globals.weapon_model_index,
             model_matrix);
     }
@@ -703,6 +724,17 @@ static void render_lighting_pass(void)
 
     shader_unbind_textures(render_globals.lighting_pass.shader_index);
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.lighting_pass.framebuffer);
+    glReadBuffer(GL_COLOR_ATTACHMENT1);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+    glBlitFramebuffer(
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        GL_COLOR_BUFFER_BIT,
+        GL_NEAREST);
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -722,23 +754,44 @@ static void render_postprocess_blur_pass(void)
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.postprocess_pass.blur_pass.framebuffer);
-    
-    glClear(GL_COLOR_BUFFER_BIT);
+    bool blur_horizontal = true;
 
-    shader_use(render_globals.postprocess_pass.blur_pass.shader_index);
+    for (int i = 0; i < 4; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, render_globals.postprocess_pass.blur_pass.framebuffer);
+        
+        glClear(GL_COLOR_BUFFER_BIT);
 
-    shader_bind_texture(
-        render_globals.postprocess_pass.blur_pass.shader_index,
-        render_globals.lighting_pass.hdr_texture,
-        "blur_texture");
-    
-    glBindVertexArray(render_globals.quad_vertex_array);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+        shader_use(render_globals.postprocess_pass.blur_pass.shader_index);
 
-    shader_unbind_textures(render_globals.postprocess_pass.blur_pass.shader_index);
+        shader_bind_texture(
+            render_globals.postprocess_pass.blur_pass.shader_index,
+            render_globals.postprocess_pass.texture,
+            "blur_texture");
+        
+        shader_set_bool(
+            render_globals.postprocess_pass.blur_pass.shader_index,
+            blur_horizontal = !blur_horizontal,
+            "blur_horizontal");
+        
+        glBindVertexArray(render_globals.quad_vertex_array);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        shader_unbind_textures(render_globals.postprocess_pass.blur_pass.shader_index);
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.postprocess_pass.blur_pass.framebuffer);
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+        glBlitFramebuffer(
+            0, 0, render_globals.screen_width, render_globals.screen_height,
+            0, 0, render_globals.screen_width, render_globals.screen_height,
+            GL_COLOR_BUFFER_BIT,
+            GL_NEAREST);
+        
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 }
 
 static void render_postprocess_hdr_pass(void)
