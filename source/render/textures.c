@@ -24,6 +24,28 @@ void texture_delete(
     // TODO
 }
 
+const char *texture_type_to_string(
+    enum texture_type type)
+{
+    switch (type)
+    {
+    case _texture_type_1d:
+        return "1d";
+
+    case _texture_type_2d:
+        return "2d";
+
+    case _texture_type_3d:
+        return "3d";
+
+    case _texture_type_cube:
+        return "cube";
+
+    case _texture_type_array:
+        return "array";
+    }
+}
+
 struct texture_data *texture_get_data(
     int texture_index)
 {

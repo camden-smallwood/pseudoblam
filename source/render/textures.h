@@ -37,6 +37,8 @@ struct texture_data
 int texture_new(enum texture_type type, int width, int height);
 void texture_delete(int texture_index);
 
+const char *texture_type_to_string(enum texture_type type);
+
 struct texture_data *texture_get_data(int texture_index);
 
 void texture_resize(int texture_index, int width, int height);

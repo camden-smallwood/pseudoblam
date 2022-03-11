@@ -126,7 +126,7 @@ static void model_animation_compute_node_matrices(
     
     mat4 node_transform;
     glm_mat4_identity(node_transform);
-
+    
     int key_count = 0;
 
     for (int channel_index = 0; channel_index < animation->channel_count; channel_index++)

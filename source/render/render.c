@@ -50,6 +50,25 @@ struct render_geometry_pass_data
     GLuint emissive_texture;
 };
 
+enum render_occlusion_ssao_constants
+{
+    NUMBER_OF_SSAO_KERNEL_SAMPLES = 32,
+
+    SSAO_NOISE_TEXTURE_WIDTH = 4,
+    SSAO_NOISE_TEXTURE_HEIGHT = 4,
+    NUMBER_OF_SSAO_NOISE_POINTS = SSAO_NOISE_TEXTURE_WIDTH * SSAO_NOISE_TEXTURE_HEIGHT,
+};
+
+struct render_occlusion_pass_data
+{
+    int shader_index;
+    GLuint framebuffer;
+    GLuint base_texture;
+    GLuint noise_texture;
+    vec3 kernel_samples[NUMBER_OF_SSAO_KERNEL_SAMPLES];
+    vec3 noise_points[NUMBER_OF_SSAO_NOISE_POINTS];
+};
+
 struct render_lighting_pass_data
 {
     int shader_index;
@@ -103,6 +122,7 @@ struct
     struct camera_data camera;
 
     struct render_geometry_pass_data geometry_pass;
+    struct render_occlusion_pass_data occlusion_pass;
     struct render_lighting_pass_data lighting_pass;
     struct render_transparent_pass_data transparent_pass;
     struct render_postprocess_pass_data postprocess_pass;
@@ -124,6 +144,7 @@ struct
 
 static void render_initialize_gl(void);
 static void render_initialize_geometry_pass(void);
+static void render_initialize_occlusion_pass(void);
 static void render_initialize_lighting_pass(void);
 static void render_initialize_transparent_pass(void);
 static void render_initialize_postprocess_pass(void);
@@ -139,6 +160,7 @@ static void render_update_flashlight(void);
 
 static void render_frame(void);
 static void render_geometry_pass(void);
+static void render_occlusion_pass(void);
 static void render_lighting_pass(void);
 static void render_transparent_pass(void);
 static void render_postprocess_pass(void);
@@ -165,6 +187,7 @@ void render_initialize(void)
     render_initialize_gl();
     
     render_initialize_geometry_pass();
+    render_initialize_occlusion_pass();
     render_initialize_lighting_pass();
     render_initialize_transparent_pass();
     render_initialize_postprocess_pass();
@@ -283,6 +306,80 @@ static void render_initialize_geometry_pass(void)
 
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void render_initialize_occlusion_pass(void)
+{
+    render_globals.occlusion_pass.shader_index = shader_new(
+        "../assets/shaders/quad.vs",
+        "../assets/shaders/ssao.fs");
+
+    glGenFramebuffers(1, &render_globals.occlusion_pass.framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.occlusion_pass.framebuffer);
+
+    glGenTextures(1, &render_globals.occlusion_pass.base_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.occlusion_pass.base_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, render_globals.screen_width, render_globals.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, render_globals.occlusion_pass.base_texture, 0);
+
+    GLenum attachments[] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers(1, attachments);
+
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    srand(time(NULL));
+
+    for (int i = 0; i < NUMBER_OF_SSAO_KERNEL_SAMPLES; i++)
+    {
+        vec3 sample =
+        {
+            ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f,
+            ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f,
+            ((float)rand() / (float)RAND_MAX),
+        };
+
+        glm_normalize(sample);
+        glm_vec3_scale(sample, (float)rand() / (float)RAND_MAX, sample);
+        
+        float scale = (float)i / (float)NUMBER_OF_SSAO_KERNEL_SAMPLES;
+        scale = 0.1f + scale * scale * (1.0f - 0.1f);
+        glm_vec3_scale(sample, scale, sample);
+
+        printf("sample: %f, %f, %f\n", sample[0], sample[1], sample[2]);
+
+        glm_vec3_copy(sample, render_globals.occlusion_pass.kernel_samples[i]);
+    }
+
+    for (int i = 0; i < NUMBER_OF_SSAO_NOISE_POINTS; i++)
+    {
+        vec3 noise =
+        {
+            ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f,
+            ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f,
+            0.0f,
+        };
+        
+        printf("noise: %f, %f, %f\n", noise[0], noise[1], noise[2]);
+
+        glm_vec3_copy(
+            noise,
+            render_globals.occlusion_pass.noise_points[i]);
+    }
+
+    glGenTextures(1, &render_globals.occlusion_pass.noise_texture);
+    glBindTexture(GL_TEXTURE_2D, render_globals.occlusion_pass.noise_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SSAO_NOISE_TEXTURE_WIDTH, SSAO_NOISE_TEXTURE_HEIGHT, 0, GL_RGB, GL_FLOAT, &render_globals.occlusion_pass.noise_points[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 static void render_initialize_lighting_pass(void)
@@ -622,6 +719,7 @@ static void render_update_flashlight(void)
 static void render_frame(void)
 {
     render_geometry_pass();
+    render_occlusion_pass();
     render_lighting_pass();
     render_transparent_pass();
     render_postprocess_pass();
@@ -676,6 +774,77 @@ static void render_geometry_pass(void)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+static void render_occlusion_pass(void)
+{
+    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
+    glDisable(GL_DEPTH_TEST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, render_globals.occlusion_pass.framebuffer);
+
+    shader_use(render_globals.occlusion_pass.shader_index);
+
+    shader_bind_texture(
+        render_globals.occlusion_pass.shader_index,
+        render_globals.geometry_pass.position_texture,
+        "position_texture");
+    
+    shader_bind_texture(
+        render_globals.occlusion_pass.shader_index,
+        render_globals.geometry_pass.normal_texture,
+        "normal_texture");
+    
+    shader_bind_texture(
+        render_globals.occlusion_pass.shader_index,
+        render_globals.occlusion_pass.noise_texture,
+        "noise_texture");
+    
+    shader_set_uint(
+        render_globals.occlusion_pass.shader_index,
+        render_globals.screen_width,
+        "screen_width");
+    
+    shader_set_uint(
+        render_globals.occlusion_pass.shader_index,
+        render_globals.screen_height,
+        "screen_height");
+
+    shader_set_mat4(
+        render_globals.occlusion_pass.shader_index,
+        /*TODO:*/ render_globals.camera.projection,
+        "projection");
+
+    shader_set_float(
+        render_globals.occlusion_pass.shader_index,
+        /* TODO: global */ 0.5f,
+        "kernel_radius");
+    
+    shader_set_float(
+        render_globals.occlusion_pass.shader_index,
+        /* TODO: global */ 0.025f,
+        "kernel_bias");
+    
+    shader_set_uint(
+        render_globals.occlusion_pass.shader_index,
+        /* TODO: global */ NUMBER_OF_SSAO_KERNEL_SAMPLES,
+        "kernel_sample_count");
+
+    for (int i = 0; i < NUMBER_OF_SSAO_KERNEL_SAMPLES; i++)
+    {
+        shader_set_vec3_v(
+            render_globals.occlusion_pass.shader_index,
+            render_globals.occlusion_pass.kernel_samples[i],
+            "kernel_samples[%i]",
+            i);
+    }
+
+    glBindVertexArray(render_globals.quad_vertex_array);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    shader_unbind_textures(render_globals.occlusion_pass.shader_index);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 static void render_lighting_pass(void)
 {
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
@@ -716,6 +885,11 @@ static void render_lighting_pass(void)
         render_globals.lighting_pass.shader_index,
         render_globals.geometry_pass.emissive_texture,
         "emissive_texture");
+    
+    shader_bind_texture(
+        render_globals.lighting_pass.shader_index,
+        render_globals.occlusion_pass.base_texture,
+        "ssao_texture");
     
     render_set_lighting_uniforms(render_globals.lighting_pass.shader_index);
 
@@ -830,6 +1004,17 @@ static void render_postprocess_hdr_pass(void)
 
     shader_unbind_textures(render_globals.postprocess_pass.hdr_pass.shader_index);
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.postprocess_pass.hdr_pass.framebuffer);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+    glBlitFramebuffer(
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        GL_COLOR_BUFFER_BIT,
+        GL_NEAREST);
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -844,7 +1029,7 @@ static void render_quad(void)
     
     shader_bind_texture(
         render_globals.quad_shader,
-        render_globals.postprocess_pass.hdr_pass.texture,
+        render_globals.postprocess_pass.texture,
         "quad_texture");
 
     glBindVertexArray(render_globals.quad_vertex_array);

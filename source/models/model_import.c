@@ -615,7 +615,7 @@ static void model_import_assimp_mesh(
                     .offset_matrix = GLM_MAT4_ZERO_INIT,
                     .transform = GLM_MAT4_ZERO_INIT,
                 };
-
+                
                 glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
                 glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
                 
@@ -624,15 +624,17 @@ static void model_import_assimp_mesh(
                 if (in_bone->mNode->mParent != in_bone->mArmature)
                     parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
                 
-                model_node_add_child_node(out_model, parent_node_index, &node);
+                node_index = model_node_add_child_node(out_model, parent_node_index, &node);
             }
+
+            assert(node_index >= 0 && node_index < out_model->node_count);
 
             for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
             {
                 struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
                 struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
 
-                for (size_t i = 0; i < 4; i++)
+                for (int i = 0; i < 4; i++)
                 {
                     if (vertex->node_indices[i] == node_index)
                     {

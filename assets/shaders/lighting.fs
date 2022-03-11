@@ -50,6 +50,7 @@ uniform sampler2D normal_texture;
 uniform sampler2D albedo_specular_texture;
 uniform sampler2D material_texture;
 uniform sampler2D emissive_texture;
+uniform sampler2D ssao_texture;
 
 in vec2 frag_texcoord;
 
@@ -76,7 +77,8 @@ void main()
     for (uint i = 0; i < directional_light_count; i++)
     {
         // ambient
-        vec3 ambient_color = directional_lights[i].ambient_color * albedo_specular.rgb * material_ambient_amount;
+        float ambient_occlusion = texture(ssao_texture, frag_texcoord).r;
+        vec3 ambient_color = material_ambient_amount * (directional_lights[i].ambient_color + albedo_specular.rgb) * ambient_occlusion;
 
         // diffuse
         vec3 light_direction = normalize(-directional_lights[i].direction);
@@ -94,7 +96,8 @@ void main()
     for (uint i = 0; i < point_light_count; i++)
     {
         // ambient
-        vec3 ambient_color = point_lights[i].ambient_color * albedo_specular.rgb;
+        float ambient_occlusion = texture(ssao_texture, frag_texcoord).r;
+        vec3 ambient_color = material_ambient_amount * (point_lights[i].ambient_color + albedo_specular.rgb) * ambient_occlusion;
 
         // diffuse
         vec3 light_direction = normalize(point_lights[i].position - frag_position);
@@ -120,7 +123,8 @@ void main()
     for (uint i = 0; i < spot_light_count; i++)
     {
         // ambient
-        vec3 ambient_color = spot_lights[i].ambient_color * albedo_specular.rgb;
+        float ambient_occlusion = texture(ssao_texture, frag_texcoord).r;
+        vec3 ambient_color = material_ambient_amount * (spot_lights[i].ambient_color + albedo_specular.rgb) * ambient_occlusion;
 
         // diffuse
         vec3 light_direction = normalize(spot_lights[i].position - frag_position);
