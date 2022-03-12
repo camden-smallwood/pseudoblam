@@ -44,6 +44,7 @@ uniform uint spot_light_count;
 uniform spot_light_data spot_lights[MAXIMUM_SPOT_LIGHTS];
 
 uniform vec3 camera_position;
+uniform mat4 view;
 
 uniform sampler2D position_texture;
 uniform sampler2D normal_texture;
@@ -65,13 +66,13 @@ void main()
     vec4 albedo_specular = texture(albedo_specular_texture, frag_texcoord);
     
     vec4 material = texture(material_texture, frag_texcoord);
-    float material_ambient_amount = material.r;
+    float material_ambient_amount = 0.3;
     float material_specular_amount = material.g;
     float material_specular_shininess = material.b;
 
     vec3 emissive_color = texture(emissive_texture, frag_texcoord).rgb;
 
-    vec3 light_color = albedo_specular.rgb * 0.1; // hard-coded ambient component
+    vec3 light_color = vec3(0.0); // hard-coded ambient component
     vec3 camera_direction = normalize(camera_position - frag_position);
 
     for (uint i = 0; i < directional_light_count; i++)
@@ -97,20 +98,20 @@ void main()
     {
         // ambient
         float ambient_occlusion = texture(ssao_texture, frag_texcoord).r;
-        vec3 ambient_color = material_ambient_amount * (point_lights[i].ambient_color + albedo_specular.rgb) * ambient_occlusion;
+        vec3 ambient_color = material_ambient_amount * albedo_specular.rgb * ambient_occlusion;
 
         // diffuse
         vec3 light_direction = normalize(point_lights[i].position - frag_position);
         float diffuse_amount = max(dot(light_direction, frag_normal), 0.0);
-        vec3 diffuse_color = point_lights[i].diffuse_color * diffuse_amount * albedo_specular.rgb;
+        vec3 diffuse_color = diffuse_amount * albedo_specular.rgb * point_lights[i].diffuse_color;
 
         // specular
         vec3 light_halfway_direction = normalize(light_direction + camera_direction);
         float specular_amount = pow(max(dot(frag_normal, light_halfway_direction), 0.0), material_specular_shininess);
-        vec3 specular_color = point_lights[i].specular_color * specular_amount * albedo_specular.a * material_specular_amount;
+        vec3 specular_color = material_specular_amount * point_lights[i].diffuse_color * specular_amount;
         
         // attenuation
-        float light_distance = length(frag_position - point_lights[i].position);
+        float light_distance = length(point_lights[i].position - frag_position);
         float light_attenuation = 1.0 / (point_lights[i].constant + point_lights[i].linear * light_distance + point_lights[i].quadratic * (light_distance * light_distance));
 
         ambient_color *= light_attenuation;

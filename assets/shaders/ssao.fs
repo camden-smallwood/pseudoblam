@@ -8,6 +8,7 @@ uniform uint screen_width;
 uniform uint screen_height;
 
 uniform mat4 projection;
+uniform mat4 view;
 
 uniform float kernel_radius;
 uniform float kernel_bias;
@@ -29,8 +30,8 @@ void main()
     vec2 noise_scale = vec2(screen_width / SSAO_NOISE_TEXTURE_WIDTH, screen_height / SSAO_NOISE_TEXTURE_HEIGHT);
     
     vec3 frag_position = texture(position_texture, frag_texcoord).xyz;
-    vec3 normal = texture(normal_texture, frag_texcoord).rgb;
-    vec3 randomVec = texture(noise_texture, frag_texcoord * noise_scale).xyz;
+    vec3 normal = normalize(texture(normal_texture, frag_texcoord).rgb);
+    vec3 randomVec = normalize(texture(noise_texture, frag_texcoord * noise_scale).xyz);
 
     vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
     vec3 bitangent = cross(normal, tangent);

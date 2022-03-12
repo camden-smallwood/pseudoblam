@@ -810,8 +810,13 @@ static void render_occlusion_pass(void)
 
     shader_set_mat4(
         render_globals.occlusion_pass.shader_index,
-        /*TODO:*/ render_globals.camera.projection,
+        render_globals.camera.projection,
         "projection");
+
+    shader_set_mat4(
+        render_globals.occlusion_pass.shader_index,
+        render_globals.camera.view,
+        "view");
 
     shader_set_float(
         render_globals.occlusion_pass.shader_index,
@@ -842,6 +847,71 @@ static void render_occlusion_pass(void)
 
     shader_unbind_textures(render_globals.occlusion_pass.shader_index);
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.occlusion_pass.framebuffer);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+    glBlitFramebuffer(
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        GL_COLOR_BUFFER_BIT,
+        GL_NEAREST);
+    
+    bool blur_horizontal = false;
+    const int blur_pass_count = 4;
+
+    for (int i = 0; i < blur_pass_count; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, render_globals.postprocess_pass.blur_pass.framebuffer);
+        
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        shader_use(render_globals.postprocess_pass.blur_pass.shader_index);
+
+        shader_bind_texture(
+            render_globals.postprocess_pass.blur_pass.shader_index,
+            render_globals.postprocess_pass.texture,
+            "blur_texture");
+        
+        shader_set_bool(
+            render_globals.postprocess_pass.blur_pass.shader_index,
+            blur_horizontal = !blur_horizontal,
+            "blur_horizontal");
+        
+        glBindVertexArray(render_globals.quad_vertex_array);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        shader_unbind_textures(render_globals.postprocess_pass.blur_pass.shader_index);
+
+        if (i < blur_pass_count - 1)
+        {
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.postprocess_pass.blur_pass.framebuffer);
+            glReadBuffer(GL_COLOR_ATTACHMENT0);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+            glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+            glBlitFramebuffer(
+                0, 0, render_globals.screen_width, render_globals.screen_height,
+                0, 0, render_globals.screen_width, render_globals.screen_height,
+                GL_COLOR_BUFFER_BIT,
+                GL_NEAREST);
+        }
+        
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.occlusion_pass.framebuffer);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+    glBlitFramebuffer(
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        0, 0, render_globals.screen_width, render_globals.screen_height,
+        GL_COLOR_BUFFER_BIT,
+        GL_NEAREST);
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -860,6 +930,11 @@ static void render_lighting_pass(void)
         render_globals.lighting_pass.shader_index,
         render_globals.camera.position,
         "camera_position");
+
+    shader_set_mat4(
+        render_globals.occlusion_pass.shader_index,
+        render_globals.camera.view,
+        "view");
 
     shader_bind_texture(
         render_globals.lighting_pass.shader_index,
@@ -928,9 +1003,10 @@ static void render_postprocess_blur_pass(void)
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
 
-    bool blur_horizontal = true;
+    bool blur_horizontal = false;
+    const int blur_pass_count = 4;
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < blur_pass_count; i++)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, render_globals.postprocess_pass.blur_pass.framebuffer);
         
@@ -953,16 +1029,19 @@ static void render_postprocess_blur_pass(void)
 
         shader_unbind_textures(render_globals.postprocess_pass.blur_pass.shader_index);
 
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.postprocess_pass.blur_pass.framebuffer);
-        glReadBuffer(GL_COLOR_ATTACHMENT0);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        if (i < blur_pass_count - 1)
+        {
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.postprocess_pass.blur_pass.framebuffer);
+            glReadBuffer(GL_COLOR_ATTACHMENT0);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer);
+            glDrawBuffer(GL_COLOR_ATTACHMENT0);
 
-        glBlitFramebuffer(
-            0, 0, render_globals.screen_width, render_globals.screen_height,
-            0, 0, render_globals.screen_width, render_globals.screen_height,
-            GL_COLOR_BUFFER_BIT,
-            GL_NEAREST);
+            glBlitFramebuffer(
+                0, 0, render_globals.screen_width, render_globals.screen_height,
+                0, 0, render_globals.screen_width, render_globals.screen_height,
+                GL_COLOR_BUFFER_BIT,
+                GL_NEAREST);
+        }
         
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
@@ -996,7 +1075,7 @@ static void render_postprocess_hdr_pass(void)
     
     shader_set_float(
         render_globals.postprocess_pass.hdr_pass.shader_index,
-        1.0f,
+        2.0f,
         "exposure");
     
     glBindVertexArray(render_globals.quad_vertex_array);

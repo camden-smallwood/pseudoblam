@@ -1,7 +1,5 @@
 #version 410 core
 
-uniform mat4 light_space_matrix;
-
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
@@ -22,10 +20,8 @@ in ivec4 node_indices;
 in vec4 node_weights;
 
 out vec3 frag_position;
-out vec3 frag_normal;
 out vec2 frag_texcoord;
 out mat3 frag_tbn;
-out vec4 frag_position_light_space;
 
 void main()
 {
@@ -46,16 +42,23 @@ void main()
         }
     }
 
-    frag_position = vec3(model * transform * vec4(position, 1));
-    frag_normal = vec3(model * transform * vec4(normal, 1.0));
+    frag_position = vec3(view * model * transform * vec4(position, 1.0));
     frag_texcoord = texcoord;
     
-    vec3 T = normalize(vec3(model * transform * vec4(tangent, 0.0)));
-    vec3 B = normalize(vec3(model * transform * vec4(bitangent, 0.0)));
-    vec3 N = normalize(vec3(model * transform * vec4(normal, 0.0)));
-    frag_tbn = mat3(T, B, N);
+    // vec3 T = normalize(vec3(model * transform * vec4(tangent, 0.0)));
+    // vec3 B = normalize(vec3(model * transform * vec4(bitangent, 0.0)));
+    // vec3 N = normalize(vec3(model * transform * vec4(normal, 0.0)));
+    // frag_tbn = mat3(T, B, N);
 
-    frag_position_light_space = light_space_matrix * model * transform * vec4(position, 1.0);
+    mat3 normal_matrix = transpose(inverse(mat3(view * model * transform)));
+
+    vec3 T = normalize(normal_matrix * tangent);
+    // vec3 B = normalize(normal_matrix * bitangent);
+    vec3 N = normalize(normal_matrix * normal);
+    T = normalize(T - dot(T, N) * N);
+    vec3 B = cross(N, T);
+    
+    frag_tbn = mat3(T, B, N);
 
     gl_Position = projection * view * model * transform * vec4(position, 1.0);
 }
