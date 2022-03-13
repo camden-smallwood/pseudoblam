@@ -27,7 +27,7 @@ void main()
     vec3 color = hdr_color + bloom_color;
     
     color = calculate_gamma(color, 1.0 / 2.2);
-    color = calculate_brightness_contrast(color, 0.7, 1.0);
+    // color = calculate_brightness_contrast(color, 0.7, 1.0);
     
     out_color = vec4(color, 1.0);
 }
