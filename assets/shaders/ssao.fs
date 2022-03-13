@@ -6,13 +6,13 @@ uniform sampler2D depth_texture;
 
 in vec2 frag_texcoord;
 
-const float totStrength = 1.38;
-const float strength = 1.0;
+const float totStrength = 2.38;
+const float strength = 0.07;
 const float offset = 18.0;
-const float falloff = 0.0000002;
-const float rad = 0.02;
+const float falloff = 0.000002;
+const float rad = 0.006;
 #define SAMPLES 16 // 10 is good
-const float invSamples = -1.38 / 16.0;
+const float invSamples = -2.38 / 16.0;
 
 layout(location = 0) out vec4 out_color;
 

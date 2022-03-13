@@ -600,7 +600,7 @@ static void render_initialize_scene(void)
     
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    glm_vec3_copy((vec3){-2.0f, 4.0f, -1.0f}, light->position);
+    glm_vec3_copy((vec3){-2.0f, 20.0f, -1.0f}, light->position);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);

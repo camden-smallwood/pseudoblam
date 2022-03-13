@@ -46,17 +46,20 @@ void main()
     }
 
     frag_position = vec3(model * transform * vec4(position, 1.0));
-    frag_normal = vec3(model * transform * vec4(normal, 0.0));
+    frag_normal = normal;
     frag_texcoord = texcoord;
     
-    vec3 T = normalize(vec3(model * transform * vec4(tangent, 0.0)));
-    vec3 B = normalize(vec3(model * transform * vec4(bitangent, 0.0)));
-    vec3 N = normalize(vec3(model * transform * vec4(normal, 0.0)));
+    mat3 normal_matrix;
+    
+    normal_matrix = transpose(inverse(mat3(model * transform)));
+    vec3 T = normalize(normal_matrix * tangent);
+    vec3 B = normalize(normal_matrix * bitangent);
+    vec3 N = normalize(normal_matrix * normal);
     frag_tbn = mat3(T, B, N);
 
     frag_view_position = vec3(view * model * transform * vec4(position, 1.0));
 
-    mat3 normal_matrix = transpose(inverse(mat3(view * model * transform)));
+    normal_matrix = transpose(inverse(mat3(view * model * transform)));
     T = normalize(normal_matrix * tangent);
     N = normalize(normal_matrix * normal);
     T = normalize(T - dot(T, N) * N);
