@@ -608,7 +608,7 @@ static void render_initialize_scene(void)
     
     light = light_get_data(light_new());
     light->type = _light_type_point;
-    glm_vec3_copy((vec3){-2.0f, 20.0f, -1.0f}, light->position);
+    glm_vec3_copy((vec3){-2.0f, -1.0f, 20.0f}, light->position);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
@@ -718,10 +718,6 @@ static void render_initialize_models(void)
             glGenBuffers(1, &mesh->vertex_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
             glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
-
-            glGenBuffers(1, &mesh->element_buffer);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->element_buffer);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * mesh->index_count, mesh->indices, GL_STATIC_DRAW);
 
             shader_bind_vertex_attributes(render_globals.geometry_pass.shader_index, mesh->vertex_type);
         }
@@ -1235,11 +1231,7 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
             render_set_material_uniforms(shader_index, material);
 
-            glDrawElements(
-                GL_TRIANGLES,
-                part->index_count * sizeof(int),
-                GL_UNSIGNED_INT,
-                (const void *)(part->index_start * sizeof(int)));
+            glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
 
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {

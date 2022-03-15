@@ -47,22 +47,18 @@ struct model_mesh
     int vertex_count;
     void *vertex_data;
 
-    int index_count;
-    int *indices;
-
     int part_count;
     struct model_mesh_part *parts;
     
     unsigned int vertex_array;
     unsigned int vertex_buffer;
-    unsigned int element_buffer;
 };
 
 struct model_mesh_part
 {
     int material_index;
-    int index_start;
-    int index_count;
+    int vertex_index;
+    int vertex_count;
 };
 
 struct model_animation

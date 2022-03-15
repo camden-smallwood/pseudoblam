@@ -551,171 +551,125 @@ static void model_import_assimp_mesh(
     struct model_mesh_part part =
     {
         .material_index = in_mesh->mMaterialIndex,
-        .index_start = out_mesh->index_count,
-        .index_count = 0,
+        .vertex_index = out_mesh->vertex_count,
+        .vertex_count = 0,
     };
 
-    puts("importing mesh vertices...");
+    int node_indices[in_mesh->mNumVertices][4];
+    memset(node_indices, -1, sizeof(int) * in_mesh->mNumVertices * 4);
 
-    for (unsigned int vertex_index = 0; vertex_index < in_mesh->mNumVertices; vertex_index++)
+    float node_weights[in_mesh->mNumVertices][4];
+    memset(node_weights, 0, sizeof(float) * in_mesh->mNumVertices * 4);
+
+    for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
     {
-        puts("getting vertex data...");
+        struct aiBone *in_bone = in_mesh->mBones[bone_index];
 
-        if (!in_mesh->mVertices)
-            puts("in_mesh->mVertices is null");
-        
-        if (!in_mesh->mNormals)
-            puts("in_mesh->mNormals is null");
-        
-        if (!in_mesh->mTangents)
-            puts("in_mesh->mTangents is null");
-        
-        if (!in_mesh->mBitangents)
-            puts("in_mesh->mBitangents is null");
-        
-        struct aiVector3D position = in_mesh->mVertices[vertex_index];
-        struct aiVector3D normal = in_mesh->mNormals[vertex_index];
-        struct aiVector3D texcoord = in_mesh->mTextureCoords[0] ? in_mesh->mTextureCoords[0][vertex_index] : (struct aiVector3D){0, 0, 0};
-        struct aiVector3D tangent = in_mesh->mTangents[vertex_index];
-        struct aiVector3D bitangent = in_mesh->mBitangents[vertex_index];
+        int node_index = model_find_node_by_name(out_model, in_bone->mName.data);
 
-        puts("creating vertex...");
-        
-        switch (out_mesh->vertex_type)
+        if (node_index == -1)
         {
-        case _vertex_type_rigid:
+            printf("\t----------\n"
+                "\tbone node: %s\n"
+                "\tbone parent node: %s\n",
+                in_bone->mNode->mName.data,
+                in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
+
+            struct model_node node =
             {
-                struct vertex_rigid vertex;
-                glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
-                glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
-                glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
-                glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
-                glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
-                mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
-            }
-            break;
-        
-        case _vertex_type_skinned:
+                .name = strdup(in_bone->mName.data),
+                .parent_index = -1,
+                .first_child_index = -1,
+                .next_sibling_index = -1,
+                .offset_matrix = GLM_MAT4_ZERO_INIT,
+                .transform = GLM_MAT4_ZERO_INIT,
+            };
+            
+            glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
+            glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
+            
+            int parent_node_index = -1;
+            
+            if (in_bone->mNode->mParent != in_bone->mArmature)
+                parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
+            
+            node_index = model_node_add_child_node(out_model, parent_node_index, &node);
+        }
+
+        assert(node_index >= 0 && node_index < out_model->node_count);
+
+        for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
+        {
+            struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
+
+            for (int i = 0; i < 4; i++)
             {
-                struct vertex_skinned vertex;
-                glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
-                glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
-                glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
-                glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
-                glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
-                memset(vertex.node_indices, -1, sizeof(vertex.node_indices));
-                memset(vertex.node_weights, 0, sizeof(vertex.node_weights));
-                mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
+                if (node_indices[weight->mVertexId][i] == node_index)
+                {
+                    node_weights[weight->mVertexId][i] = fmaxf(node_weights[weight->mVertexId][i], weight->mWeight);
+                    break;
+                }
+                
+                if (node_indices[weight->mVertexId][i] == -1)
+                {
+                    node_indices[weight->mVertexId][i] = node_index;
+                    node_weights[weight->mVertexId][i] = weight->mWeight;
+                    break;
+                }
             }
-            break;
-        
-        default:
-            fprintf(stderr, "ERROR: unhandled vertex type %i\n", out_mesh->vertex_type);
-            exit(EXIT_FAILURE);
         }
     }
-
-    puts("importing mesh indices...");
-
+    
     for (unsigned int face_index = 0; face_index < in_mesh->mNumFaces; face_index++)
     {
         struct aiFace face = in_mesh->mFaces[face_index];
 
         for (unsigned int index_index = 0; index_index < face.mNumIndices; index_index++)
         {
-            part.index_count++;
-            mempush(&out_mesh->index_count, (void **)&out_mesh->indices, &face.mIndices[index_index], sizeof(int), realloc);
-        }
-    }
-    
-    if (out_mesh->vertex_type == _vertex_type_skinned)
-    {
-        puts("importing mesh bones...");
+            int vertex_index = face.mIndices[index_index];
+            
+            struct aiVector3D position = in_mesh->mVertices[vertex_index];
+            struct aiVector3D normal = in_mesh->mNormals[vertex_index];
+            struct aiVector3D texcoord = in_mesh->mTextureCoords[0] ? in_mesh->mTextureCoords[0][vertex_index] : (struct aiVector3D){0, 0, 0};
+            struct aiVector3D tangent = in_mesh->mTangents[vertex_index];
+            struct aiVector3D bitangent = in_mesh->mBitangents[vertex_index];
 
-        for (unsigned int bone_index = 0; bone_index < in_mesh->mNumBones; bone_index++)
-        {
-            struct aiBone *in_bone = in_mesh->mBones[bone_index];
-
-            int node_index = model_find_node_by_name(out_model, in_bone->mName.data);
-
-            if (node_index == -1)
+            switch (out_mesh->vertex_type)
             {
-                printf("\t----------\n"
-                    "\tbone node: %s\n"
-                    "\tbone parent node: %s\n",
-                    in_bone->mNode->mName.data,
-                    in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
-
-                struct model_node node =
+            case _vertex_type_rigid:
                 {
-                    .name = strdup(in_bone->mName.data),
-                    .parent_index = -1,
-                    .first_child_index = -1,
-                    .next_sibling_index = -1,
-                    .offset_matrix = GLM_MAT4_ZERO_INIT,
-                    .transform = GLM_MAT4_ZERO_INIT,
-                };
-                
-                glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
-                glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
-                
-                int parent_node_index = -1;
-                
-                if (in_bone->mNode->mParent != in_bone->mArmature)
-                    parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
-                
-                node_index = model_node_add_child_node(out_model, parent_node_index, &node);
-            }
-
-            assert(node_index >= 0 && node_index < out_model->node_count);
-
-            for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
-            {
-                struct aiVertexWeight *weight = in_bone->mWeights + weight_index;
-                struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + weight->mVertexId;
-
-                for (int i = 0; i < 4; i++)
-                {
-                    if (vertex->node_indices[i] == node_index)
-                    {
-                        vertex->node_weights[i] = fmaxf(vertex->node_weights[i], weight->mWeight);
-                        break;
-                    }
-                    
-                    if (vertex->node_indices[i] == -1)
-                    {
-                        vertex->node_indices[i] = node_index;
-                        vertex->node_weights[i] = weight->mWeight;
-                        break;
-                    }
+                    struct vertex_rigid vertex;
+                    glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
+                    glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
+                    glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
+                    glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
+                    glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
+                    mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
                 }
+                break;
+            
+            case _vertex_type_skinned:
+                {
+                    struct vertex_skinned vertex;
+                    glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
+                    glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
+                    glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
+                    glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
+                    glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
+                    memcpy(vertex.node_indices, node_indices[vertex_index], sizeof(vertex.node_indices));
+                    memcpy(vertex.node_weights, node_weights[vertex_index], sizeof(vertex.node_weights));
+                    mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
+                }
+                break;
+            
+            default:
+                fprintf(stderr, "ERROR: unhandled vertex type %i\n", out_mesh->vertex_type);
+                exit(EXIT_FAILURE);
             }
         }
-    }
 
-    // for (int i = 0; i < out_mesh->vertex_count; i++)
-    // {
-    //     switch (out_mesh->vertex_type)
-    //     {
-    //     case _vertex_type_rigid:
-    //         break;
-        
-    //     case _vertex_type_skinned:
-    //         {
-    //             struct vertex_skinned *vertex = (struct vertex_skinned *)out_mesh->vertex_data + i;
-                
-    //             printf("vertex %i\n", i);
-    //             printf("\tnode indices: %i, %i, %i, %i\n", vertex->node_indices[0], vertex->node_indices[1], vertex->node_indices[2], vertex->node_indices[3]);
-    //             printf("\tnode weights: %f, %f, %f, %f\n", vertex->node_weights[0], vertex->node_weights[1], vertex->node_weights[2], vertex->node_weights[3]);
-    //             printf("\n");
-    //         }
-    //         break;
-        
-    //     default:
-    //         fprintf(stderr, "ERROR: unhandled vertex type %i\n", out_mesh->vertex_type);
-    //         exit(EXIT_FAILURE);
-    //     }
-    // }
+        part.vertex_count += face.mNumIndices;
+    }
 
     mempush(&out_mesh->part_count, (void **)&out_mesh->parts, &part, sizeof(part), realloc);
 }
