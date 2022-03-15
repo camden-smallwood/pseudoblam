@@ -44,6 +44,7 @@ uniform uint spot_light_count;
 uniform spot_light_data spot_lights[MAXIMUM_SPOT_LIGHTS];
 
 uniform vec3 camera_position;
+uniform vec3 camera_direction;
 uniform mat4 view;
 
 uniform sampler2D position_texture;
@@ -57,6 +58,65 @@ in vec2 frag_texcoord;
 
 layout(location = 0) out vec4 out_base_color;
 layout(location = 1) out vec4 out_hdr_color;
+
+void calculate_spot_light(
+    int spot_light_index,
+    vec3 normal,
+    vec3 eye,
+    vec3 ecPosition3,
+    float shininess,
+    out vec3 Ambient,
+    out vec3 Diffuse,
+    out vec3 Specular)
+{
+    spot_light_data spot_light = spot_lights[spot_light_index];
+
+    float nDotVP;              // normal . light direction
+    float nDotHV;              // normal . light half vector
+    float pf;                       // power factor
+    float spotDot;               // cosine of angle between spotlight
+    float spotAttenuation;  // spotlight attenuation factor
+    float attenuation;         // computed attenuation factor
+    float d;                        // distance from surface to light source
+    vec3  VP;                   // direction from surface to light position
+    vec3  halfVector;       // direction of maximum highlights
+    
+    // Compute vector from surface to light position
+    VP = vec3 (spot_light.position) - ecPosition3;
+
+    // Compute distance between surface and light position
+    d = length(VP);
+
+    // Normalize the vector from surface to light position
+    VP = normalize(VP);
+
+    // Compute attenuation
+    attenuation = 1.0 / (spot_light.constant + (spot_light.linear * d) + (spot_light.quadratic * d * d));
+
+    // See if point on surface is inside cone of illumination
+    spotDot = dot(-VP, normalize(spot_light.direction));
+
+    // if (spotDot < gl_LightSource[i].spotCosCutoff)
+    //     spotAttenuation = 0.0; // light adds no contribution
+    // else
+    spotAttenuation = pow(spotDot, spot_light.outer_cutoff);
+
+    // Combine the spotlight and distance attenuation.
+    attenuation *= spotAttenuation;
+    halfVector = normalize(VP + eye);
+
+    nDotVP = max(0.0, dot(normal, VP));
+    nDotHV = max(0.0, dot(normal, halfVector));
+
+    if (nDotVP == 0.0)
+        pf = 0.0;
+    else
+        pf = pow(nDotHV, shininess);
+
+    Ambient  = spot_light.ambient_color;
+    Diffuse  = spot_light.diffuse_color * nDotVP * attenuation;
+    Specular = spot_light.specular_color * pf * attenuation;
+}
 
 void main()
 {
@@ -75,10 +135,11 @@ void main()
     float ambient_occlusion = texture(ssao_texture, frag_texcoord).r;
 
     vec3 light_color = material_ambient_amount * albedo_specular.rgb * ambient_occlusion;
-    vec3 camera_direction = normalize(camera_position - frag_position);
 
     for (uint i = 0; i < directional_light_count; i++)
     {
+        // vec3 camera_direction = normalize(camera_position - frag_position);
+
         // diffuse
         vec3 light_direction = normalize(-directional_lights[i].direction);
         float diffuse_amount = max(dot(frag_normal, light_direction), 0.0);
@@ -96,13 +157,15 @@ void main()
 
     for (uint i = 0; i < point_light_count; i++)
     {
+        vec3 surface_direction = normalize(camera_position - frag_position);
+
         // diffuse
         vec3 light_direction = normalize(point_lights[i].position - frag_position);
         float diffuse_amount = max(dot(light_direction, frag_normal), 0.0);
         vec3 diffuse_color = diffuse_amount * albedo_specular.rgb * point_lights[i].diffuse_color;
 
         // specular
-        vec3 light_halfway_direction = normalize(light_direction + camera_direction);
+        vec3 light_halfway_direction = normalize(light_direction + surface_direction);
         float specular_amount = 0.0;
         if (diffuse_amount > 0.0)
             specular_amount = pow(max(dot(frag_normal, light_halfway_direction), 0.0), material_specular_shininess);
@@ -120,13 +183,15 @@ void main()
 
     for (uint i = 0; i < spot_light_count; i++)
     {
+        vec3 surface_direction = normalize(camera_position - frag_position);
+
         // diffuse
         vec3 light_direction = normalize(spot_lights[i].position - frag_position);
         float diffuse_amount = max(dot(frag_normal, light_direction), 0.0);
         vec3 diffuse_color = diffuse_amount * albedo_specular.rgb * spot_lights[i].diffuse_color;
 
         // specular
-        vec3 light_halfway_direction = normalize(light_direction + camera_direction);
+        vec3 light_halfway_direction = normalize(light_direction + surface_direction);
         float specular_amount = 0.0;
         if (diffuse_amount > 0.0)
             specular_amount = pow(max(dot(frag_normal, light_halfway_direction), 0.0), material_specular_shininess);

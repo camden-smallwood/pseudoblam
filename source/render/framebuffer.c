@@ -34,15 +34,6 @@ void framebuffer_attach_texture(
 
     switch (texture->type)
     {
-    case _texture_type_1d:
-        glFramebufferTexture1D(
-            GL_FRAMEBUFFER,
-            GL_COLOR_ATTACHMENT0 + framebuffer->texture_count,
-            GL_TEXTURE_1D,
-            texture->id,
-            0);
-        break;
-
     case _texture_type_2d:
         glFramebufferTexture2D(
             GL_FRAMEBUFFER,

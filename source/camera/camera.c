@@ -29,7 +29,7 @@ void camera_initialize(struct camera_data *camera)
     camera->far_clip = 1000.0f;
     glm_vec3_copy((vec3){3, 2, 3}, camera->position);
     glm_vec3_copy((vec2){-130, -35}, camera->rotation);
-    glm_vec3_copy((vec3){0, 1, 0}, camera->up);
+    glm_vec3_copy((vec3){0, 0, 1}, camera->up);
 }
 
 void camera_handle_screen_resize(struct camera_data *camera, int width, int height)
@@ -49,7 +49,7 @@ void camera_update(struct camera_data *camera, float delta_ticks)
     
     vec2 mouse_motion =
     {
-        (float)mouse_motion_int[0],
+        (float)-mouse_motion_int[0],
         (float)-mouse_motion_int[1]
     };
     glm_vec2_scale(mouse_motion, 0.01f, mouse_motion);
@@ -69,8 +69,8 @@ void camera_update(struct camera_data *camera, float delta_ticks)
     glm_vec3_copy(
         (vec3){
             cosf(yaw_radians) * pitch_radians_cosine,
-            sinf(pitch_radians),
             sinf(yaw_radians) * pitch_radians_cosine,
+            sinf(pitch_radians),
         },
         camera->forward);
     glm_vec3_normalize(camera->forward);

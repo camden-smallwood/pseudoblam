@@ -31,8 +31,7 @@ layout(location = 1) out vec4 out_normal;
 layout(location = 2) out vec4 out_albedo_specular;
 layout(location = 3) out vec4 out_material;
 layout(location = 4) out vec4 out_emissive;
-layout(location = 5) out vec4 out_view_position;
-layout(location = 6) out vec4 out_view_normal;
+layout(location = 5) out vec4 out_view_normal;
 
 void main()
 {
@@ -42,6 +41,5 @@ void main()
     out_albedo_specular.a = texture(material.specular_texture, frag_texcoord).r;
     out_material = vec4(material.ambient_amount, material.specular_amount, material.specular_shininess, 0);
     out_emissive = texture(material.emissive_texture, frag_texcoord);
-    out_view_position = vec4(frag_view_position, 1);
     out_view_normal = vec4(normalize(frag_view_tbn * frag_normal), 1);
 }

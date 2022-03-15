@@ -3,16 +3,8 @@
 
 /* ---------- types */
 
-enum renderbuffer_flags
-{
-    _renderbuffer_has_multiple_samples_bit,
-    NUMBER_OF_RENDERBUFFER_FLAGS
-};
-
 struct renderbuffer
 {
-    unsigned int flags;
-
     int samples;
     int width;
     int height;

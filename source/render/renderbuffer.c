@@ -39,8 +39,6 @@ void renderbuffer_resize(
     glGetIntegerv(GL_MAX_SAMPLES, &maximum_samples);
     assert(samples <= maximum_samples);
 
-    SET_BIT(buffer->flags, _renderbuffer_has_multiple_samples_bit, samples);
-    
     buffer->samples = samples;
     buffer->width = width;
     buffer->height = height;
@@ -48,7 +46,7 @@ void renderbuffer_resize(
     glGenRenderbuffers(1, &buffer->id);
     glBindRenderbuffer(GL_RENDERBUFFER, buffer->id);
 
-    if (TEST_BIT(buffer->flags, _renderbuffer_has_multiple_samples_bit))
+    if (samples)
         glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, buffer->format, width, height);
     else
         glRenderbufferStorage(GL_RENDERBUFFER, buffer->format, width, height);
