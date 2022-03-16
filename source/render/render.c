@@ -581,11 +581,11 @@ static void render_initialize_scene(void)
 
     camera_initialize(&render_globals.camera);
 
-    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
-
     render_globals.cube_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/cube.fbx");
     model_animations_initialize(&render_globals.cube_animations, render_globals.cube_model_index);
     model_set_animation_active(&render_globals.cube_animations, 0, true);
+
+    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
 
     render_globals.weapon_model_index = -1;//model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
     
@@ -718,6 +718,10 @@ static void render_initialize_models(void)
             glGenBuffers(1, &mesh->vertex_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
             glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
+
+            glGenBuffers(1, &mesh->index_buffer);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->index_count * sizeof(int), mesh->indices, GL_STATIC_DRAW);
 
             shader_bind_vertex_attributes(render_globals.geometry_pass.shader_index, mesh->vertex_type);
         }
@@ -1231,7 +1235,8 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
             render_set_material_uniforms(shader_index, material);
 
-            glDrawArrays(GL_TRIANGLES, part->vertex_index, part->vertex_count);
+            // glDrawArrays(GL_TRIANGLES, part->vertex_start, part->vertex_count);
+            glDrawElements(GL_TRIANGLES, part->index_count, GL_UNSIGNED_INT, (const void *)(part->index_start * sizeof(int)));
 
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
             {

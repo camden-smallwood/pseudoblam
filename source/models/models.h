@@ -47,18 +47,26 @@ struct model_mesh
     int vertex_count;
     void *vertex_data;
 
+    int index_count;
+    int *indices;
+
     int part_count;
     struct model_mesh_part *parts;
     
     unsigned int vertex_array;
     unsigned int vertex_buffer;
+    unsigned int index_buffer;
 };
 
 struct model_mesh_part
 {
     int material_index;
-    int vertex_index;
+
+    int vertex_start;
     int vertex_count;
+
+    int index_start;
+    int index_count;
 };
 
 struct model_animation
@@ -135,6 +143,7 @@ struct model_animation_morph_key
 struct model_animation_state
 {
     float time;
+    float speed;
     mat4 *node_matrices;
 };
 

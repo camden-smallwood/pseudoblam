@@ -5,9 +5,9 @@
 
 enum dds_fourcc
 {
-    _dds_fourcc_dxt1 = '1TXD',
-    _dds_fourcc_dxt3 = '3TXD',
-    _dds_fourcc_dxt5 = '5TXD',
+    _dds_fourcc_dxt1 = __builtin_bswap32('DXT1'),
+    _dds_fourcc_dxt3 = __builtin_bswap32('DXT3'),
+    _dds_fourcc_dxt5 = __builtin_bswap32('DXT5'),
 };
 
 /* ---------- structures */

@@ -43,6 +43,10 @@ void model_animations_initialize(
     for (int state_index = 0; state_index < model->animation_count; state_index++)
     {
         struct model_animation_state *state = manager->animation_states + state_index;
+        
+        state->time = 0.0f;
+        state->speed = 1.0f;
+
         assert(state->node_matrices = calloc(model->node_count, sizeof(*state->node_matrices)));
     }
 }

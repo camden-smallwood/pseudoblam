@@ -550,8 +550,10 @@ static void model_import_assimp_mesh(
     struct model_mesh_part part =
     {
         .material_index = in_mesh->mMaterialIndex,
-        .vertex_index = out_mesh->vertex_count,
+        .vertex_start = out_mesh->vertex_count,
         .vertex_count = 0,
+        .index_start = out_mesh->index_count,
+        .index_count = 0,
     };
 
     int node_indices[in_mesh->mNumVertices][4];
@@ -624,6 +626,54 @@ static void model_import_assimp_mesh(
         }
     }
     
+    puts("importing vertices...");
+
+    for (unsigned int vertex_index = 0; vertex_index < in_mesh->mNumVertices; vertex_index++)
+    {
+        struct aiVector3D position = in_mesh->mVertices[vertex_index];
+        struct aiVector3D normal = in_mesh->mNormals[vertex_index];
+        struct aiVector3D texcoord = in_mesh->mTextureCoords[0] ? in_mesh->mTextureCoords[0][vertex_index] : (struct aiVector3D){0, 0, 0};
+        struct aiVector3D tangent = in_mesh->mTangents ? in_mesh->mTangents[vertex_index] : (struct aiVector3D){0, 0, 0};
+        struct aiVector3D bitangent = in_mesh->mBitangents ? in_mesh->mBitangents[vertex_index] : (struct aiVector3D){0, 0, 0};
+
+        switch (out_mesh->vertex_type)
+        {
+        case _vertex_type_rigid:
+            {
+                struct vertex_rigid vertex;
+                glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
+                glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
+                glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
+                glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
+                glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
+                mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
+            }
+            break;
+        
+        case _vertex_type_skinned:
+            {
+                struct vertex_skinned vertex;
+                glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
+                glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
+                glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
+                glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
+                glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
+                memcpy(vertex.node_indices, node_indices[vertex_index], sizeof(vertex.node_indices));
+                memcpy(vertex.node_weights, node_weights[vertex_index], sizeof(vertex.node_weights));
+                mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
+            }
+            break;
+        
+        default:
+            fprintf(stderr, "ERROR: unhandled vertex type %i\n", out_mesh->vertex_type);
+            exit(EXIT_FAILURE);
+        }
+
+        part.vertex_count++;
+    }
+
+    printf("total vertex count: %i\n\n", part.vertex_count);
+
     puts("importing faces...");
 
     for (unsigned int face_index = 0; face_index < in_mesh->mNumFaces; face_index++)
@@ -632,49 +682,11 @@ static void model_import_assimp_mesh(
 
         for (unsigned int index_index = 0; index_index < face.mNumIndices; index_index++)
         {
-            int vertex_index = face.mIndices[index_index];
-            
-            struct aiVector3D position = in_mesh->mVertices[vertex_index];
-            struct aiVector3D normal = in_mesh->mNormals[vertex_index];
-            struct aiVector3D texcoord = in_mesh->mTextureCoords[0] ? in_mesh->mTextureCoords[0][vertex_index] : (struct aiVector3D){0, 0, 0};
-            struct aiVector3D tangent = in_mesh->mTangents ? in_mesh->mTangents[vertex_index] : (struct aiVector3D){0, 0, 0};
-            struct aiVector3D bitangent = in_mesh->mBitangents ? in_mesh->mBitangents[vertex_index] : (struct aiVector3D){0, 0, 0};
-
-            switch (out_mesh->vertex_type)
-            {
-            case _vertex_type_rigid:
-                {
-                    struct vertex_rigid vertex;
-                    glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
-                    glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
-                    glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
-                    glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
-                    glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
-                    mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
-                }
-                break;
-            
-            case _vertex_type_skinned:
-                {
-                    struct vertex_skinned vertex;
-                    glm_vec3_copy((vec3){position.x, position.y, position.z}, vertex.position);
-                    glm_vec3_copy((vec3){normal.x, normal.y, normal.z}, vertex.normal);
-                    glm_vec2_copy((vec2){texcoord.x, -texcoord.y}, vertex.texcoord);
-                    glm_vec3_copy((vec3){tangent.x, tangent.y, tangent.z}, vertex.tangent);
-                    glm_vec3_copy((vec3){bitangent.x, bitangent.y, bitangent.z}, vertex.bitangent);
-                    memcpy(vertex.node_indices, node_indices[vertex_index], sizeof(vertex.node_indices));
-                    memcpy(vertex.node_weights, node_weights[vertex_index], sizeof(vertex.node_weights));
-                    mempush(&out_mesh->vertex_count, &out_mesh->vertex_data, &vertex, sizeof(vertex), realloc);
-                }
-                break;
-            
-            default:
-                fprintf(stderr, "ERROR: unhandled vertex type %i\n", out_mesh->vertex_type);
-                exit(EXIT_FAILURE);
-            }
+            int vertex_index = part.vertex_start + face.mIndices[index_index];
+            mempush(&out_mesh->index_count, (void **)&out_mesh->indices, &vertex_index, sizeof(int), realloc);
         }
 
-        part.vertex_count += face.mNumIndices;
+        part.index_count += face.mNumIndices;
     }
 
     mempush(&out_mesh->part_count, (void **)&out_mesh->parts, &part, sizeof(part), realloc);
