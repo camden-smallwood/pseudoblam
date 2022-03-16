@@ -21,10 +21,6 @@ struct
     struct texture_data *textures;
 } static texture_globals;
 
-/* ---------- private prototypes */
-
-static GLenum texture_get_target(struct texture_data *texture);
-
 /* ---------- public code */
 
 void textures_initialize(void)
@@ -110,6 +106,28 @@ struct texture_data *texture_get_data(
     return texture_globals.textures + texture_index;
 }
 
+int texture_get_target(
+    int texture_index)
+{
+    struct texture_data *texture = texture_get_data(texture_index);
+    assert(texture);
+    
+    switch (texture->type)
+    {
+    case _texture_type_2d:
+        if (texture->samples)
+            return GL_TEXTURE_2D_MULTISAMPLE;
+        return GL_TEXTURE_2D;
+
+    case _texture_type_3d:
+        return GL_TEXTURE_3D;
+    
+    default:
+        fprintf(stderr, "ERROR: unhandled texture type: %i\n", texture->type);
+        exit(EXIT_FAILURE);
+    }
+}
+
 void texture_resize(
     int texture_index,
     int samples,
@@ -133,9 +151,7 @@ void texture_set_image_data(
     void *data)
 {
     struct texture_data *texture = texture_get_data(texture_index);
-    assert(texture);
-
-    GLenum target = texture_get_target(texture);
+    GLenum target = texture_get_target(texture_index);
 
     glBindTexture(target, texture->id);
 
@@ -160,26 +176,9 @@ void texture_set_image_data(
         exit(EXIT_FAILURE);
     }
 
+    // TODO: get from texture_data
+    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
     glBindTexture(target, 0);
-}
-
-/* ---------- private code */
-
-static GLenum texture_get_target(
-    struct texture_data *texture)
-{
-    switch (texture->type)
-    {
-    case _texture_type_2d:
-        if (texture->samples)
-            return GL_TEXTURE_2D_MULTISAMPLE;
-        return GL_TEXTURE_2D;
-
-    case _texture_type_3d:
-        return GL_TEXTURE_3D;
-    
-    default:
-        fprintf(stderr, "ERROR: unhandled texture type: %i\n", texture->type);
-        exit(EXIT_FAILURE);
-    }
 }

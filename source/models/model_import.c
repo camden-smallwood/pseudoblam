@@ -257,42 +257,42 @@ static void model_import_assimp_material(
 {
     printf("material has %i properties:\n", in_material->mNumProperties);
 
-    for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
-    {
-        struct aiMaterialProperty *property = in_material->mProperties[property_index];
+    // for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
+    // {
+    //     struct aiMaterialProperty *property = in_material->mProperties[property_index];
         
-        char *value_string = NULL;
+    //     char *value_string = NULL;
 
-        switch (property->mType)
-        {
-        case aiPTI_Float:
-            asprintf(&value_string, "%f", *(float *)property->mData);
-            break;
+    //     switch (property->mType)
+    //     {
+    //     case aiPTI_Float:
+    //         asprintf(&value_string, "%f", *(float *)property->mData);
+    //         break;
 
-        case aiPTI_Double:
-            asprintf(&value_string, "%lf", *(double *)property->mData);
-            break;
+    //     case aiPTI_Double:
+    //         asprintf(&value_string, "%lf", *(double *)property->mData);
+    //         break;
 
-        case aiPTI_String:
-            asprintf(&value_string, "\"%s\"", ((struct aiString *)property->mData)->data);
-            break;
+    //     case aiPTI_String:
+    //         asprintf(&value_string, "\"%s\"", ((struct aiString *)property->mData)->data);
+    //         break;
 
-        case aiPTI_Integer:
-            asprintf(&value_string, "%i", *(int *)property->mData);
-            break;
+    //     case aiPTI_Integer:
+    //         asprintf(&value_string, "%i", *(int *)property->mData);
+    //         break;
 
-        case aiPTI_Buffer:
-            asprintf(&value_string, "[...]");
-            break;
+    //     case aiPTI_Buffer:
+    //         asprintf(&value_string, "[...]");
+    //         break;
         
-        default:
-            asprintf(&value_string, "<unknown>");
-            break;
-        }
+    //     default:
+    //         asprintf(&value_string, "<unknown>");
+    //         break;
+    //     }
         
-        printf("\t%s: %s\n", property->mKey.data, value_string);
-        free(value_string);
-    }
+    //     printf("\t%s: %s\n", property->mKey.data, value_string);
+    //     free(value_string);
+    // }
 
     struct material_data material;
     memset(&material, 0, sizeof(material));
@@ -482,58 +482,58 @@ static void model_import_assimp_metadata(
     if (!in_metadata)
         return;
 
-    for (unsigned int property_index = 0; property_index < in_metadata->mNumProperties; property_index++)
-    {
-        struct aiString *key = in_metadata->mKeys + property_index;
-        struct aiMetadataEntry *value = in_metadata->mValues + property_index;
+    // for (unsigned int property_index = 0; property_index < in_metadata->mNumProperties; property_index++)
+    // {
+    //     struct aiString *key = in_metadata->mKeys + property_index;
+    //     struct aiMetadataEntry *value = in_metadata->mValues + property_index;
 
-        char *value_string = NULL;
+    //     char *value_string = NULL;
         
-        switch (value->mType)
-        {
-        case AI_BOOL:
-            asprintf(&value_string, "%s", *(bool *)value->mData ? "true" : "false");
-            break;
+    //     switch (value->mType)
+    //     {
+    //     case AI_BOOL:
+    //         asprintf(&value_string, "%s", *(bool *)value->mData ? "true" : "false");
+    //         break;
 
-        case AI_INT32:
-            asprintf(&value_string, "%i", *(int32_t *)value->mData);
-            break;
+    //     case AI_INT32:
+    //         asprintf(&value_string, "%i", *(int32_t *)value->mData);
+    //         break;
 
-        case AI_UINT64:
-            asprintf(&value_string, "%llu", *(uint64_t *)value->mData);
-            break;
+    //     case AI_UINT64:
+    //         asprintf(&value_string, "%llu", *(uint64_t *)value->mData);
+    //         break;
 
-        case AI_FLOAT:
-            asprintf(&value_string, "%f", *(float *)value->mData);
-            break;
+    //     case AI_FLOAT:
+    //         asprintf(&value_string, "%f", *(float *)value->mData);
+    //         break;
 
-        case AI_DOUBLE:
-            asprintf(&value_string, "%lf", *(double *)value->mData);
-            break;
+    //     case AI_DOUBLE:
+    //         asprintf(&value_string, "%lf", *(double *)value->mData);
+    //         break;
 
-        case AI_AISTRING:
-            asprintf(&value_string, "\"%s\"", ((struct aiString *)value->mData)->data);
-            break;
+    //     case AI_AISTRING:
+    //         asprintf(&value_string, "\"%s\"", ((struct aiString *)value->mData)->data);
+    //         break;
 
-        case AI_AIVECTOR3D:
-            {
-                struct aiVector3D *vector = (struct aiVector3D *)value->mData;
-                asprintf(&value_string, "{ x: %f, y: %f, z: %f }", vector->x, vector->y, vector->z);
-            }
-            break;
+    //     case AI_AIVECTOR3D:
+    //         {
+    //             struct aiVector3D *vector = (struct aiVector3D *)value->mData;
+    //             asprintf(&value_string, "{ x: %f, y: %f, z: %f }", vector->x, vector->y, vector->z);
+    //         }
+    //         break;
 
-        case AI_AIMETADATA:
-            model_import_assimp_metadata(directory_path, in_scene, in_node, (const struct aiMetadata *)value->mData, out_model);
-            break;
+    //     case AI_AIMETADATA:
+    //         model_import_assimp_metadata(directory_path, in_scene, in_node, (const struct aiMetadata *)value->mData, out_model);
+    //         break;
 
-        default:
-            asprintf(&value_string, "<unknown>");
-            break;
-        }
+    //     default:
+    //         asprintf(&value_string, "<unknown>");
+    //         break;
+    //     }
 
-        printf("\t%s: %s\n", key->data, value_string);
-        free(value_string);
-    }
+    //     printf("\t%s: %s\n", key->data, value_string);
+    //     free(value_string);
+    // }
 }
 
 static void model_import_assimp_mesh(

@@ -45,5 +45,7 @@ void texture_delete(int texture_index);
 
 struct texture_data *texture_get_data(int texture_index);
 
+int texture_get_target(int texture_index);
+
 void texture_resize(int texture_index, int samples, int width, int height, int depth);
 void texture_set_image_data(int texture_index, void *data);
