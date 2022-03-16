@@ -537,16 +537,15 @@ static void model_import_assimp_metadata(
 }
 
 static void model_import_assimp_mesh(
-    const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
     struct model_data *out_model,
     struct model_mesh *out_mesh)
 {
-    // if (in_mesh->mName.length && in_mesh->mName.data[0] == '#')
-    // {
-    //     // TODO: import marker
-    //     return;
-    // }
+    if (in_mesh->mName.length && in_mesh->mName.data[0] == '#')
+    {
+        // TODO: import marker
+        return;
+    }
 
     struct model_mesh_part part =
     {
@@ -557,6 +556,8 @@ static void model_import_assimp_mesh(
 
     int node_indices[in_mesh->mNumVertices][4];
     memset(node_indices, -1, sizeof(int) * in_mesh->mNumVertices * 4);
+
+    puts("importing node weights...");
 
     float node_weights[in_mesh->mNumVertices][4];
     memset(node_weights, 0, sizeof(float) * in_mesh->mNumVertices * 4);
@@ -586,7 +587,10 @@ static void model_import_assimp_mesh(
             };
             
             glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
+            glm_mat4_transpose(node.transform);
+
             glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
+            glm_mat4_transpose(node.offset_matrix);
             
             int parent_node_index = -1;
             
@@ -620,6 +624,8 @@ static void model_import_assimp_mesh(
         }
     }
     
+    puts("importing faces...");
+
     for (unsigned int face_index = 0; face_index < in_mesh->mNumFaces; face_index++)
     {
         struct aiFace face = in_mesh->mFaces[face_index];
@@ -631,8 +637,8 @@ static void model_import_assimp_mesh(
             struct aiVector3D position = in_mesh->mVertices[vertex_index];
             struct aiVector3D normal = in_mesh->mNormals[vertex_index];
             struct aiVector3D texcoord = in_mesh->mTextureCoords[0] ? in_mesh->mTextureCoords[0][vertex_index] : (struct aiVector3D){0, 0, 0};
-            struct aiVector3D tangent = in_mesh->mTangents[vertex_index];
-            struct aiVector3D bitangent = in_mesh->mBitangents[vertex_index];
+            struct aiVector3D tangent = in_mesh->mTangents ? in_mesh->mTangents[vertex_index] : (struct aiVector3D){0, 0, 0};
+            struct aiVector3D bitangent = in_mesh->mBitangents ? in_mesh->mBitangents[vertex_index] : (struct aiVector3D){0, 0, 0};
 
             switch (out_mesh->vertex_type)
             {
@@ -705,7 +711,7 @@ static void model_import_assimp_node(
     {
         struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
 
-        model_import_assimp_mesh(in_node, in_mesh, out_model, &mesh);
+        model_import_assimp_mesh(in_mesh, out_model, &mesh);
     }
     
     if (mesh.vertex_data)

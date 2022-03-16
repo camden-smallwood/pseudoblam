@@ -255,12 +255,22 @@ static void model_animation_compute_node_matrices(
 
     if (!key_count)
         glm_mat4_copy(node->transform, node_transform);
-
+    
     mat4 global_transform;
     glm_mat4_mul(parent_transform, node_transform, global_transform);
 
     glm_mat4_mul(global_transform, node->offset_matrix, state->node_matrices[node_index]);
 
+    // mat4 m;
+    // glm_mat4_copy(state->node_matrices[node_index], m);
+
+    // printf("node matrix of \"%s\":\n", node->name);
+    // printf("00: %f, 01: %f, 02: %f, 03: %f,\n", m[0][0], m[0][1], m[0][2], m[0][3]);
+    // printf("10: %f, 11: %f, 12: %f, 13: %f,\n", m[1][0], m[1][1], m[1][2], m[1][3]);
+    // printf("20: %f, 21: %f, 22: %f, 23: %f,\n", m[2][0], m[2][1], m[2][2], m[2][3]);
+    // printf("30: %f, 31: %f, 32: %f, 33: %f,\n", m[3][0], m[3][1], m[3][2], m[3][3]);
+    // printf("\n");
+    
     for (int child_node_index = node->first_child_index;
         child_node_index != -1;
         child_node_index = model->nodes[child_node_index].next_sibling_index)
