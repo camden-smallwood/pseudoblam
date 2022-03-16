@@ -587,7 +587,7 @@ static void render_initialize_scene(void)
 
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
 
-    render_globals.weapon_model_index = -1;//model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
+    render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
     
     struct light_data *light;
 
@@ -1235,7 +1235,6 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             struct material_data *material = model->materials + part->material_index;
             render_set_material_uniforms(shader_index, material);
 
-            // glDrawArrays(GL_TRIANGLES, part->vertex_start, part->vertex_count);
             glDrawElements(GL_TRIANGLES, part->index_count, GL_UNSIGNED_INT, (const void *)(part->index_start * sizeof(int)));
 
             for (int texture_index = 0; texture_index < material->texture_count; texture_index++)

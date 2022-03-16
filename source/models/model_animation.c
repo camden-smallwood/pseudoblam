@@ -92,6 +92,9 @@ void model_animations_update(
 
     struct model_data *model = model_get_data(manager->model_index);
 
+    if (!model)
+        return;
+
     for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
         model_animation_update(manager, animation_index, delta_ticks);
 }
