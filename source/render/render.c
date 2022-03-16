@@ -161,6 +161,7 @@ struct
 /* ---------- private prototypes */
 
 static void render_initialize_gl(void);
+
 static void render_initialize_geometry_pass(void);
 static void render_initialize_depth_pass(void);
 static void render_initialize_occlusion_pass(void);
@@ -212,7 +213,6 @@ void render_initialize(void)
     render_initialize_lighting_pass();
     render_initialize_transparent_pass();
     render_initialize_postprocess_pass();
-
     render_initialize_quad();
     
     render_initialize_scene();
@@ -229,10 +229,7 @@ void render_handle_screen_resize(int width, int height)
     render_globals.screen_width = width;
     render_globals.screen_height = height;
     
-    camera_handle_screen_resize(
-        &render_globals.camera,
-        width,
-        height);
+    camera_handle_screen_resize(&render_globals.camera, width, height);
     
     // TODO: resize all screen-sized framebuffer textures
 }
@@ -321,9 +318,12 @@ static void render_initialize_occlusion_pass(void)
 
     framebuffer_initialize(&render_globals.occlusion_pass.framebuffer);
     framebuffer_use(&render_globals.occlusion_pass.framebuffer);
+    
     render_globals.occlusion_pass.base_texture_index = texture_new(_texture_type_2d, GL_RGB, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.occlusion_pass.framebuffer, render_globals.occlusion_pass.base_texture_index);
+    
     framebuffer_build(&render_globals.occlusion_pass.framebuffer);
+
     framebuffer_use(NULL);
 
     srand(time(NULL));
@@ -344,8 +344,6 @@ static void render_initialize_occlusion_pass(void)
         scale = 0.1f + scale * scale * (1.0f - 0.1f);
         glm_vec3_scale(sample, scale, sample);
 
-        printf("sample: %f, %f, %f\n", sample[0], sample[1], sample[2]);
-
         glm_vec3_copy(sample, render_globals.occlusion_pass.kernel_samples[i]);
     }
 
@@ -358,11 +356,7 @@ static void render_initialize_occlusion_pass(void)
             0.0f,
         };
         
-        printf("noise: %f, %f, %f\n", noise[0], noise[1], noise[2]);
-
-        glm_vec3_copy(
-            noise,
-            render_globals.occlusion_pass.noise_points[i]);
+        glm_vec3_copy(noise, render_globals.occlusion_pass.noise_points[i]);
     }
 
     render_globals.occlusion_pass.noise_texture_index = texture_new(_texture_type_2d, GL_RGBA32F, GL_RGB, GL_FLOAT, 0, SSAO_NOISE_TEXTURE_WIDTH, SSAO_NOISE_TEXTURE_HEIGHT, 0);
@@ -388,7 +382,15 @@ static void render_initialize_lighting_pass(void)
 
 static void render_initialize_transparent_pass(void)
 {
-    // TODO
+    framebuffer_initialize(&render_globals.transparent_pass.framebuffer);
+    framebuffer_use(&render_globals.transparent_pass.framebuffer);
+
+    render_globals.transparent_pass.texture_index = texture_new(_texture_type_2d, GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE, 0, render_globals.screen_width, render_globals.screen_height, 0);
+    framebuffer_attach_texture(&render_globals.transparent_pass.framebuffer, render_globals.transparent_pass.texture_index);
+
+    framebuffer_build(&render_globals.transparent_pass.framebuffer);
+
+    framebuffer_use(NULL);
 }
 
 static void render_initialize_postprocess_pass(void)
@@ -441,6 +443,8 @@ static void render_initialize_quad(void)
 {
     render_globals.quad_shader = shader_new("../assets/shaders/quad.vs", "../assets/shaders/texture.fs");
 
+    // TODO: initialize as mesh?
+    
     struct vertex_flat quad_vertices[] =
     {
         { .position = { -1.0f, 1.0f }, .texcoord = { 0.0f, 1.0f } },
@@ -653,9 +657,11 @@ static void render_update_input(void)
 static void render_update_flashlight(void)
 {
     struct light_data *light = light_get_data(render_globals.flashlight_light_index);
-
+    
     if (!light)
+    {
         return;
+    }
 
     glm_vec3_copy(render_globals.camera.position, light->position);
 
@@ -681,11 +687,10 @@ static void render_frame(void)
 
 static void render_geometry_pass(void)
 {
+    // TODO: framebuffer_clear
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glEnable(GL_DEPTH_TEST);
-
     framebuffer_use(&render_globals.geometry_pass.framebuffer);
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     struct model_iterator iterator;
@@ -699,14 +704,13 @@ static void render_geometry_pass(void)
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
         
-        render_model(
-            render_globals.geometry_pass.shader_index,
-            iterator.index,
-            model_matrix);
+        render_model(render_globals.geometry_pass.shader_index, iterator.index, model_matrix);
     }
 
     if (render_globals.weapon_model_index != -1)
     {
+        int model_index = render_globals.weapon_model_index;
+
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
         glm_scale_uni(model_matrix, 0.1f);
@@ -718,10 +722,7 @@ static void render_geometry_pass(void)
         glm_mat4_inv(render_globals.camera.view, inverted_view);
         glm_mat4_mul(inverted_view, model_matrix, model_matrix);
 
-        render_model(
-            render_globals.geometry_pass.shader_index,
-            render_globals.weapon_model_index,
-            model_matrix);
+        render_model(render_globals.geometry_pass.shader_index, model_index, model_matrix);
     }
 
     framebuffer_use(NULL);
@@ -729,6 +730,7 @@ static void render_geometry_pass(void)
 
 static void render_depth_pass(void)
 {
+    // TODO: framebuffer_clear
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glEnable(GL_DEPTH_TEST);
 
@@ -737,7 +739,6 @@ static void render_depth_pass(void)
     glReadBuffer(GL_DEPTH_ATTACHMENT);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.depth_pass.framebuffer.id);
     glDrawBuffer(GL_DEPTH_ATTACHMENT);
-
     glBlitFramebuffer(
         0, 0, render_globals.screen_width, render_globals.screen_height,
         0, 0, render_globals.screen_width, render_globals.screen_height,
@@ -749,9 +750,9 @@ static void render_depth_pass(void)
 
 static void render_occlusion_pass(void)
 {
+    // TODO: framebuffer_clear
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
-
     framebuffer_use(&render_globals.occlusion_pass.framebuffer);
 
     shader_use(render_globals.occlusion_pass.shader_index);
@@ -775,29 +776,17 @@ static void render_occlusion_pass(void)
 
 static void render_lighting_pass(void)
 {
+    // TODO: framebuffer_clear
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
-
     framebuffer_use(&render_globals.lighting_pass.framebuffer);
-    
     glClear(GL_COLOR_BUFFER_BIT);
 
     shader_use(render_globals.lighting_pass.shader_index);
     
-    shader_set_vec3(
-        render_globals.lighting_pass.shader_index,
-        render_globals.camera.position,
-        "camera_position");
-
-    shader_set_vec3(
-        render_globals.lighting_pass.shader_index,
-        render_globals.camera.forward,
-        "camera_direction");
-
-    shader_set_mat4(
-        render_globals.lighting_pass.shader_index,
-        render_globals.camera.view,
-        "view");
+    shader_set_vec3(render_globals.lighting_pass.shader_index, render_globals.camera.position, "camera_position");
+    shader_set_vec3(render_globals.lighting_pass.shader_index, render_globals.camera.forward, "camera_direction");
+    shader_set_mat4(render_globals.lighting_pass.shader_index, render_globals.camera.view, "view");
 
     struct texture_data *position_texture = texture_get_data(render_globals.geometry_pass.position_texture_index);
     shader_bind_texture(render_globals.lighting_pass.shader_index, position_texture->id, "position_texture");
@@ -819,6 +808,7 @@ static void render_lighting_pass(void)
     
     render_set_lighting_uniforms(render_globals.lighting_pass.shader_index);
 
+    // TODO: draw as mesh?
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -829,7 +819,6 @@ static void render_lighting_pass(void)
     glReadBuffer(GL_COLOR_ATTACHMENT1);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer.id);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
-
     glBlitFramebuffer(
         0, 0, render_globals.screen_width, render_globals.screen_height,
         0, 0, render_globals.screen_width, render_globals.screen_height,
@@ -1071,22 +1060,14 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
         {
             struct model_node *node = model->nodes + node_index;
             
+            mat4 node_matrix;
+
             if (model_index == render_globals.cube_model_index)
-            {
-                shader_set_mat4_v(
-                    shader_index,
-                    render_globals.cube_animations.animation_states[0].node_matrices[node_index],
-                    "node_matrices[%i]",
-                    node_index);
-            }
+                glm_mat4_copy(render_globals.cube_animations.animation_states[0].node_matrices[node_index], node_matrix);
             else
-            {
-                shader_set_mat4_v(
-                    shader_index,
-                    node->offset_matrix,
-                    "node_matrices[%i]",
-                    node_index);
-            }
+                glm_mat4_copy(node->offset_matrix, node_matrix);
+            
+            shader_set_mat4_v(shader_index, node_matrix, "node_matrices[%i]", node_index);
         }
         
         glBindVertexArray(mesh->vertex_array);
