@@ -13,8 +13,8 @@ SHELL.C
 #include "common/common.h"
 #include "input/input.h"
 #include "models/models.h"
-#include "render/shaders.h"
-#include "render/lights.h"
+#include "rasterizer/rasterizer_shaders.h"
+#include "render/render_lights.h"
 #include "render/render.h"
 
 /* ---------- private types */

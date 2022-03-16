@@ -1,6 +1,6 @@
 /*
-LIGHTS.C
-    Light management code.
+RENDER_LIGHTS.C
+    Light management and rendering code.
 */
 
 /* ---------- headers */
@@ -11,7 +11,7 @@ LIGHTS.C
 #include <string.h>
 
 #include "common/common.h"
-#include "render/lights.h"
+#include "render/render_lights.h"
 
 /* ---------- private variables */
 

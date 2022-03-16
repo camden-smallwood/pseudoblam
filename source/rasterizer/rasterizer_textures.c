@@ -1,6 +1,6 @@
 /*
-TEXTURES.C
-    Texture management and rendering code.
+RASTERIZER_TEXTURES.C
+    Texture management and rasterization code.
 */
 
 #include <assert.h>
@@ -11,7 +11,7 @@ TEXTURES.C
 #include <GL/glew.h>
 
 #include "common/common.h"
-#include "render/textures.h"
+#include "rasterizer/rasterizer_textures.h"
 
 /* ---------- private variables */
 

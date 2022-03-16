@@ -1,6 +1,6 @@
 /*
-TEXTURES.H
-    Texture management and rendering declarations.
+RASTERIZER_TEXTURES.H
+    Texture management and rasterization declarations.
 */
 
 #pragma once
@@ -33,7 +33,7 @@ struct texture_data
     unsigned int id;
 };
 
-/* ---------- prototypes/TEXTURES.C */
+/* ---------- prototypes/RASTERIZER_TEXTURES.C */
 
 void textures_initialize(void);
 void textures_dispose(void);

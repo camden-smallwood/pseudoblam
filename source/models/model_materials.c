@@ -1,9 +1,14 @@
+/*
+MODEL_MATERIALS.C
+    Model material management code.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <assimp/material.h>
 
-#include "models/materials.h"
+#include "models/model_materials.h"
 
 /* ---------- public code */
 

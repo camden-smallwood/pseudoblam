@@ -1,3 +1,8 @@
+/*
+RENDER_LIGHTS.H
+    Light management and rendering declarations.
+*/
+
 #pragma once
 #include <stdbool.h>
 #include <cglm/cglm.h>
@@ -46,7 +51,7 @@ struct light_iterator
     int index;
 };
 
-/* ---------- prototypes/LIGHTS.C */
+/* ---------- prototypes/RENDER_LIGHTS.C */
 
 void lights_initialize(void);
 void lights_dispose(void);

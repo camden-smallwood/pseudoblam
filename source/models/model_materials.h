@@ -1,3 +1,8 @@
+/*
+MODEL_MATERIALS.H
+    Model material management declarations.
+*/
+
 #pragma once
 #include <cglm/cglm.h>
 
@@ -212,6 +217,6 @@ struct material_data
     struct material_ambient_occlussion_properties ambient_occlussion_properties;
 };
 
-/* ---------- prototypes/MATERIALS.C */
+/* ---------- prototypes/MODEL_MATERIALS.C */
 
 const char *material_texture_usage_to_string(enum material_texture_usage usage);

@@ -6,8 +6,8 @@ MODELS.H
 #pragma once
 #include <stdbool.h>
 #include <cglm/cglm.h>
-#include "models/materials.h"
-#include "render/vertices.h"
+#include "models/model_materials.h"
+#include "rasterizer/rasterizer_vertices.h"
 
 /* ---------- types */
 

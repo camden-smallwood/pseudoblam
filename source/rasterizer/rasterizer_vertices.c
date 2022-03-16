@@ -1,4 +1,9 @@
-#include "render/vertices.h"
+/*
+RASTERIZER_VERTICES.C
+    Rasterizer vertex management code.
+*/
+
+#include "rasterizer/rasterizer_vertices.h"
 
 /* ---------- private constants */
 

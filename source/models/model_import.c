@@ -472,70 +472,6 @@ static void model_import_assimp_animation(
     mempush(&out_model->animation_count, (void **)&out_model->animations, &animation, sizeof(animation), realloc);
 }
 
-static void model_import_assimp_metadata(
-    const char *directory_path,
-    const struct aiScene *in_scene,
-    const struct aiNode *in_node,
-    const struct aiMetadata *in_metadata,
-    struct model_data *out_model)
-{
-    if (!in_metadata)
-        return;
-
-    // for (unsigned int property_index = 0; property_index < in_metadata->mNumProperties; property_index++)
-    // {
-    //     struct aiString *key = in_metadata->mKeys + property_index;
-    //     struct aiMetadataEntry *value = in_metadata->mValues + property_index;
-
-    //     char *value_string = NULL;
-        
-    //     switch (value->mType)
-    //     {
-    //     case AI_BOOL:
-    //         asprintf(&value_string, "%s", *(bool *)value->mData ? "true" : "false");
-    //         break;
-
-    //     case AI_INT32:
-    //         asprintf(&value_string, "%i", *(int32_t *)value->mData);
-    //         break;
-
-    //     case AI_UINT64:
-    //         asprintf(&value_string, "%llu", *(uint64_t *)value->mData);
-    //         break;
-
-    //     case AI_FLOAT:
-    //         asprintf(&value_string, "%f", *(float *)value->mData);
-    //         break;
-
-    //     case AI_DOUBLE:
-    //         asprintf(&value_string, "%lf", *(double *)value->mData);
-    //         break;
-
-    //     case AI_AISTRING:
-    //         asprintf(&value_string, "\"%s\"", ((struct aiString *)value->mData)->data);
-    //         break;
-
-    //     case AI_AIVECTOR3D:
-    //         {
-    //             struct aiVector3D *vector = (struct aiVector3D *)value->mData;
-    //             asprintf(&value_string, "{ x: %f, y: %f, z: %f }", vector->x, vector->y, vector->z);
-    //         }
-    //         break;
-
-    //     case AI_AIMETADATA:
-    //         model_import_assimp_metadata(directory_path, in_scene, in_node, (const struct aiMetadata *)value->mData, out_model);
-    //         break;
-
-    //     default:
-    //         asprintf(&value_string, "<unknown>");
-    //         break;
-    //     }
-
-    //     printf("\t%s: %s\n", key->data, value_string);
-    //     free(value_string);
-    // }
-}
-
 static void model_import_assimp_mesh(
     const struct aiMesh *in_mesh,
     struct model_data *out_model,
@@ -699,19 +635,15 @@ static void model_import_assimp_node(
     const struct aiNode *in_node,
     struct model_data *out_model)
 {
-    // printf("node \"%s\" has:\n"
-    //     "\tparent node: %s\n"
-    //     "\tmesh count: %i\n"
-    //     "\tchild count: %i\n",
-    //     in_node->mName.data,
-    //     in_node->mParent ? in_node->mParent->mName.data : "<none>",
-    //     in_node->mNumMeshes,
-    //     in_node->mNumChildren);
+    printf("node \"%s\" has:\n"
+        "\tparent node: %s\n"
+        "\tmesh count: %i\n"
+        "\tchild count: %i\n",
+        in_node->mName.data,
+        in_node->mParent ? in_node->mParent->mName.data : "<none>",
+        in_node->mNumMeshes,
+        in_node->mNumChildren);
     
-    puts("importing node metadata...");
-
-    model_import_assimp_metadata(directory_path, in_scene, in_node, in_node->mMetaData, out_model);
-
     struct model_mesh mesh;
     memset(&mesh, 0, sizeof(mesh));
 

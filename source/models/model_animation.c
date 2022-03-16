@@ -115,7 +115,7 @@ static void model_animation_update(
     struct model_animation *animation = model->animations + animation_index;
     struct model_animation_state *state = manager->animation_states + animation_index;
 
-    state->time = fmodf(state->time + (animation->ticks_per_second * delta_ticks), animation->duration);
+    state->time = fmodf(state->time + ((animation->ticks_per_second * state->speed) * delta_ticks), animation->duration);
     
     model_animation_compute_node_matrices(manager, animation_index, root_node_index, GLM_MAT4_IDENTITY);
 }

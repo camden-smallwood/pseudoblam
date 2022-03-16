@@ -1,3 +1,8 @@
+/*
+RASTERIZER_VERTICES.H
+    Rasterizer vertex management declarations.
+*/
+
 #pragma once
 #include <stddef.h>
 #include <cglm/cglm.h>
@@ -55,6 +60,6 @@ struct vertex_definition
     const struct vertex_attribute_definition *attributes;
 };
 
-/* ---------- prototypes/VERTICES.C */
+/* ---------- prototypes/RASTERIZER_VERTICES.C */
 
 const struct vertex_definition *vertex_definition_get(enum vertex_type type);

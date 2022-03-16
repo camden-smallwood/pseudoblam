@@ -1,8 +1,13 @@
+/*
+RASTERIZER_SHADERS.H
+    Rasterizer shader management declarations.
+*/
+
 #pragma once
 #include <stdbool.h>
 #include <cglm/cglm.h>
 #include <GL/glew.h>
-#include "render/vertices.h"
+#include "rasterizer/rasterizer_vertices.h"
 
 /* ---------- structures */
 
@@ -14,7 +19,7 @@ struct shader_data
     GLuint textures[32];
 };
 
-/* ---------- prototypes/SHADERS.C */
+/* ---------- prototypes/RASTERIZER_SHADERS.C */
 
 void shaders_initialize(void);
 void shaders_dispose(void);

@@ -1,9 +1,7 @@
 /*
-SHADERS.C
-    Shader management code.
+RASTERIZER_SHADERS.H
+    Rasterizer shader management declarations.
 */
-
-/* ---------- headers */
 
 #include <assert.h>
 #include <stdarg.h>
@@ -13,7 +11,7 @@ SHADERS.C
 #include <GL/glew.h>
 
 #include "common/common.h"
-#include "render/shaders.h"
+#include "rasterizer/rasterizer_shaders.h"
 
 /* ---------- private constants */
 

@@ -1,8 +1,24 @@
+/*
+RASTERIZER_RENDER_TARGETS.C
+    Rasterizer render targets declarations.
+*/
+
 #pragma once
 #include <GL/glew.h>
-#include "render/renderbuffer.h"
 
-/* -------- types */
+/* -------- renderbuffers */
+
+struct renderbuffer
+{
+    int samples;
+    int width;
+    int height;
+
+    GLenum format;
+    GLuint id;
+};
+
+/* -------- framebuffers */
 
 enum framebuffer_attachment_type
 {
@@ -29,7 +45,7 @@ struct framebuffer
     GLuint id;
 };
 
-/* -------- prototypes/FRAMEBUFFER.C */
+/* -------- prototypes/RASTERIZER_RENDER_TARGETS.C */
 
 void framebuffer_initialize(struct framebuffer *framebuffer);
 void framebuffer_dispose(struct framebuffer *framebuffer);
@@ -37,3 +53,7 @@ void framebuffer_use(struct framebuffer *framebuffer);
 void framebuffer_attach_texture(struct framebuffer *framebuffer, int texture_index);
 void framebuffer_attach_renderbuffer(struct framebuffer *framebuffer, struct renderbuffer *renderbuffer);
 void framebuffer_build(struct framebuffer *framebuffer);
+
+void renderbuffer_initialize(struct renderbuffer *buffer, int samples, int format, int width, int height);
+void renderbuffer_dispose(struct renderbuffer *buffer);
+void renderbuffer_resize(struct renderbuffer *buffer, int samples, int width, int height);
