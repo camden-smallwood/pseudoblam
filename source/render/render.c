@@ -477,13 +477,14 @@ static void render_initialize_scene(void)
     camera_initialize(&render_globals.camera);
 
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
-
-    render_globals.cube_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/cube.fbx");
-    model_animations_initialize(&render_globals.cube_animations, render_globals.cube_model_index);
-    model_set_animation_active(&render_globals.cube_animations, 0, true);
+    // model_import_from_file(_vertex_type_rigid, "../assets/models/grunt.fbx");
 
     render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
     
+    render_globals.cube_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/cube2.fbx");
+    model_animations_initialize(&render_globals.cube_animations, render_globals.cube_model_index);
+    model_set_animation_active(&render_globals.cube_animations, 0, true);
+
     struct light_data *light;
 
     render_globals.flashlight_light_index = light_new();

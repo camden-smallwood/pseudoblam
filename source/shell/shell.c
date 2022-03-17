@@ -140,7 +140,7 @@ static inline void shell_initialize(void)
     shell_globals.window = SDL_CreateWindow("asdf", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     shell_globals.gl_context = SDL_GL_CreateContext(shell_globals.window);
     
-    shell_globals.frame_rate = 120;
+    shell_globals.frame_rate = 60;
 
     SDL_GL_SetSwapInterval(0);
 

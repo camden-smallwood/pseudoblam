@@ -1,5 +1,4 @@
 #pragma once
-#include <stdbool.h>
 
 /* ---------- constants */
 
@@ -57,6 +56,6 @@ struct dds_data
 /* ---------- prototypes/dds.c */
 
 void dds_dispose(struct dds_data *dds);
-bool dds_from_file(struct dds_data *dds, const char *file_path);
+void dds_from_file(struct dds_data *dds, const char *file_path);
 
 unsigned int dds_import_file_as_texture2d(const char *file_path);

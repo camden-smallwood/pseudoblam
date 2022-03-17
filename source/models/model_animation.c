@@ -260,9 +260,9 @@ static void model_animation_compute_node_matrices(
         }
     }
 
-    if (!key_count)
+    if (!key_count || memcmp(node_transform, GLM_MAT4_ZERO, sizeof(node_transform)) == 0 || memcmp(node_transform, GLM_MAT4_IDENTITY, sizeof(node_transform)) == 0)
         glm_mat4_copy(node->transform, node_transform);
-    
+
     mat4 global_transform;
     glm_mat4_mul(parent_transform, node_transform, global_transform);
 

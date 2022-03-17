@@ -16,7 +16,7 @@ void dds_dispose(struct dds_data *dds)
     free(dds->data);
 }
 
-bool dds_from_file(struct dds_data *dds, const char *file_path)
+void dds_from_file(struct dds_data *dds, const char *file_path)
 {
     assert(dds);
     assert(file_path);
@@ -26,7 +26,7 @@ bool dds_from_file(struct dds_data *dds, const char *file_path)
     if (stream == NULL)
     {
         fprintf(stderr, "ERROR: \"%s\" could not be opened\n", file_path);
-        return false;
+        exit(EXIT_FAILURE);
     }
 
     fread(&dds->header, sizeof(dds->header), 1, stream);
@@ -35,7 +35,7 @@ bool dds_from_file(struct dds_data *dds, const char *file_path)
     {
         fprintf(stderr, "ERROR: \"%s\" is not a valid DDS file\n", file_path);
         fclose(stream);
-        return false;
+        exit(EXIT_FAILURE);
     }
 
     unsigned int data_size = dds->header.mip_map_count > 1
@@ -46,8 +46,6 @@ bool dds_from_file(struct dds_data *dds, const char *file_path)
 
     fread(dds->data, 1, data_size, stream);
     fclose(stream);
-    
-    return true;
 }
 
 unsigned int dds_import_file_as_texture2d(
@@ -56,12 +54,7 @@ unsigned int dds_import_file_as_texture2d(
     assert(file_path);
 
     struct dds_data dds;
-    
-    if (!dds_from_file(&dds, file_path))
-    {
-        fprintf(stderr, "ERROR: failed to load dds as texture2d\n");
-        return 0;
-    }
+    dds_from_file(&dds, file_path);
 
     GLenum format;
 

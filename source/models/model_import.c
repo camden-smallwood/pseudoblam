@@ -504,15 +504,23 @@ static void model_import_assimp_mesh(
     {
         struct aiBone *in_bone = in_mesh->mBones[bone_index];
 
+        puts("finding node...");
         int node_index = model_find_node_by_name(out_model, in_bone->mName.data);
 
         if (node_index == -1)
         {
-            printf("\t----------\n"
-                "\tbone node: %s\n"
-                "\tbone parent node: %s\n",
-                in_bone->mNode->mName.data,
-                in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
+            if (!in_bone->mNode)
+            {
+                fprintf(stderr, "WARNING: bone \"%s\" has no associated node, issues may occur\n", in_bone->mName.data);
+            }
+            else
+            {
+                printf("\t----------\n"
+                    "\tbone node: %s\n"
+                    "\tbone parent node: %s\n",
+                    in_bone->mNode->mName.data,
+                    in_bone->mNode->mParent ? in_bone->mNode->mParent->mName.data : "<none>");
+            }
 
             struct model_node node =
             {
@@ -524,7 +532,10 @@ static void model_import_assimp_mesh(
                 .transform = GLM_MAT4_ZERO_INIT,
             };
             
-            glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
+            if (in_bone->mNode)
+                glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
+            else
+                glm_mat4_copy(GLM_MAT4_IDENTITY, node.transform);
             glm_mat4_transpose(node.transform);
 
             glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
@@ -532,7 +543,7 @@ static void model_import_assimp_mesh(
             
             int parent_node_index = -1;
             
-            if (in_bone->mNode->mParent != in_bone->mArmature)
+            if (in_bone->mNode && in_bone->mNode->mParent != in_bone->mArmature)
                 parent_node_index = model_find_node_by_name(out_model, in_bone->mNode->mParent->mName.data);
             
             node_index = model_node_add_child_node(out_model, parent_node_index, &node);
@@ -540,6 +551,7 @@ static void model_import_assimp_mesh(
 
         assert(node_index >= 0 && node_index < out_model->node_count);
 
+        puts("iterating over weights...");
         for (unsigned int weight_index = 0; weight_index < in_bone->mNumWeights; weight_index++)
         {
             struct aiVertexWeight *weight = in_bone->mWeights + weight_index;

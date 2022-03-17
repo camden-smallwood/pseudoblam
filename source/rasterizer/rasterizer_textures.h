@@ -4,7 +4,6 @@ RASTERIZER_TEXTURES.H
 */
 
 #pragma once
-#include <stdbool.h>
 
 /* ---------- constants */
 
