@@ -33,16 +33,10 @@ void main()
     if (use_nodes == true)
     {
         transform = mat4(0.0);
-
-        for (int i = 0; i < MAXIMUM_NODE_INFLUENCE; i++)
-        {
-            int node_index = node_indices[i];
-
-            if (node_index == -1 || node_index >= node_count || node_index >= MAXIMUM_NODES)
-                continue;
-
-            transform += node_matrices[node_index] * node_weights[node_index];
-        }
+        transform += node_matrices[node_indices[0]] * node_weights[0];
+        transform += node_matrices[node_indices[1]] * node_weights[1];
+        transform += node_matrices[node_indices[2]] * node_weights[2];
+        transform += node_matrices[node_indices[3]] * node_weights[3];
     }
 
     frag_position = vec3(model * transform * vec4(position, 1.0));

@@ -477,11 +477,10 @@ static void render_initialize_scene(void)
     camera_initialize(&render_globals.camera);
 
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
-    // model_import_from_file(_vertex_type_rigid, "../assets/models/grunt.fbx");
 
     render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
     
-    render_globals.cube_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/cube2.fbx");
+    render_globals.cube_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
     model_animations_initialize(&render_globals.cube_animations, render_globals.cube_model_index);
     model_set_animation_active(&render_globals.cube_animations, 0, true);
 
@@ -647,7 +646,7 @@ static void render_update_input(void)
     {
         SET_BIT(render_globals.flags, _render_input_tab_bit, false);
         
-        if (render_globals.camera.movement_speed < 100.0f)
+        if (render_globals.camera.movement_speed < 1000.0f)
             render_globals.camera.movement_speed *= 2.0f;
         else
             render_globals.camera.movement_speed = 1.0f;

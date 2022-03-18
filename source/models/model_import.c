@@ -108,7 +108,6 @@ static inline void material_import_assimp_textures(
 
         if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_type, i, &string, NULL, NULL, NULL, NULL, NULL, NULL))
         {
-            printf("loading \"%s\"...\n", string.data);
             texture.id = dds_import_file_as_texture2d(string.data);
         }
         
@@ -255,7 +254,7 @@ static void model_import_assimp_material(
     const struct aiMaterial *in_material,
     struct model_data *out_model)
 {
-    printf("material has %i properties:\n", in_material->mNumProperties);
+    // printf("material has %i properties:\n", in_material->mNumProperties);
 
     // for (unsigned int property_index = 0; property_index < in_material->mNumProperties; property_index++)
     // {
@@ -314,7 +313,7 @@ static void model_import_assimp_animation(
     const struct aiAnimation *in_animation,
     struct model_data *out_model)
 {
-    printf("animation: %s\n", in_animation->mName.data);
+    printf("loading animation \"%s\"...\n", in_animation->mName.data);
     
     struct model_animation animation;
     memset(&animation, 0, sizeof(animation));
@@ -325,6 +324,19 @@ static void model_import_assimp_animation(
     for (unsigned int channel_index = 0; channel_index < in_animation->mNumChannels; channel_index++)
     {
         struct aiNodeAnim *in_channel = in_animation->mChannels[channel_index];
+
+        if (strncmp("Armature", in_channel->mNodeName.data, in_channel->mNodeName.length) == 0)
+            continue;
+
+        printf(
+            "loading animation channel for node \"%s\":\n"
+            "\tposition keys: %i\n"
+            "\trotation keys: %i\n"
+            "\tscaling keys: %i\n",
+            in_channel->mNodeName.data,
+            in_channel->mNumPositionKeys,
+            in_channel->mNumRotationKeys,
+            in_channel->mNumScalingKeys);
 
         struct model_animation_channel channel;
         memset(&channel, 0, sizeof(channel));
@@ -337,12 +349,13 @@ static void model_import_assimp_animation(
 
             if (strncmp(node->name, in_channel->mNodeName.data, in_channel->mNodeName.length) == 0)
             {
-                printf("found channel node index %i\n", node_index);
                 channel.node_index = node_index;
                 break;
             }
         }
 
+        assert(channel.node_index != -1);
+        
         for (unsigned int position_key_index = 0; position_key_index < in_channel->mNumPositionKeys; position_key_index++)
         {
             struct aiVectorKey *in_position_key = in_channel->mPositionKeys + position_key_index;
@@ -357,6 +370,14 @@ static void model_import_assimp_animation(
                     in_position_key->mValue.z
                 }
             };
+
+            printf(
+                "\tposition key %i: { x: %f, y: %f, z: %f } @ %f\n",
+                position_key_index,
+                position_key.position[0],
+                position_key.position[1],
+                position_key.position[2],
+                position_key.time);
 
             mempush(&channel.position_key_count, (void **)&channel.position_keys, &position_key, sizeof(position_key), realloc);
         }
@@ -377,6 +398,14 @@ static void model_import_assimp_animation(
                 }
             };
 
+            printf(
+                "\trotation key %i: { x: %f, y: %f, z: %f } @ %f\n",
+                rotation_key_index,
+                rotation_key.rotation[0],
+                rotation_key.rotation[1],
+                rotation_key.rotation[2],
+                rotation_key.time);
+
             mempush(&channel.rotation_key_count, (void **)&channel.rotation_keys, &rotation_key, sizeof(rotation_key), realloc);
         }
 
@@ -395,6 +424,14 @@ static void model_import_assimp_animation(
                 }
             };
 
+            printf(
+                "\tscaling key %i: { x: %f, y: %f, z: %f } @ %f\n",
+                scaling_key_index,
+                scaling_key.scaling[0],
+                scaling_key.scaling[1],
+                scaling_key.scaling[2],
+                scaling_key.time);
+            
             mempush(&channel.scaling_key_count, (void **)&channel.scaling_keys, &scaling_key, sizeof(scaling_key), realloc);
         }
 
@@ -473,6 +510,7 @@ static void model_import_assimp_animation(
 }
 
 static void model_import_assimp_mesh(
+    const struct aiScene *in_scene,
     const struct aiMesh *in_mesh,
     struct model_data *out_model,
     struct model_mesh *out_mesh)
@@ -531,7 +569,7 @@ static void model_import_assimp_mesh(
                 .offset_matrix = GLM_MAT4_ZERO_INIT,
                 .transform = GLM_MAT4_ZERO_INIT,
             };
-            
+
             if (in_bone->mNode)
                 glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
             else
@@ -667,7 +705,7 @@ static void model_import_assimp_node(
     {
         struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
 
-        model_import_assimp_mesh(in_mesh, out_model, &mesh);
+        model_import_assimp_mesh(in_scene, in_mesh, out_model, &mesh);
     }
     
     if (mesh.vertex_data)
@@ -753,8 +791,33 @@ int model_import_from_file(
 
     aiReleaseImport(scene);
     free(directory_path);
+
+    printf("imported model:\n"
+        "\tmaterial_count: %i\n"
+        "\tnode_count: %i\n"
+        "\tmesh_count: %i\n"
+        "\tanimation_count: %i\n",
+        model->material_count,
+        model->node_count,
+        model->mesh_count,
+        model->animation_count);
     
-    puts("done importing model");
+    for (int i = 0; i < model->node_count; i++)
+    {
+        struct model_node *node = model->nodes + i;
+
+        printf(
+            "\tnode %i:\n"
+            "\t\tname: \"%s\"\n"
+            "\t\tparent_index: %i\n"
+            "\t\tfirst_child_index: %i\n"
+            "\t\tnext_sibling_index: %i\n",
+            i,
+            node->name,
+            node->parent_index,
+            node->first_child_index,
+            node->next_sibling_index);
+    }
 
     return model_index;
 }
