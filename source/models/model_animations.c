@@ -1,5 +1,5 @@
 /*
-MODEL_ANIMATION.C
+MODEL_ANIMATIONS.C
     Model animation management.
 */
 

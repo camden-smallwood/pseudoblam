@@ -478,7 +478,7 @@ static void render_initialize_scene(void)
 
     model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
 
-    render_globals.weapon_model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/assault_rifle.fbx");
+    render_globals.weapon_model_index = -1;//model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
     
     render_globals.cube_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
     model_animations_initialize(&render_globals.cube_animations, render_globals.cube_model_index);
@@ -712,10 +712,24 @@ static void render_geometry_pass(void)
 
         mat4 model_matrix;
         glm_mat4_identity(model_matrix);
-        glm_scale_uni(model_matrix, 0.1f);
-        glm_rotate(model_matrix, 1.4f, (vec3){0, 1, 0});
-        glm_rotate(model_matrix, -0.05f, (vec3){0, 0, 1});
-        glm_translate(model_matrix, (vec3){0.6f, -0.725f, 0.3f});
+
+        mat4 model_scale_matrix;
+        glm_mat4_identity(model_scale_matrix);
+        glm_scale_uni(model_scale_matrix, 0.1f);
+
+        mat4 model_rotation_matrix;
+        glm_mat4_identity(model_rotation_matrix);
+        glm_rotate(model_rotation_matrix, glm_rad(-90.0), (vec3){1, 0, 0});
+        glm_rotate(model_rotation_matrix, glm_rad(0.0), (vec3){0, 1, 0});
+        glm_rotate(model_rotation_matrix, glm_rad(0.0), (vec3){0, 0, 1});
+
+        mat4 model_position_matrix;
+        glm_mat4_identity(model_position_matrix);
+        glm_translate(model_position_matrix, (vec3){4, 50, -7});
+
+        glm_mat4_mul(model_matrix, model_scale_matrix, model_matrix);
+        glm_mat4_mul(model_matrix, model_rotation_matrix, model_matrix);
+        glm_mat4_mul(model_matrix, model_position_matrix, model_matrix);
 
         mat4 inverted_view;
         glm_mat4_inv(render_globals.camera.view, inverted_view);

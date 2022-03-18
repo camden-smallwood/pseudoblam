@@ -4,10 +4,20 @@ MODELS.H
 */
 
 #pragma once
+
 #include <stdbool.h>
+
 #include <cglm/cglm.h>
+
 #include "models/model_materials.h"
 #include "rasterizer/rasterizer_vertices.h"
+
+/* ---------- constants */
+
+enum
+{
+    MAXIMUM_NUMBER_OF_MODEL_NODES = 256,
+};
 
 /* ---------- types */
 
@@ -175,7 +185,7 @@ int model_node_add_child_node(struct model_data *model, int node_index, struct m
 
 int model_import_from_file(enum vertex_type vertex_type, const char *file_path);
 
-/* ---------- prototypes/MODEL_ANIMATION.C */
+/* ---------- prototypes/MODEL_ANIMATIONS.C */
 
 void model_animations_initialize(struct model_animation_manager *manager, int model_index);
 void model_animations_dispose(struct model_animation_manager *manager);

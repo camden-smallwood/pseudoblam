@@ -124,7 +124,10 @@ int model_node_add_child_node(
     int node_index,
     struct model_node *child_node)
 {
+    assert(model->node_count < MAXIMUM_NUMBER_OF_MODEL_NODES);
+    
     child_node->parent_index = node_index;
+
     int child_node_index = model->node_count;
     mempush(&model->node_count, (void **)&model->nodes, child_node, sizeof(*child_node), realloc);
 

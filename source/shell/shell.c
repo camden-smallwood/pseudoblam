@@ -13,6 +13,7 @@ SHELL.C
 #include "common/common.h"
 #include "input/input.h"
 #include "models/models.h"
+#include "objects/objects.h"
 #include "rasterizer/rasterizer_shaders.h"
 #include "render/render_lights.h"
 #include "render/render.h"
@@ -52,6 +53,13 @@ static const struct shell_component shell_components[] =
         models_dispose,
         NULL,
         NULL,
+    },
+    {
+        "objects",
+        objects_initialize,
+        objects_dispose,
+        NULL,
+        objects_update,
     },
     {
         "shaders",
