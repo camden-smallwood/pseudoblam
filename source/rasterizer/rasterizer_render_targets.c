@@ -160,13 +160,11 @@ void framebuffer_build(
                 {
                     attachment_index = depth_attachment_count++;
                     attachment_id = GL_DEPTH_ATTACHMENT + attachment_index;
-                    printf("attaching depth component %i\n", attachment_index);
                 }
                 else
                 {
                     attachment_index = color_attachment_count++;
                     attachment_id = GL_COLOR_ATTACHMENT0 + attachment_index;
-                    printf("attaching color component %i\n", attachment_index);
                 }
                 
                 assert(attachments = realloc(attachments, sizeof(GLenum) * (color_attachment_count + depth_attachment_count)));

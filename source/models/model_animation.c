@@ -120,29 +120,6 @@ static void model_animation_update(
     model_animation_compute_node_matrices(manager, animation_index, root_node_index, GLM_MAT4_IDENTITY);
 }
 
-// void glm_mat4_add(mat4 m1, mat4 m2, mat4 dest)
-// {
-//     dest[0][0] = m1[0][0] + m2[0][0];
-//     dest[0][1] = m1[0][1] + m2[0][1];
-//     dest[0][2] = m1[0][2] + m2[0][2];
-//     dest[0][3] = m1[0][3] + m2[0][3];
-
-//     dest[1][0] = m1[1][0] + m2[1][0];
-//     dest[1][1] = m1[1][1] + m2[1][1];
-//     dest[1][2] = m1[1][2] + m2[1][2];
-//     dest[1][3] = m1[1][3] + m2[1][3];
-
-//     dest[2][0] = m1[2][0] + m2[2][0];
-//     dest[2][1] = m1[2][1] + m2[2][1];
-//     dest[2][2] = m1[2][2] + m2[2][2];
-//     dest[2][3] = m1[2][3] + m2[2][3];
-
-//     dest[3][0] = m1[3][0] + m2[3][0];
-//     dest[3][1] = m1[3][1] + m2[3][1];
-//     dest[3][2] = m1[3][2] + m2[3][2];
-//     dest[3][3] = m1[3][3] + m2[3][3];
-// }
-
 static void model_animation_compute_node_matrices(
     struct model_animation_manager *manager,
     int animation_index,
@@ -153,16 +130,6 @@ static void model_animation_compute_node_matrices(
     struct model_node *node = model->nodes + node_index;
     struct model_animation *animation = model->animations + animation_index;
     struct model_animation_state *state = manager->animation_states + animation_index;
-    
-    // mat4 m;
-
-    // glm_mat4_copy(parent_transform, m);
-    // puts("parent transform:");
-    // printf("00: %f, 01: %f, 02: %f, 03: %f,\n", m[0][0], m[0][1], m[0][2], m[0][3]);
-    // printf("10: %f, 11: %f, 12: %f, 13: %f,\n", m[1][0], m[1][1], m[1][2], m[1][3]);
-    // printf("20: %f, 21: %f, 22: %f, 23: %f,\n", m[2][0], m[2][1], m[2][2], m[2][3]);
-    // printf("30: %f, 31: %f, 32: %f, 33: %f,\n", m[3][0], m[3][1], m[3][2], m[3][3]);
-    // puts("");
     
     int key_count = 0;
     mat4 position_matrix = GLM_MAT4_IDENTITY_INIT;
@@ -293,55 +260,18 @@ static void model_animation_compute_node_matrices(
         }
     }
 
-    // printf("key count: %i\n", key_count);
-
     mat4 node_transform;
     glm_mat4_mul(position_matrix, rotation_matrix, node_transform);
     glm_mat4_mul(node_transform, scaling_matrix, node_transform);
     
-    if (!key_count)
-    {
-        // printf("no keys used for node %s, using default node transform\n", node->name);
+    if (!key_count || memcmp(node_transform, GLM_MAT4_ZERO, sizeof(node_transform)) == 0)
         glm_mat4_copy(node->transform, node_transform);
-    }
 
-    if (memcmp(node_transform, GLM_MAT4_ZERO, sizeof(node_transform)) == 0)
-    {
-        // puts("zero matrix found, using default node transform");
-        glm_mat4_copy(node->transform, node_transform);
-    }
-
-    // glm_mat4_copy(node_transform, m);
-    // puts("node transform:");
-    // printf("00: %f, 01: %f, 02: %f, 03: %f,\n", m[0][0], m[0][1], m[0][2], m[0][3]);
-    // printf("10: %f, 11: %f, 12: %f, 13: %f,\n", m[1][0], m[1][1], m[1][2], m[1][3]);
-    // printf("20: %f, 21: %f, 22: %f, 23: %f,\n", m[2][0], m[2][1], m[2][2], m[2][3]);
-    // printf("30: %f, 31: %f, 32: %f, 33: %f,\n", m[3][0], m[3][1], m[3][2], m[3][3]);
-    // puts("");
-    
     mat4 global_transform;
     glm_mat4_mul(parent_transform, node_transform, global_transform);
 
-    // glm_mat4_copy(node_transform, m);
-    // puts("global transform:");
-    // printf("00: %f, 01: %f, 02: %f, 03: %f,\n", m[0][0], m[0][1], m[0][2], m[0][3]);
-    // printf("10: %f, 11: %f, 12: %f, 13: %f,\n", m[1][0], m[1][1], m[1][2], m[1][3]);
-    // printf("20: %f, 21: %f, 22: %f, 23: %f,\n", m[2][0], m[2][1], m[2][2], m[2][3]);
-    // printf("30: %f, 31: %f, 32: %f, 33: %f,\n", m[3][0], m[3][1], m[3][2], m[3][3]);
-    // puts("");
-    
     glm_mat4_mul(global_transform, node->offset_matrix, state->node_matrices[node_index]);
 
-    // glm_mat4_copy(state->node_matrices[node_index], m);
-    // printf("final transform for node \"%s\" @ %f:\n", node->name, state->time);
-    // printf("00: %f, 01: %f, 02: %f, 03: %f,\n", m[0][0], m[0][1], m[0][2], m[0][3]);
-    // printf("10: %f, 11: %f, 12: %f, 13: %f,\n", m[1][0], m[1][1], m[1][2], m[1][3]);
-    // printf("20: %f, 21: %f, 22: %f, 23: %f,\n", m[2][0], m[2][1], m[2][2], m[2][3]);
-    // printf("30: %f, 31: %f, 32: %f, 33: %f,\n", m[3][0], m[3][1], m[3][2], m[3][3]);
-    // printf("\n");
-    // if (node_index > 3)
-    //     exit(EXIT_FAILURE);
-    
     for (int child_node_index = node->first_child_index;
         child_node_index != -1;
         child_node_index = model->nodes[child_node_index].next_sibling_index)

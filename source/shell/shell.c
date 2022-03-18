@@ -211,7 +211,6 @@ static inline void shell_update(void)
     }
 
     double delta_ticks = ((double)(frame_start_time - shell_globals.last_frame_time) / (double)SDL_GetPerformanceFrequency());
-    // printf("elapsed frame time: %lf\n", delta_ticks);
 
     input_set_mouse_motion(0.0f, 0.0f);
     
