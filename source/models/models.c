@@ -56,6 +56,9 @@ void model_delete(int model_index)
 
 struct model_data *model_get_data(int model_index)
 {
+    if (model_index == -1)
+        return NULL;
+    
     assert(model_index >= 0 && model_index < model_globals.model_count);
     return model_globals.models + model_index;
 }

@@ -38,11 +38,11 @@ void model_animations_initialize(
 
     manager->model_index = model_index;
     assert(manager->active_animations_bit_vector = calloc(BIT_VECTOR_LENGTH_IN_WORDS(model->animation_count), sizeof(unsigned int)));
-    assert(manager->animation_states = calloc(model->animation_count, sizeof(*manager->animation_states)));
+    assert(manager->states = calloc(model->animation_count, sizeof(*manager->states)));
     
     for (int state_index = 0; state_index < model->animation_count; state_index++)
     {
-        struct model_animation_state *state = manager->animation_states + state_index;
+        struct model_animation_state *state = manager->states + state_index;
         
         state->time = 0.0f;
         state->speed = 1.0f;
@@ -61,11 +61,11 @@ void model_animations_dispose(
 
     for (int state_index = 0; state_index < model->animation_count; state_index++)
     {
-        struct model_animation_state *state = manager->animation_states + state_index;
+        struct model_animation_state *state = manager->states + state_index;
         free(state->node_matrices);
     }
 
-    free(manager->animation_states);
+    free(manager->states);
 }
 
 void model_set_animation_active(
@@ -81,7 +81,7 @@ void model_set_animation_active(
     assert(animation_index >= 0 && animation_index < model->animation_count);
     BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, active);
 
-    manager->animation_states[animation_index].time = 0.0f;
+    manager->states[animation_index].time = 0.0f;
 }
 
 void model_animations_update(
@@ -113,7 +113,7 @@ static void model_animation_update(
     int root_node_index = model_find_root_node(model);
 
     struct model_animation *animation = model->animations + animation_index;
-    struct model_animation_state *state = manager->animation_states + animation_index;
+    struct model_animation_state *state = manager->states + animation_index;
 
     state->time = fmodf(state->time + ((animation->ticks_per_second * state->speed) * delta_ticks), animation->duration);
     
@@ -129,7 +129,7 @@ static void model_animation_compute_node_matrices(
     struct model_data *model = model_get_data(manager->model_index);
     struct model_node *node = model->nodes + node_index;
     struct model_animation *animation = model->animations + animation_index;
-    struct model_animation_state *state = manager->animation_states + animation_index;
+    struct model_animation_state *state = manager->states + animation_index;
     
     int key_count = 0;
     mat4 position_matrix = GLM_MAT4_IDENTITY_INIT;

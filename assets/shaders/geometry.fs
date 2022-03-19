@@ -36,7 +36,7 @@ layout(location = 5) out vec4 out_view_normal;
 void main()
 {
     out_position = vec4(frag_position, 1);
-    out_normal = vec4(normalize(frag_tbn * (texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0) * material.bump_scaling), 1);
+    out_normal = vec4(normalize(frag_tbn * ((texture(material.normal_texture, frag_texcoord).rgb * 2.0 - 1.0) * vec3(1.0, 1.0, 1.0 / material.bump_scaling))), 1);
     out_albedo_specular.rgb = texture(material.diffuse_texture, frag_texcoord).rgb;
     out_albedo_specular.a = texture(material.specular_texture, frag_texcoord).r;
     out_material = vec4(material.ambient_amount, material.specular_amount, material.specular_shininess, 0);

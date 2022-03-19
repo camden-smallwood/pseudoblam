@@ -53,6 +53,8 @@ int object_new(void)
 {
     struct object_data object;
     memset(&object, 0, sizeof(object));
+
+    glm_vec3_copy((vec3){1, 1, 1}, object.scale);
     
     int object_index = object_globals.object_count;
     mempush(&object_globals.object_count, (void **)&object_globals.objects, &object, sizeof(object), realloc);
@@ -70,6 +72,9 @@ void object_delete(int object_index)
 
 struct object_data *object_get_data(int object_index)
 {
+    if (object_index == -1)
+        return NULL;
+    
     assert(object_index >= 0 && object_index < object_globals.object_count);
     return object_globals.objects + object_index;
 }

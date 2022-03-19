@@ -19,6 +19,7 @@ RENDER.C
 #include "camera/camera.h"
 #include "input/input.h"
 #include "models/models.h"
+#include "objects/objects.h"
 #include "textures/dds.h"
 
 #include "render/render_lights.h"
@@ -150,11 +151,10 @@ struct
     GLuint default_normals_texture;
     GLuint default_emissive_texture;
 
-    int cube_model_index;
-    struct model_animation_manager cube_animations;
-
-    int weapon_model_index;
     int flashlight_light_index;
+    
+    int plane_object_index;
+    int grunt_object_index;
 } static render_globals;
 
 /* ---------- private prototypes */
@@ -191,7 +191,7 @@ static void render_quad(void);
 static void render_set_lighting_uniforms(int shader_index);
 static void render_set_material_uniforms(int shader_index, struct material_data *material);
 
-static void render_model(int shader_index, int model_index, mat4 model_matrix);
+static void render_object(int shader_index, int object_index);
 
 /* ---------- public code */
 
@@ -199,13 +199,30 @@ void render_initialize(void)
 {
     memset(&render_globals, 0, sizeof(render_globals));
 
+    /* -------------------------------------------------------------------------------- */
+
     render_globals.screen_width = 1280;
     render_globals.screen_height = 720;
 
     render_globals.sample_count = 4;
 
+    /* -------------------------------------------------------------------------------- */
+
     render_initialize_gl();
     
+    /* -------------------------------------------------------------------------------- */
+
+    render_globals.default_diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
+    render_globals.default_specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
+    render_globals.default_normals_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.default_emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
+
+    /* -------------------------------------------------------------------------------- */
+
+    camera_initialize(&render_globals.camera);
+
+    /* -------------------------------------------------------------------------------- */
+
     render_initialize_geometry_pass();
     render_initialize_depth_pass();
     render_initialize_occlusion_pass();
@@ -214,6 +231,8 @@ void render_initialize(void)
     render_initialize_postprocess_pass();
     render_initialize_quad();
     
+    /* -------------------------------------------------------------------------------- */
+
     render_initialize_scene();
     render_initialize_models();
 }
@@ -238,8 +257,6 @@ void render_update(float delta_ticks)
     render_update_input();
     camera_update(&render_globals.camera, delta_ticks);
     render_update_flashlight();
-    
-    model_animations_update(&render_globals.cube_animations, delta_ticks);
 
     render_frame();
 }
@@ -469,20 +486,17 @@ static void render_initialize_quad(void)
 
 static void render_initialize_scene(void)
 {
-    render_globals.default_diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
-    render_globals.default_specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
-    render_globals.default_normals_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
-    render_globals.default_emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
+    render_globals.plane_object_index = object_new();
+    struct object_data *plane_object = object_get_data(render_globals.plane_object_index);
+    plane_object->model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
 
-    camera_initialize(&render_globals.camera);
-
-    model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
-
-    render_globals.weapon_model_index = -1;//model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
-    
-    render_globals.cube_model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
-    model_animations_initialize(&render_globals.cube_animations, render_globals.cube_model_index);
-    model_set_animation_active(&render_globals.cube_animations, 0, true);
+    render_globals.grunt_object_index = object_new();
+    struct object_data *grunt = object_get_data(render_globals.grunt_object_index);
+    glm_vec3_copy((vec3){-5, 0, 0}, grunt->position);
+    glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, grunt->scale);
+    grunt->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
+    model_animations_initialize(&grunt->animations, grunt->model_index);
+    model_set_animation_active(&grunt->animations, 0, true);
 
     struct light_data *light;
 
@@ -500,7 +514,7 @@ static void render_initialize_scene(void)
     light->quadratic = 0.032f;
     light->inner_cutoff = 18.5f;
     light->outer_cutoff = 20.0f;
-    
+
     light = light_get_data(light_new());
     light->type = _light_type_point;
     glm_vec3_copy((vec3){-2.0f, -1.0f, 20.0f}, light->position);
@@ -692,51 +706,51 @@ static void render_geometry_pass(void)
     framebuffer_use(&render_globals.geometry_pass.framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    struct model_iterator iterator;
-    model_iterator_new(&iterator);
+    struct object_iterator iterator;
+    object_iterator_new(&iterator);
 
-    while (model_iterator_next(&iterator) != -1)
+    // render world objects
+    while (object_iterator_next(&iterator) != -1)
     {
-        if (iterator.index == render_globals.weapon_model_index)
-            continue;
+        // TODO: skip first person objects:
+        // if (iterator.index == render_globals.weapon_object_index)
+        //     continue;
         
-        mat4 model_matrix;
-        glm_mat4_identity(model_matrix);
-        
-        render_model(render_globals.geometry_pass.shader_index, iterator.index, model_matrix);
+        render_object(render_globals.geometry_pass.shader_index, iterator.index);
     }
 
-    if (render_globals.weapon_model_index != -1)
-    {
-        int model_index = render_globals.weapon_model_index;
+    // TODO: render first person models
+    // if (render_globals.weapon_model_index != -1)
+    // {
+    //     int model_index = render_globals.weapon_model_index;
 
-        mat4 model_matrix;
-        glm_mat4_identity(model_matrix);
+    //     mat4 model_matrix;
+    //     glm_mat4_identity(model_matrix);
 
-        mat4 model_scale_matrix;
-        glm_mat4_identity(model_scale_matrix);
-        glm_scale_uni(model_scale_matrix, 0.1f);
+    //     mat4 model_scale_matrix;
+    //     glm_mat4_identity(model_scale_matrix);
+    //     glm_scale_uni(model_scale_matrix, 0.1f);
 
-        mat4 model_rotation_matrix;
-        glm_mat4_identity(model_rotation_matrix);
-        glm_rotate(model_rotation_matrix, glm_rad(-90.0), (vec3){1, 0, 0});
-        glm_rotate(model_rotation_matrix, glm_rad(0.0), (vec3){0, 1, 0});
-        glm_rotate(model_rotation_matrix, glm_rad(0.0), (vec3){0, 0, 1});
+    //     mat4 model_rotation_matrix;
+    //     glm_mat4_identity(model_rotation_matrix);
+    //     glm_rotate(model_rotation_matrix, glm_rad(-90.0), (vec3){1, 0, 0});
+    //     glm_rotate(model_rotation_matrix, glm_rad(0.0), (vec3){0, 1, 0});
+    //     glm_rotate(model_rotation_matrix, glm_rad(0.0), (vec3){0, 0, 1});
 
-        mat4 model_position_matrix;
-        glm_mat4_identity(model_position_matrix);
-        glm_translate(model_position_matrix, (vec3){4, 50, -7});
+    //     mat4 model_position_matrix;
+    //     glm_mat4_identity(model_position_matrix);
+    //     glm_translate(model_position_matrix, (vec3){4, 50, -7});
 
-        glm_mat4_mul(model_matrix, model_scale_matrix, model_matrix);
-        glm_mat4_mul(model_matrix, model_rotation_matrix, model_matrix);
-        glm_mat4_mul(model_matrix, model_position_matrix, model_matrix);
+    //     glm_mat4_mul(model_matrix, model_scale_matrix, model_matrix);
+    //     glm_mat4_mul(model_matrix, model_rotation_matrix, model_matrix);
+    //     glm_mat4_mul(model_matrix, model_position_matrix, model_matrix);
 
-        mat4 inverted_view;
-        glm_mat4_inv(render_globals.camera.view, inverted_view);
-        glm_mat4_mul(inverted_view, model_matrix, model_matrix);
+    //     mat4 inverted_view;
+    //     glm_mat4_inv(render_globals.camera.view, inverted_view);
+    //     glm_mat4_mul(inverted_view, model_matrix, model_matrix);
 
-        render_model(render_globals.geometry_pass.shader_index, model_index, model_matrix);
-    }
+    //     render_object(render_globals.geometry_pass.shader_index, model_index, model_matrix);
+    // }
 
     framebuffer_use(NULL);
 }
@@ -1052,9 +1066,39 @@ static void render_set_material_uniforms(int shader_index, struct material_data 
     }
 }
 
-static void render_model(int shader_index, int model_index, mat4 model_matrix)
+static void render_object(int shader_index, int object_index)
 {
-    struct model_data *model = model_get_data(model_index);
+    struct object_data *object = object_get_data(object_index);
+    
+    if (!object)
+    {
+        return;
+    }
+    
+    struct model_data *model = model_get_data(object->model_index);
+
+    if (!model)
+    {
+        return;
+    }
+
+    mat4 position_matrix;
+    glm_mat4_identity(position_matrix);
+    glm_translate(position_matrix, object->position);
+
+    mat4 rotation_matrix;
+    glm_mat4_identity(rotation_matrix);
+    glm_rotate(rotation_matrix, object->rotation[0], (vec3){1, 0, 0});
+    glm_rotate(rotation_matrix, object->rotation[1], (vec3){0, 1, 0});
+    glm_rotate(rotation_matrix, object->rotation[2], (vec3){0, 0, 1});
+
+    mat4 scale_matrix;
+    glm_mat4_identity(scale_matrix);
+    glm_scale(scale_matrix, object->scale);
+
+    mat4 model_matrix;
+    glm_mat4_mul(position_matrix, rotation_matrix, model_matrix);
+    glm_mat4_mul(model_matrix, scale_matrix, model_matrix);
 
     for (int mesh_index = 0; mesh_index < model->mesh_count; mesh_index++)
     {
@@ -1074,11 +1118,25 @@ static void render_model(int shader_index, int model_index, mat4 model_matrix)
             struct model_node *node = model->nodes + node_index;
             
             mat4 node_matrix;
+            glm_mat4_identity(node_matrix);
 
-            if (model_index == render_globals.cube_model_index)
-                glm_mat4_copy(render_globals.cube_animations.animation_states[0].node_matrices[node_index], node_matrix);
-            else
+            int transform_count = 0;
+
+            for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
+            {
+                if (!BIT_VECTOR_TEST_BIT(object->animations.active_animations_bit_vector, animation_index))
+                    continue;
+                
+                struct model_animation_state *animation_state = object->animations.states + animation_index;
+                glm_mat4_mul(animation_state->node_matrices[node_index], node_matrix, node_matrix);
+                
+                transform_count++;
+            }
+
+            if (!transform_count)
+            {
                 glm_mat4_copy(node->offset_matrix, node_matrix);
+            }
             
             shader_set_mat4_v(shader_index, node_matrix, "node_matrices[%i]", node_index);
         }

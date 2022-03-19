@@ -161,7 +161,7 @@ struct model_animation_manager
 {
     int model_index;
     unsigned int *active_animations_bit_vector;
-    struct model_animation_state *animation_states;
+    struct model_animation_state *states;
 };
 
 /* ---------- prototypes/MODELS.C */
