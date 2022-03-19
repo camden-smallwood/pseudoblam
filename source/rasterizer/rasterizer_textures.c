@@ -53,6 +53,26 @@ const char *texture_type_to_string(
     }
 }
 
+int texture_allocate(
+    enum texture_type type)
+{
+    struct texture_data texture;
+    memset(&texture, 0, sizeof(texture));
+
+    texture.type = type;
+
+    int texture_index = texture_globals.texture_count;
+
+    mempush(
+        &texture_globals.texture_count,
+        (void **)&texture_globals.textures,
+        &texture,
+        sizeof(texture),
+        realloc);
+    
+    return texture_index;
+}
+
 int texture_new(
     enum texture_type type,
     int internal_format,

@@ -58,4 +58,4 @@ struct dds_data
 void dds_dispose(struct dds_data *dds);
 void dds_from_file(struct dds_data *dds, const char *file_path);
 
-unsigned int dds_import_file_as_texture2d(const char *file_path);
+int dds_import_file_as_texture2d(const char *file_path);

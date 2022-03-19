@@ -7,6 +7,7 @@
 #include <GL/glew.h>
 
 #include "textures/dds.h"
+#include "rasterizer/rasterizer_textures.h"
 
 /* ---------- public code */
 
@@ -48,7 +49,7 @@ void dds_from_file(struct dds_data *dds, const char *file_path)
     fclose(stream);
 }
 
-unsigned int dds_import_file_as_texture2d(
+int dds_import_file_as_texture2d(
     const char *file_path)
 {
     assert(file_path);
@@ -78,10 +79,15 @@ unsigned int dds_import_file_as_texture2d(
         return 0;
     }
 
-    GLuint texture_id;
-    glGenTextures(1, &texture_id);
+    int texture_index = texture_allocate(_texture_type_2d);
+    struct texture_data *texture = texture_get_data(texture_index);
 
-    glBindTexture(GL_TEXTURE_2D, texture_id);
+    texture->width = dds.header.width;
+    texture->height = dds.header.height;
+
+    glGenTextures(1, &texture->id);
+
+    glBindTexture(GL_TEXTURE_2D, texture->id);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -106,5 +112,5 @@ unsigned int dds_import_file_as_texture2d(
 
     dds_dispose(&dds);
 
-    return texture_id;
+    return texture_index;
 }

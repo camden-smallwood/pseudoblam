@@ -11,7 +11,9 @@ RASTERIZER_SHADERS.H
 #include <GL/glew.h>
 
 #include "common/common.h"
+
 #include "rasterizer/rasterizer_shaders.h"
+#include "rasterizer/rasterizer_textures.h"
 
 /* ---------- private constants */
 
@@ -37,6 +39,10 @@ static GLuint shader_compile_source(
 static GLuint shader_import_and_compile_file(
     GLenum shader_type,
     const char *file_path);
+
+void shader_unbind_texture(
+    int shader_index,
+    int active_texture_index);
 
 /* ---------- public code */
 
@@ -111,12 +117,12 @@ void shader_use(
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
 
-    for (int texture_index = 0; texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES; texture_index++)
+    for (int active_texture_index = 0; active_texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES; active_texture_index++)
     {
-        if (TEST_BIT(shader->active_textures, texture_index))
+        if (TEST_BIT(shader->active_textures, active_texture_index))
         {
-            glActiveTexture(GL_TEXTURE0 + texture_index);
-            glBindTexture(GL_TEXTURE_2D, shader->textures[texture_index]);
+            glActiveTexture(GL_TEXTURE0 + active_texture_index);
+            glBindTexture(GL_TEXTURE_2D, shader->textures[active_texture_index]);
         }
     }
 
@@ -420,65 +426,37 @@ void shader_set_mat4_v(
     free(name);
 }
 
-void shader_set_texture(
-    int shader_index,
-    GLuint texture,
-    int texture_index,
-    const char *name)
-{
-    struct shader_data *shader = shader_get_data(shader_index);
-    assert(shader);
-
-    GLint location = glGetUniformLocation(shader->program, name);
-
-    if (location != -1)
-    {
-        assert(!TEST_BIT(shader->active_textures, texture_index));
-        SET_BIT(shader->active_textures, texture_index, true);
-
-        shader->textures[texture_index] = texture;
-        
-        glActiveTexture(GL_TEXTURE0 + texture_index);
-        glBindTexture(GL_TEXTURE_2D, texture);
-
-        glUniform1i(location, texture_index);
-    }
-}
-
-void shader_set_texture_v(
-    int shader_index,
-    GLuint texture,
-    int texture_index,
-    const char *fmt,
-    ...)
-{
-    va_list va;
-    va_start(va, fmt);
-
-    char *name;
-    vasprintf(&name, fmt, va);
-
-    va_end(va);
-    
-    shader_set_texture(shader_index, texture, texture_index, name);
-
-    free(name);
-}
-
 int shader_bind_texture(
     int shader_index,
-    GLuint texture,
+    int texture_index,
     const char *name)
 {
     struct shader_data *shader = shader_get_data(shader_index);
     assert(shader);
 
-    for (int texture_index = 0; texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES; texture_index++)
+    struct texture_data *texture = texture_get_data(texture_index);
+
+    for (int active_texture_index = 0;
+        active_texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES;
+        active_texture_index++)
     {
-        if (!TEST_BIT(shader->active_textures, texture_index))
+        if (!TEST_BIT(shader->active_textures, active_texture_index))
         {
-            shader_set_texture(shader_index, texture, texture_index, name);
-            return texture_index;
+            GLint location = glGetUniformLocation(shader->program, name);
+
+            if (location != -1)
+            {
+                assert(!TEST_BIT(shader->active_textures, active_texture_index));
+                SET_BIT(shader->active_textures, active_texture_index, true);
+
+                shader->textures[active_texture_index] = texture ? texture->id : 0;
+                
+                glActiveTexture(GL_TEXTURE0 + active_texture_index);
+                glBindTexture(GL_TEXTURE_2D, shader->textures[active_texture_index]);
+
+                glUniform1i(location, active_texture_index);
+            }
+            return active_texture_index;
         }
     }
 
@@ -486,30 +464,14 @@ int shader_bind_texture(
     exit(EXIT_FAILURE);
 }
 
-void shader_unbind_texture(
-    int shader_index,
-    int texture_index)
-{
-    struct shader_data *shader = shader_get_data(shader_index);
-    assert(shader);
-
-    if (TEST_BIT(shader->active_textures, texture_index))
-    {
-        SET_BIT(shader->active_textures, texture_index, false);
-
-        shader->textures[texture_index] = 0;
-
-        glActiveTexture(GL_TEXTURE0 + texture_index);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-}
-
 void shader_unbind_textures(
     int shader_index)
 {
-    for (int texture_index = 0; texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES; texture_index++)
+    for (int active_texture_index = 0;
+        active_texture_index < MAXIMUM_NUMBER_OF_ACTIVE_TEXTURES;
+        active_texture_index++)
     {
-        shader_unbind_texture(shader_index, texture_index);
+        shader_unbind_texture(shader_index, active_texture_index);
     }
 }
 
@@ -558,4 +520,22 @@ static GLuint shader_import_and_compile_file(
     fclose(stream);
 
     return shader_compile_source(shader_type, file_data);
+}
+
+void shader_unbind_texture(
+    int shader_index,
+    int active_texture_index)
+{
+    struct shader_data *shader = shader_get_data(shader_index);
+    assert(shader);
+
+    if (TEST_BIT(shader->active_textures, active_texture_index))
+    {
+        SET_BIT(shader->active_textures, active_texture_index, false);
+
+        shader->textures[active_texture_index] = 0;
+
+        glActiveTexture(GL_TEXTURE0 + active_texture_index);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 }

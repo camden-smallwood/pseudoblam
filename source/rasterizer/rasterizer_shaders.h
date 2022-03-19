@@ -54,9 +54,5 @@ void shader_set_vec3_v(int shader_index, vec3 value, const char *fmt, ...);
 void shader_set_mat4(int shader_index, mat4 value, const char *name);
 void shader_set_mat4_v(int shader_index, mat4 value, const char *fmt, ...);
 
-void shader_set_texture(int shader_index, GLuint texture, int texture_index, const char *name);
-void shader_set_texture_v(int shader_index, GLuint texture, int texture_index, const char *fmt, ...);
-
-int shader_bind_texture(int shader_index, GLuint texture, const char *name);
-void shader_unbind_texture(int shader_index, int texture_index);
+int shader_bind_texture(int shader_index, int texture_index, const char *name);
 void shader_unbind_textures(int shader_index);

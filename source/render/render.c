@@ -146,10 +146,10 @@ struct
     GLuint quad_vertex_array;
     GLuint quad_vertex_buffer;
 
-    GLuint default_diffuse_texture;
-    GLuint default_specular_texture;
-    GLuint default_normals_texture;
-    GLuint default_emissive_texture;
+    int default_diffuse_texture_index;
+    int default_specular_texture_index;
+    int default_normals_texture_index;
+    int default_emissive_texture_index;
 
     int flashlight_light_index;
     
@@ -212,10 +212,10 @@ void render_initialize(void)
     
     /* -------------------------------------------------------------------------------- */
 
-    render_globals.default_diffuse_texture = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
-    render_globals.default_specular_texture = dds_import_file_as_texture2d("../assets/textures/white.dds");
-    render_globals.default_normals_texture = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
-    render_globals.default_emissive_texture = dds_import_file_as_texture2d("../assets/textures/black.dds");
+    render_globals.default_diffuse_texture_index = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
+    render_globals.default_specular_texture_index = dds_import_file_as_texture2d("../assets/textures/white.dds");
+    render_globals.default_normals_texture_index = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.default_emissive_texture_index = dds_import_file_as_texture2d("../assets/textures/black.dds");
 
     /* -------------------------------------------------------------------------------- */
 
@@ -528,7 +528,7 @@ static void render_initialize_scene(void)
 
 static void render_initialize_models(void)
 {
-    struct model_iterator iterator;
+    static struct model_iterator iterator;
     model_iterator_new(&iterator);
 
     while (model_iterator_next(&iterator) != -1)
@@ -550,19 +550,19 @@ static void render_initialize_models(void)
                 {
                     {
                         .usage = _material_texture_usage_diffuse,
-                        .id = render_globals.default_diffuse_texture,
+                        .index = render_globals.default_diffuse_texture_index,
                     },
                     {
                         .usage = _material_texture_usage_specular,
-                        .id = render_globals.default_specular_texture,
+                        .index = render_globals.default_specular_texture_index,
                     },
                     {
                         .usage = _material_texture_usage_normals,
-                        .id = render_globals.default_normals_texture,
+                        .index = render_globals.default_normals_texture_index,
                     },
                     {
                         .usage = _material_texture_usage_emissive,
-                        .id = render_globals.default_emissive_texture,
+                        .index = render_globals.default_emissive_texture_index,
                     },
                 };
 
@@ -576,25 +576,25 @@ static void render_initialize_models(void)
             {
                 struct material_texture *texture = material->textures + texture_index;
 
-                if (texture->id)
+                if (texture->index != -1)
                     continue;
                 
                 switch (texture->usage)
                 {
                 case _material_texture_usage_diffuse:
-                    texture->id = render_globals.default_diffuse_texture;
+                    texture->index = render_globals.default_diffuse_texture_index;
                     break;
 
                 case _material_texture_usage_specular:
-                    texture->id = render_globals.default_specular_texture;
+                    texture->index = render_globals.default_specular_texture_index;
                     break;
 
                 case _material_texture_usage_emissive:
-                    texture->id = render_globals.default_emissive_texture;
+                    texture->index = render_globals.default_emissive_texture_index;
                     break;
 
                 case _material_texture_usage_normals:
-                    texture->id = render_globals.default_normals_texture;
+                    texture->index = render_globals.default_normals_texture_index;
                     break;
 
                 default:
@@ -706,7 +706,7 @@ static void render_geometry_pass(void)
     framebuffer_use(&render_globals.geometry_pass.framebuffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    struct object_iterator iterator;
+    static struct object_iterator iterator;
     object_iterator_new(&iterator);
 
     // render world objects
@@ -720,31 +720,14 @@ static void render_geometry_pass(void)
     }
 
     // TODO: render first person models
+
     // if (render_globals.weapon_model_index != -1)
     // {
     //     int model_index = render_globals.weapon_model_index;
 
     //     mat4 model_matrix;
     //     glm_mat4_identity(model_matrix);
-
-    //     mat4 model_scale_matrix;
-    //     glm_mat4_identity(model_scale_matrix);
-    //     glm_scale_uni(model_scale_matrix, 0.1f);
-
-    //     mat4 model_rotation_matrix;
-    //     glm_mat4_identity(model_rotation_matrix);
-    //     glm_rotate(model_rotation_matrix, glm_rad(-90.0), (vec3){1, 0, 0});
-    //     glm_rotate(model_rotation_matrix, glm_rad(0.0), (vec3){0, 1, 0});
-    //     glm_rotate(model_rotation_matrix, glm_rad(0.0), (vec3){0, 0, 1});
-
-    //     mat4 model_position_matrix;
-    //     glm_mat4_identity(model_position_matrix);
-    //     glm_translate(model_position_matrix, (vec3){4, 50, -7});
-
-    //     glm_mat4_mul(model_matrix, model_scale_matrix, model_matrix);
-    //     glm_mat4_mul(model_matrix, model_rotation_matrix, model_matrix);
-    //     glm_mat4_mul(model_matrix, model_position_matrix, model_matrix);
-
+    
     //     mat4 inverted_view;
     //     glm_mat4_inv(render_globals.camera.view, inverted_view);
     //     glm_mat4_mul(inverted_view, model_matrix, model_matrix);
@@ -784,15 +767,11 @@ static void render_occlusion_pass(void)
 
     shader_use(render_globals.occlusion_pass.shader_index);
 
-    struct texture_data *noise_texture = texture_get_data(render_globals.occlusion_pass.noise_texture_index);
-    shader_bind_texture(render_globals.occlusion_pass.shader_index, noise_texture->id, "noise_texture");
+    shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.occlusion_pass.noise_texture_index, "noise_texture");
+    shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.geometry_pass.view_normal_texture_index, "normal_texture");
+    shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.depth_pass.texture_index, "depth_texture");
     
-    struct texture_data *view_normal_texture = texture_get_data(render_globals.geometry_pass.view_normal_texture_index);
-    shader_bind_texture(render_globals.occlusion_pass.shader_index, view_normal_texture->id, "normal_texture");
-    
-    struct texture_data *depth_texture = texture_get_data(render_globals.depth_pass.texture_index);
-    shader_bind_texture(render_globals.occlusion_pass.shader_index, depth_texture->id, "depth_texture");
-    
+    // TODO: draw as mesh (?)
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -815,27 +794,16 @@ static void render_lighting_pass(void)
     shader_set_vec3(render_globals.lighting_pass.shader_index, render_globals.camera.forward, "camera_direction");
     shader_set_mat4(render_globals.lighting_pass.shader_index, render_globals.camera.view, "view");
 
-    struct texture_data *position_texture = texture_get_data(render_globals.geometry_pass.position_texture_index);
-    shader_bind_texture(render_globals.lighting_pass.shader_index, position_texture->id, "position_texture");
-
-    struct texture_data *normal_texture = texture_get_data(render_globals.geometry_pass.normal_texture_index);
-    shader_bind_texture(render_globals.lighting_pass.shader_index, normal_texture->id, "normal_texture");
-
-    struct texture_data *albedo_specular_texture = texture_get_data(render_globals.geometry_pass.albedo_specular_texture_index);
-    shader_bind_texture(render_globals.lighting_pass.shader_index, albedo_specular_texture->id, "albedo_specular_texture");
-
-    struct texture_data *material_texture = texture_get_data(render_globals.geometry_pass.material_texture_index);
-    shader_bind_texture(render_globals.lighting_pass.shader_index, material_texture->id, "material_texture");
-
-    struct texture_data *emissive_texture = texture_get_data(render_globals.geometry_pass.emissive_texture_index);
-    shader_bind_texture(render_globals.lighting_pass.shader_index, emissive_texture->id, "emissive_texture");
-    
-    struct texture_data *ssao_texture = texture_get_data(render_globals.occlusion_pass.base_texture_index);
-    shader_bind_texture(render_globals.lighting_pass.shader_index, ssao_texture->id, "ssao_texture");
+    shader_bind_texture(render_globals.lighting_pass.shader_index, render_globals.geometry_pass.position_texture_index, "position_texture");
+    shader_bind_texture(render_globals.lighting_pass.shader_index, render_globals.geometry_pass.normal_texture_index, "normal_texture");
+    shader_bind_texture(render_globals.lighting_pass.shader_index, render_globals.geometry_pass.albedo_specular_texture_index, "albedo_specular_texture");
+    shader_bind_texture(render_globals.lighting_pass.shader_index, render_globals.geometry_pass.material_texture_index, "material_texture");
+    shader_bind_texture(render_globals.lighting_pass.shader_index, render_globals.geometry_pass.emissive_texture_index, "emissive_texture");
+    shader_bind_texture(render_globals.lighting_pass.shader_index, render_globals.occlusion_pass.base_texture_index, "ssao_texture");
     
     render_set_lighting_uniforms(render_globals.lighting_pass.shader_index);
 
-    // TODO: draw as mesh?
+    // TODO: draw as mesh (?)
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -877,16 +845,15 @@ static void render_postprocess_blur_pass(void)
     for (int i = 0; i < blur_pass_count; blur_horizontal = !blur_horizontal, i++)
     {
         framebuffer_use(&render_globals.postprocess_pass.blur_pass.framebuffer);
-        
+        // TODO: framebuffer_clear
         glClear(GL_COLOR_BUFFER_BIT);
 
         shader_use(render_globals.postprocess_pass.blur_pass.shader_index);
 
-        struct texture_data *blur_texture = texture_get_data(render_globals.postprocess_pass.texture_index);
-        shader_bind_texture(render_globals.postprocess_pass.blur_pass.shader_index, blur_texture->id, "blur_texture");
-        
+        shader_bind_texture(render_globals.postprocess_pass.blur_pass.shader_index,render_globals.postprocess_pass.texture_index, "blur_texture");
         shader_set_bool(render_globals.postprocess_pass.blur_pass.shader_index, blur_horizontal, "blur_horizontal");
         
+        // TODO: draw as mesh (?)
         glBindVertexArray(render_globals.quad_vertex_array);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -910,23 +877,19 @@ static void render_postprocess_blur_pass(void)
 
 static void render_postprocess_hdr_pass(void)
 {
+    // TODO: framebuffer_clear
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
-
     framebuffer_use(&render_globals.postprocess_pass.hdr_pass.framebuffer);
-    
     glClear(GL_COLOR_BUFFER_BIT);
 
     shader_use(render_globals.postprocess_pass.hdr_pass.shader_index);
     
-    struct texture_data *base_texture = texture_get_data(render_globals.lighting_pass.base_texture_index);
-    shader_bind_texture(render_globals.postprocess_pass.hdr_pass.shader_index, base_texture->id, "base_texture");
-    
-    struct texture_data *hdr_texture = texture_get_data(render_globals.postprocess_pass.texture_index);
-    shader_bind_texture(render_globals.postprocess_pass.hdr_pass.shader_index, hdr_texture->id, "hdr_texture");
-    
+    shader_bind_texture(render_globals.postprocess_pass.hdr_pass.shader_index,render_globals.lighting_pass.base_texture_index, "base_texture");
+    shader_bind_texture(render_globals.postprocess_pass.hdr_pass.shader_index,render_globals.postprocess_pass.texture_index, "hdr_texture");
     shader_set_bool(render_globals.postprocess_pass.hdr_pass.shader_index, true, "bloom");
     
+    // TODO: draw as mesh (?)
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -937,16 +900,16 @@ static void render_postprocess_hdr_pass(void)
 
 static void render_quad(void)
 {
+    // TODO: framebuffer_clear (?)
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
-
     glClear(GL_COLOR_BUFFER_BIT);
 
     shader_use(render_globals.quad_shader);
     
-    struct texture_data *quad_texture = texture_get_data(render_globals.postprocess_pass.hdr_pass.texture_index);
-    shader_bind_texture(render_globals.quad_shader, quad_texture->id, "quad_texture");
+    shader_bind_texture(render_globals.quad_shader, render_globals.postprocess_pass.hdr_pass.texture_index, "quad_texture");
 
+    // TODO: draw as mesh (?)
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -955,7 +918,7 @@ static void render_quad(void)
 
 static void render_set_lighting_uniforms(int shader_index)
 {
-    struct light_iterator light_iterator;
+    static struct light_iterator light_iterator;
     light_iterator_new(&light_iterator);
 
     int light_counts[NUMBER_OF_LIGHT_TYPES];
@@ -1062,7 +1025,7 @@ static void render_set_material_uniforms(int shader_index, struct material_data 
             exit(EXIT_FAILURE);
         }
 
-        shader_bind_texture(shader_index, texture->id, texture_variable_name);
+        shader_bind_texture(shader_index, texture->index, texture_variable_name);
     }
 }
 
@@ -1152,10 +1115,7 @@ static void render_object(int shader_index, int object_index)
 
             glDrawElements(GL_TRIANGLES, part->index_count, GL_UNSIGNED_INT, (const void *)(part->index_start * sizeof(int)));
 
-            for (int texture_index = 0; texture_index < material->texture_count; texture_index++)
-            {
-                shader_unbind_texture(shader_index, texture_index);
-            }
+            shader_unbind_textures(shader_index);
         }
 
         shader_set_bool(shader_index, false, "use_nodes");

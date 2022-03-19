@@ -38,8 +38,7 @@ enum material_texture_usage
 struct material_texture
 {
     enum material_texture_usage usage;
-
-    unsigned int id;
+    int index;
 };
 
 /* ---------- base properties */

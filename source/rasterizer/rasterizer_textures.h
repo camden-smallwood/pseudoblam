@@ -39,6 +39,7 @@ void textures_dispose(void);
 
 const char *texture_type_to_string(enum texture_type type);
 
+int texture_allocate(enum texture_type type);
 int texture_new(enum texture_type type, int internal_format, int pixel_format, int pixel_type, int samples, int width, int height, int depth);
 void texture_delete(int texture_index);
 

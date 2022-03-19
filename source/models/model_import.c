@@ -103,12 +103,12 @@ static inline void material_import_assimp_textures(
         struct material_texture texture =
         {
             .usage = texture_usage,
-            .id = 0,
+            .index = -1,
         };
 
         if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_type, i, &string, NULL, NULL, NULL, NULL, NULL, NULL))
         {
-            texture.id = dds_import_file_as_texture2d(string.data);
+            texture.index = dds_import_file_as_texture2d(string.data);
         }
         
         mempush(&out_material->texture_count, (void **)&out_material->textures, &texture, sizeof(texture), realloc);
