@@ -1219,9 +1219,6 @@ static void render_object(int shader_index, int object_index)
         shader_set_mat4(shader_index, render_globals.camera.view, "view");
         shader_set_mat4(shader_index, render_globals.camera.projection, "projection");
 
-        shader_set_bool(shader_index, mesh->vertex_type == _vertex_type_skinned, "use_nodes");
-        shader_set_int(shader_index, model->node_count, "node_count");
-
         for (int node_index = 0; node_index < model->node_count; node_index++)
         {
             struct model_node *node = model->nodes + node_index;
@@ -1263,8 +1260,5 @@ static void render_object(int shader_index, int object_index)
 
             shader_unbind_textures(shader_index);
         }
-
-        shader_set_bool(shader_index, false, "use_nodes");
-        shader_set_int(shader_index, 0, "node_count");
     }
 }
