@@ -505,7 +505,7 @@ static void render_initialize_scene(void)
     render_globals.grunt_object_index = object_new();
     struct object_data *grunt = object_get_data(render_globals.grunt_object_index);
     glm_vec3_copy((vec3){-5, 0, 0}, grunt->position);
-    glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, grunt->scale);
+    glm_vec3_copy((vec3){0.5f, 0.5f, 0.5f}, grunt->scale);
     grunt->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
 
     struct light_data *light;
@@ -783,12 +783,21 @@ static void render_update_input(float delta_ticks)
     {
         if (movement_amount == 0.0f)
         {
+            // Reset the walking animation when camera movement stops
             model_set_animation_time(&weapon->animations, 0, 0.0f);
         }
         
+        // Play the walking animation as fast as the camera is moving
         model_set_animation_speed(&weapon->animations, 0, movement_amount);
 
+        // Move the view model to the camera position + camera velocity
         glm_vec3_copy(render_globals.camera.position, weapon->position);
+        glm_vec3_add(weapon->position, render_globals.camera.velocity, weapon->position);
+
+        // Apply the view model position offset
+        glm_vec3_add(weapon->position, (vec3){0.0f, 0.0f, -0.015f}, weapon->position);
+
+        // Rotate the view model in the same direction as the camera
         glm_vec3_copy((vec3){0.0f, -render_globals.camera.rotation[1], render_globals.camera.rotation[0]}, weapon->rotation);
     }
 }
