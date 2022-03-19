@@ -285,24 +285,14 @@ static void model_import_assimp_animation(
         struct aiNodeAnim *in_channel = in_animation->mChannels[channel_index];
 
         if (strncmp("Armature", in_channel->mNodeName.data, in_channel->mNodeName.length) == 0)
-            continue;
+            continue; // blender hack
 
         struct model_animation_channel channel;
         memset(&channel, 0, sizeof(channel));
+        
         channel.type = _model_animation_channel_type_node;
-        channel.node_index = -1;
-
-        for (int node_index = 0; node_index < out_model->node_count; node_index++)
-        {
-            struct model_node *node = out_model->nodes + node_index;
-
-            if (strncmp(node->name, in_channel->mNodeName.data, in_channel->mNodeName.length) == 0)
-            {
-                channel.node_index = node_index;
-                break;
-            }
-        }
-
+        
+        channel.node_index = model_find_node_by_name(out_model, in_channel->mNodeName.data);
         assert(channel.node_index != -1);
         
         for (unsigned int position_key_index = 0; position_key_index < in_channel->mNumPositionKeys; position_key_index++)

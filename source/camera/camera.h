@@ -23,6 +23,7 @@ struct camera_data
     float far_clip;
 
     vec3 position;
+    vec3 velocity;
     vec2 rotation;
 
     vec3 forward;

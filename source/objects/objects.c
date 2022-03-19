@@ -54,6 +54,8 @@ int object_new(void)
     struct object_data object;
     memset(&object, 0, sizeof(object));
 
+    object.model_index = -1;
+    
     glm_vec3_copy((vec3){1, 1, 1}, object.scale);
     
     int object_index = object_globals.object_count;
@@ -64,10 +66,28 @@ int object_new(void)
 
 void object_delete(int object_index)
 {
+    if (object_index == -1)
+    {
+        return;
+    }
+    
     struct object_data *object = object_get_data(object_index);
     assert(object);
 
-    // TODO
+    model_animations_dispose(&object->animations);
+}
+
+void object_initialize(int object_index)
+{
+    if (object_index == -1)
+    {
+        return;
+    }
+
+    struct object_data *object = object_get_data(object_index);
+    assert(object);
+
+    model_animations_initialize(&object->animations, object->model_index);
 }
 
 struct object_data *object_get_data(int object_index)

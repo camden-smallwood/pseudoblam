@@ -154,6 +154,7 @@ struct
     int flashlight_light_index;
     
     int plane_object_index;
+    int weapon_object_index;
     int grunt_object_index;
 } static render_globals;
 
@@ -161,6 +162,9 @@ struct
 
 static void render_initialize_gl(void);
 
+static void render_initialize_quad(void);
+
+static void render_initialize_render_passes(void);
 static void render_initialize_geometry_pass(void);
 static void render_initialize_depth_pass(void);
 static void render_initialize_occlusion_pass(void);
@@ -169,12 +173,12 @@ static void render_initialize_transparent_pass(void);
 static void render_initialize_postprocess_pass(void);
 static void render_initialize_postprocess_blur_pass(void);
 static void render_initialize_postprocess_hdr_pass(void);
-static void render_initialize_quad(void);
 
 static void render_initialize_scene(void);
 static void render_initialize_models(void);
+static void render_initialize_objects(void);
 
-static void render_update_input(void);
+static void render_update_input(float delta_ticks);
 static void render_update_flashlight(void);
 
 static void render_frame(void);
@@ -223,18 +227,11 @@ void render_initialize(void)
 
     /* -------------------------------------------------------------------------------- */
 
-    render_initialize_geometry_pass();
-    render_initialize_depth_pass();
-    render_initialize_occlusion_pass();
-    render_initialize_lighting_pass();
-    render_initialize_transparent_pass();
-    render_initialize_postprocess_pass();
     render_initialize_quad();
-    
-    /* -------------------------------------------------------------------------------- */
-
+    render_initialize_render_passes();
     render_initialize_scene();
     render_initialize_models();
+    render_initialize_objects();
 }
 
 void render_dispose(void)
@@ -254,7 +251,7 @@ void render_handle_screen_resize(int width, int height)
 
 void render_update(float delta_ticks)
 {
-    render_update_input();
+    render_update_input(delta_ticks);
     camera_update(&render_globals.camera, delta_ticks);
     render_update_flashlight();
 
@@ -280,6 +277,45 @@ static void render_initialize_gl(void)
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+}
+
+static void render_initialize_quad(void)
+{
+    render_globals.quad_shader = shader_new("../assets/shaders/quad.vs", "../assets/shaders/texture.fs");
+
+    // TODO: initialize as mesh?
+    
+    struct vertex_flat quad_vertices[] =
+    {
+        { .position = { -1.0f, 1.0f }, .texcoord = { 0.0f, 1.0f } },
+        { .position = { -1.0f, -1.0f }, .texcoord = { 0.0f, 0.0f } },
+        { .position = { 1.0f, -1.0f }, .texcoord = { 1.0f, 0.0f } },
+        { .position = { -1.0f, 1.0f }, .texcoord = { 0.0f, 1.0f } },
+        { .position = { 1.0f, -1.0f }, .texcoord = { 1.0f, 0.0f } },
+        { .position = { 1.0f, 1.0f }, .texcoord = { 1.0f, 1.0f } },
+    };
+
+    glGenVertexArrays(1, &render_globals.quad_vertex_array);
+    glBindVertexArray(render_globals.quad_vertex_array);
+    
+    glGenBuffers(1, &render_globals.quad_vertex_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, render_globals.quad_vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+    
+    shader_bind_vertex_attributes(render_globals.quad_shader, _vertex_type_flat);
+    shader_bind_vertex_attributes(render_globals.lighting_pass.shader_index, _vertex_type_flat);
+    shader_bind_vertex_attributes(render_globals.postprocess_pass.hdr_pass.shader_index, _vertex_type_flat);
+    shader_bind_vertex_attributes(render_globals.postprocess_pass.blur_pass.shader_index, _vertex_type_flat);
+}
+
+static void render_initialize_render_passes(void)
+{
+    render_initialize_geometry_pass();
+    render_initialize_depth_pass();
+    render_initialize_occlusion_pass();
+    render_initialize_lighting_pass();
+    render_initialize_transparent_pass();
+    render_initialize_postprocess_pass();
 }
 
 static void render_initialize_geometry_pass(void)
@@ -455,48 +491,22 @@ static void render_initialize_postprocess_hdr_pass(void)
     framebuffer_use(NULL);
 }
 
-static void render_initialize_quad(void)
-{
-    render_globals.quad_shader = shader_new("../assets/shaders/quad.vs", "../assets/shaders/texture.fs");
-
-    // TODO: initialize as mesh?
-    
-    struct vertex_flat quad_vertices[] =
-    {
-        { .position = { -1.0f, 1.0f }, .texcoord = { 0.0f, 1.0f } },
-        { .position = { -1.0f, -1.0f }, .texcoord = { 0.0f, 0.0f } },
-        { .position = { 1.0f, -1.0f }, .texcoord = { 1.0f, 0.0f } },
-        { .position = { -1.0f, 1.0f }, .texcoord = { 0.0f, 1.0f } },
-        { .position = { 1.0f, -1.0f }, .texcoord = { 1.0f, 0.0f } },
-        { .position = { 1.0f, 1.0f }, .texcoord = { 1.0f, 1.0f } },
-    };
-
-    glGenVertexArrays(1, &render_globals.quad_vertex_array);
-    glBindVertexArray(render_globals.quad_vertex_array);
-    
-    glGenBuffers(1, &render_globals.quad_vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, render_globals.quad_vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
-    
-    shader_bind_vertex_attributes(render_globals.quad_shader, _vertex_type_flat);
-    shader_bind_vertex_attributes(render_globals.lighting_pass.shader_index, _vertex_type_flat);
-    shader_bind_vertex_attributes(render_globals.postprocess_pass.hdr_pass.shader_index, _vertex_type_flat);
-    shader_bind_vertex_attributes(render_globals.postprocess_pass.blur_pass.shader_index, _vertex_type_flat);
-}
-
 static void render_initialize_scene(void)
 {
     render_globals.plane_object_index = object_new();
     struct object_data *plane_object = object_get_data(render_globals.plane_object_index);
     plane_object->model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
 
+    render_globals.weapon_object_index = object_new();
+    struct object_data *weapon = object_get_data(render_globals.weapon_object_index);
+    glm_vec3_copy((vec3){0.01f, 0.01f, 0.01f}, weapon->scale);
+    weapon->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
+    
     render_globals.grunt_object_index = object_new();
     struct object_data *grunt = object_get_data(render_globals.grunt_object_index);
     glm_vec3_copy((vec3){-5, 0, 0}, grunt->position);
     glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, grunt->scale);
     grunt->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
-    model_animations_initialize(&grunt->animations, grunt->model_index);
-    model_set_animation_active(&grunt->animations, 0, true);
 
     struct light_data *light;
 
@@ -632,12 +642,38 @@ static void render_initialize_models(void)
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->index_count * sizeof(int), mesh->indices, GL_STATIC_DRAW);
 
+            glGenBuffers(1, &mesh->uniform_buffer);
+            glBindBuffer(GL_UNIFORM_BUFFER, mesh->uniform_buffer);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(mat4) * MAXIMUM_NUMBER_OF_MODEL_NODES, NULL, GL_STATIC_DRAW);
+            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
             shader_bind_vertex_attributes(render_globals.geometry_pass.shader_index, mesh->vertex_type);
         }
     }
 }
 
-static void render_update_input(void)
+static void render_initialize_objects(void)
+{
+    struct object_iterator iterator;
+    object_iterator_new(&iterator);
+
+    while (object_iterator_next(&iterator) != -1)
+    {
+        object_initialize(iterator.index);
+
+        if (iterator.index == render_globals.weapon_object_index)
+        {
+            model_set_animation_active(&iterator.data->animations, 0, true);
+        }
+
+        if (iterator.index == render_globals.grunt_object_index)
+        {
+            model_set_animation_active(&iterator.data->animations, 0, true);
+        }
+    }
+}
+
+static void render_update_input(float delta_ticks)
 {
     if (input_is_key_down(SDL_SCANCODE_H))
     {
@@ -664,6 +700,96 @@ static void render_update_input(void)
             render_globals.camera.movement_speed *= 2.0f;
         else
             render_globals.camera.movement_speed = 1.0f;
+    }
+
+    ivec2 mouse_motion_int;
+    input_get_mouse_motion(&mouse_motion_int[0], &mouse_motion_int[1]);
+    
+    vec2 mouse_motion =
+    {
+        (float)-mouse_motion_int[0],
+        (float)-mouse_motion_int[1]
+    };
+    glm_vec2_scale(mouse_motion, 0.01f, mouse_motion);
+    glm_vec2_scale(mouse_motion, render_globals.camera.look_sensitivity, mouse_motion);
+    glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
+
+    vec3 movement = {0.0f, 0.0f, 0.0f};
+    int movement_inputs = 0;
+
+    // Forwards and backwards camera movement
+    vec3 forward;
+    glm_vec3_copy(render_globals.camera.forward, forward);
+    forward[2] = 0.0f;
+    if (input_is_key_down(SDL_SCANCODE_W) && !input_is_key_down(SDL_SCANCODE_S))
+    {
+        glm_vec3_add(movement, forward, movement);
+        movement_inputs++;
+    }
+    else if (input_is_key_down(SDL_SCANCODE_S) && !input_is_key_down(SDL_SCANCODE_W))
+    {
+        glm_vec3_sub(movement, forward, movement);
+        movement_inputs++;
+    }
+
+    // Horizontal camera movement
+    vec3 right;
+    glm_vec3_copy(render_globals.camera.right, right);
+    right[2] = 0.0f;
+    if (input_is_key_down(SDL_SCANCODE_A) && !input_is_key_down(SDL_SCANCODE_D))
+    {
+        glm_vec3_add(movement, right, movement);
+        movement_inputs++;
+    }
+    else if (input_is_key_down(SDL_SCANCODE_D) && !input_is_key_down(SDL_SCANCODE_A))
+    {
+        glm_vec3_sub(movement, right, movement);
+        movement_inputs++;
+    }
+
+    // Vertical camera movement
+    if (input_is_key_down(SDL_SCANCODE_R) && !input_is_key_down(SDL_SCANCODE_F))
+    {
+        glm_vec3_add(movement, (vec3){0, 0, 1}, movement);
+        movement_inputs++;
+    }
+    else if (input_is_key_down(SDL_SCANCODE_F) && !input_is_key_down(SDL_SCANCODE_R))
+    {
+        glm_vec3_sub(movement, (vec3){0, 0, 1}, movement);
+        movement_inputs++;
+    }
+
+    // Normalize the movement amount using the number of movement inputs
+    movement[0] = movement[0] < 0.0f ? -fmodf(-movement[0], 1.0f) : fmodf(movement[0], 1.0f);
+    movement[1] = movement[1] < 0.0f ? -fmodf(-movement[1], 1.0f) : fmodf(movement[1], 1.0f);
+
+    // Update the view model animations based on the movement amount
+    float movement_amount = glm_vec3_norm(movement);
+
+    // Double movement amount if either shift key is down
+    if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
+        glm_vec3_scale(movement, 2.0f, movement);
+    
+    // Scale the movement amount by the camera's movement speed per tick
+    glm_vec3_scale(movement, render_globals.camera.movement_speed * delta_ticks, movement);
+    
+    // Add the movement amount to the camera velocity
+    glm_vec3_copy(movement, render_globals.camera.velocity);
+
+    // Update the view model transform
+    struct object_data *weapon = object_get_data(render_globals.weapon_object_index);
+
+    if (weapon)
+    {
+        if (movement_amount == 0.0f)
+        {
+            model_set_animation_time(&weapon->animations, 0, 0.0f);
+        }
+        
+        model_set_animation_speed(&weapon->animations, 0, movement_amount);
+
+        glm_vec3_copy(render_globals.camera.position, weapon->position);
+        glm_vec3_copy((vec3){0.0f, -render_globals.camera.rotation[1], render_globals.camera.rotation[0]}, weapon->rotation);
     }
 }
 
@@ -1049,11 +1175,22 @@ static void render_object(int shader_index, int object_index)
     glm_mat4_identity(position_matrix);
     glm_translate(position_matrix, object->position);
 
+    mat4 yaw_matrix;
+    glm_mat4_identity(yaw_matrix);
+    glm_rotate(yaw_matrix, glm_rad(object->rotation[0]), (vec3){1, 0, 0});
+
+    mat4 pitch_matrix;
+    glm_mat4_identity(pitch_matrix);
+    glm_rotate(pitch_matrix, glm_rad(object->rotation[1]), (vec3){0, 1, 0});
+
+    mat4 roll_matrix;
+    glm_mat4_identity(roll_matrix);
+    glm_rotate(roll_matrix, glm_rad(object->rotation[2]), (vec3){0, 0, 1});
+
     mat4 rotation_matrix;
     glm_mat4_identity(rotation_matrix);
-    glm_rotate(rotation_matrix, object->rotation[0], (vec3){1, 0, 0});
-    glm_rotate(rotation_matrix, object->rotation[1], (vec3){0, 1, 0});
-    glm_rotate(rotation_matrix, object->rotation[2], (vec3){0, 0, 1});
+    glm_mat4_mul(yaw_matrix, pitch_matrix, rotation_matrix);
+    glm_mat4_mul(roll_matrix, rotation_matrix, rotation_matrix);
 
     mat4 scale_matrix;
     glm_mat4_identity(scale_matrix);

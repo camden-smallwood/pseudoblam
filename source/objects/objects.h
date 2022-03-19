@@ -47,6 +47,7 @@ void objects_update(float delta_ticks);
 
 int object_new(void);
 void object_delete(int object_index);
+void object_initialize(int object_index);
 
 struct object_data *object_get_data(int object_index);
 

@@ -66,6 +66,7 @@ struct model_mesh
     unsigned int vertex_array;
     unsigned int vertex_buffer;
     unsigned int index_buffer;
+    unsigned int uniform_buffer;
 };
 
 struct model_mesh_part
@@ -190,4 +191,6 @@ int model_import_from_file(enum vertex_type vertex_type, const char *file_path);
 void model_animations_initialize(struct model_animation_manager *manager, int model_index);
 void model_animations_dispose(struct model_animation_manager *manager);
 void model_set_animation_active(struct model_animation_manager *manager, int animation_index, bool active);
+void model_set_animation_time(struct model_animation_manager *manager, int animation_index, float time);
+void model_set_animation_speed(struct model_animation_manager *manager, int animation_index, float speed);
 void model_animations_update(struct model_animation_manager *manager, float delta_ticks);
