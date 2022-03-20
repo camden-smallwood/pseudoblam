@@ -187,10 +187,15 @@ static void model_animation_compute_node_matrices(
                 }
                 else
                 {
-                    for (int position_key_index = 0; position_key_index < channel->position_key_count - 1; position_key_index++)
+                    for (int position_key_index = 0; position_key_index < channel->position_key_count; position_key_index++)
                     {
                         struct model_animation_position_key *position_key = channel->position_keys + position_key_index;
-                        struct model_animation_position_key *next_position_key = channel->position_keys + position_key_index + 1;
+
+                        int next_position_key_index = position_key_index + 1;
+                        if (next_position_key_index >= channel->position_key_count)
+                            next_position_key_index = 0;
+                        
+                        struct model_animation_position_key *next_position_key = channel->position_keys + next_position_key_index;
 
                         if (state->time < position_key->time)
                         {
@@ -219,10 +224,15 @@ static void model_animation_compute_node_matrices(
                 }
                 else
                 {
-                    for (int rotation_key_index = 0; rotation_key_index < channel->rotation_key_count - 1; rotation_key_index++)
+                    for (int rotation_key_index = 0; rotation_key_index < channel->rotation_key_count; rotation_key_index++)
                     {
                         struct model_animation_rotation_key *rotation_key = channel->rotation_keys + rotation_key_index;
-                        struct model_animation_rotation_key *next_rotation_key = channel->rotation_keys + rotation_key_index + 1;
+
+                        int next_rotation_key_index = rotation_key_index + 1;
+                        if (next_rotation_key_index >= channel->rotation_key_count)
+                            next_rotation_key_index = 0;
+                        
+                        struct model_animation_rotation_key *next_rotation_key = channel->rotation_keys + next_rotation_key_index;
 
                         if (state->time < rotation_key->time)
                         {
@@ -230,7 +240,6 @@ static void model_animation_compute_node_matrices(
 
                             vec4 interpolated_rotation;
                             glm_quat_slerp(rotation_key->rotation, next_rotation_key->rotation, scale_factor, interpolated_rotation);
-                            glm_quat_normalize(interpolated_rotation);
 
                             mat4 current_rotation_matrix;
                             glm_mat4_identity(current_rotation_matrix);
@@ -252,10 +261,15 @@ static void model_animation_compute_node_matrices(
                 }
                 else
                 {
-                    for (int scaling_key_index = 0; scaling_key_index < channel->scaling_key_count - 1; scaling_key_index++)
+                    for (int scaling_key_index = 0; scaling_key_index < channel->scaling_key_count; scaling_key_index++)
                     {
                         struct model_animation_scaling_key *scaling_key = channel->scaling_keys + scaling_key_index;
-                        struct model_animation_scaling_key *next_scaling_key = channel->scaling_keys + scaling_key_index + 1;
+
+                        int next_scaling_key_index = scaling_key_index + 1;
+                        if (next_scaling_key_index >= channel->scaling_key_count)
+                            next_scaling_key_index = 0;
+                        
+                        struct model_animation_scaling_key *next_scaling_key = channel->scaling_keys + next_scaling_key_index;
 
                         if (state->time < scaling_key->time)
                         {
