@@ -156,3 +156,21 @@ int model_node_add_child_node(
     
     return child_node_index;
 }
+
+int model_find_marker_by_name(
+    struct model_data *model,
+    const char *marker_name)
+{
+    assert(model);
+    assert(marker_name);
+
+    for (int marker_index = 0; marker_index < model->marker_count; marker_index++)
+    {
+        struct model_marker *marker = model->markers + marker_index;
+
+        if (strcmp(marker_name, marker->name) == 0)
+            return marker_index;
+    }
+
+    return -1;
+}

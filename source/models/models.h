@@ -25,10 +25,12 @@ struct model_data
 {
     int material_count;
     int node_count;
+    int marker_count;
     int mesh_count;
     int animation_count;
     struct material_data *materials;
     struct model_node *nodes;
+    struct model_marker *markers;
     struct model_mesh *meshes;
     struct model_animation *animations;
 };
@@ -49,6 +51,16 @@ struct model_node
     
     mat4 offset_matrix;
     mat4 transform;
+};
+
+struct model_marker
+{
+    char *name;
+
+    int node_index;
+
+    vec3 position;
+    vec3 rotation;
 };
 
 struct model_mesh
@@ -181,6 +193,8 @@ int model_iterator_next(struct model_iterator *iterator);
 int model_find_root_node(struct model_data *model);
 int model_find_node_by_name(struct model_data *model, const char *node_name);
 int model_node_add_child_node(struct model_data *model, int node_index, struct model_node *child_node);
+
+int model_find_marker_by_name(struct model_data *model, const char *marker_name);
 
 /* ---------- prototypes/MODEL_IMPORT.C */
 

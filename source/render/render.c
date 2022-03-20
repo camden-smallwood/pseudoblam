@@ -763,13 +763,16 @@ static void render_update_input(float delta_ticks)
     movement[0] = movement[0] < 0.0f ? -fmodf(-movement[0], 1.0f) : fmodf(movement[0], 1.0f);
     movement[1] = movement[1] < 0.0f ? -fmodf(-movement[1], 1.0f) : fmodf(movement[1], 1.0f);
 
-    // Update the view model animations based on the movement amount
-    float movement_amount = glm_vec3_norm(movement);
-
     // Double movement amount if either shift key is down
     if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
         glm_vec3_scale(movement, 2.0f, movement);
     
+    // Update the view model animations based on the movement amount
+    vec3 ground_movement;
+    glm_vec3_copy(movement, ground_movement);
+    ground_movement[2] = 0.0f;
+    float movement_amount = glm_vec3_norm(ground_movement);
+
     // Scale the movement amount by the camera's movement speed per tick
     glm_vec3_scale(movement, render_globals.camera.movement_speed * delta_ticks, movement);
     
@@ -811,15 +814,59 @@ static void render_update_flashlight(void)
         return;
     }
 
+    // Move the light to the camera position
     glm_vec3_copy(render_globals.camera.position, light->position);
 
-    vec3 offset;
-    glm_vec3_zero(offset);
-    glm_vec3_scale(render_globals.camera.forward, 0.1f, offset);
-    glm_vec3_add(light->position, offset, light->position);
+    // Check if the weapon is available
+    struct object_data *weapon = object_get_data(render_globals.weapon_object_index);
+
+    vec3 attachment_offset = GLM_VEC3_ZERO_INIT;
+    
+    if (weapon)
+    {
+        // Check if the weapon model is available
+        struct model_data *model = model_get_data(weapon->model_index);
+
+        if (model)
+        {
+            // Check if the weapon model has a flashlight marker
+            int flashlight_marker_index = model_find_marker_by_name(model, "flashlight.001");
+
+            if (flashlight_marker_index != -1)
+            {
+                struct model_marker *marker = model->markers + flashlight_marker_index;
+
+                if (marker->node_index != -1)
+                {
+                    mat4 node_matrix;
+                    glm_mat4_copy(weapon->animations.states[0].node_matrices[marker->node_index], node_matrix);
+
+                    vec4 node_translation;
+                    mat4 node_rotation_matrix;
+                    vec3 node_position;
+                    vec3 node_rotation;
+                    vec3 node_scale;
+                    glm_decompose(node_matrix, node_translation, node_rotation_matrix, node_scale);
+                    glm_vec3_copy(*(vec3 *)&node_translation, node_position);
+                    glm_euler_angles(node_rotation_matrix, node_rotation);
+
+                    vec3 node_offset = { node_position[0], node_position[2], node_position[1] };
+                    glm_vec3_mul(node_offset, weapon->scale, node_offset);
+                    glm_vec3_add(attachment_offset, node_offset, attachment_offset);
+                }
+
+                vec3 marker_offset = { marker->position[0], marker->position[2], marker->position[1] };
+                glm_vec3_mul(marker_offset, weapon->scale, marker_offset);
+
+                glm_vec3_add(attachment_offset, marker_offset, attachment_offset);
+            }
+        }
+    }
+
+    // TODO: project the offset in the camera direction...
+    glm_vec3_add(light->position, attachment_offset, light->position);
 
     glm_vec3_copy(render_globals.camera.forward, light->direction);
-    glm_vec3_rotate(light->direction, glm_rad(1.4f), render_globals.camera.up);
 }
 
 static void render_frame(void)

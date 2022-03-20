@@ -426,13 +426,13 @@ static void model_import_assimp_animation(
 
 static void model_import_assimp_mesh(
     const struct aiScene *in_scene,
+    const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
     struct model_data *out_model,
     struct model_mesh *out_mesh)
 {
     if (in_mesh->mName.length && in_mesh->mName.data[0] == '#')
     {
-        // TODO: import marker
         return;
     }
 
@@ -586,7 +586,7 @@ static void model_import_assimp_node(
     {
         struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
 
-        model_import_assimp_mesh(in_scene, in_mesh, out_model, &mesh);
+        model_import_assimp_mesh(in_scene, in_node, in_mesh, out_model, &mesh);
     }
     
     if (mesh.vertex_data)
@@ -597,6 +597,65 @@ static void model_import_assimp_node(
     for (unsigned int child_index = 0; child_index < in_node->mNumChildren; child_index++)
     {
         model_import_assimp_node(directory_path, vertex_type, in_scene, in_node->mChildren[child_index], out_model);
+    }
+}
+
+static void model_import_markers_from_assimp_node(
+    const char *directory_path,
+    enum vertex_type vertex_type,
+    const struct aiScene *in_scene,
+    const struct aiNode *in_node,
+    struct model_data *out_model)
+{
+    struct model_mesh mesh;
+    memset(&mesh, 0, sizeof(mesh));
+
+    mesh.vertex_type = vertex_type;
+
+    for (unsigned int mesh_index = 0; mesh_index < in_node->mNumMeshes; mesh_index++)
+    {
+        struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
+
+        if ((in_mesh->mName.length && in_mesh->mName.data[0] == '#') &&
+            model_find_marker_by_name(out_model, in_mesh->mName.data + 1) == -1)
+        {
+            struct model_marker marker;
+            memset(&marker, 0, sizeof(marker));
+
+            assert(marker.name = strndup(in_mesh->mName.data + 1, in_mesh->mName.length - 1));
+            marker.node_index = model_find_node_by_name(out_model, in_node->mParent->mName.data);
+
+            mat4 marker_matrix;
+            glm_mat4_copy((vec4 *)&in_node->mParent->mTransformation, marker_matrix);
+            glm_mat4_transpose(marker_matrix);
+
+            vec4 marker_translation;
+            mat4 marker_rotation_matrix;
+            vec3 marker_rotation;
+            vec3 marker_scale;
+            glm_decompose(marker_matrix, marker_translation, marker_rotation_matrix, marker_scale);
+            glm_vec3_copy(*(vec3 *)&marker_translation, marker.position);
+            glm_euler_angles(marker_rotation_matrix, marker.rotation);
+
+            // TODO: get position/rotation from marker_transform
+
+            printf("marker \"%s\":\n"
+                "\tnode_index: %i (from node \"%s\")\n"
+                "\tposition: { x: %f, y: %f, z: %f }\n"
+                "\trotation: { x: %f, y: %f, z: %f }\n",
+                marker.name,
+                marker.node_index, in_node->mParent->mName.data,
+                marker.position[0], marker.position[1], marker.position[2],
+                marker.rotation[0], marker.rotation[1], marker.rotation[2]);
+
+            mempush(&out_model->marker_count, (void **)&out_model->markers, &marker, sizeof(marker), realloc);
+            return;
+        }
+    }
+    
+    for (unsigned int child_index = 0; child_index < in_node->mNumChildren; child_index++)
+    {
+        model_import_markers_from_assimp_node(directory_path, vertex_type, in_scene, in_node->mChildren[child_index], out_model);
     }
 }
 
@@ -653,6 +712,7 @@ int model_import_from_file(
     }
 
     model_import_assimp_node(directory_path, vertex_type, scene, scene->mRootNode, model);
+    model_import_markers_from_assimp_node(directory_path, vertex_type, scene, scene->mRootNode, model);
 
     for (unsigned int animation_index = 0; animation_index < scene->mNumAnimations; animation_index++)
     {
