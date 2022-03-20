@@ -715,53 +715,28 @@ static void render_update_input(float delta_ticks)
     glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
 
     vec3 movement = {0.0f, 0.0f, 0.0f};
-    int movement_inputs = 0;
 
     // Forwards and backwards camera movement
-    vec3 forward;
-    glm_vec3_copy(render_globals.camera.forward, forward);
-    forward[2] = 0.0f;
     if (input_is_key_down(SDL_SCANCODE_W) && !input_is_key_down(SDL_SCANCODE_S))
-    {
-        glm_vec3_add(movement, forward, movement);
-        movement_inputs++;
-    }
+        glm_vec3_add(movement, render_globals.camera.forward, movement);
     else if (input_is_key_down(SDL_SCANCODE_S) && !input_is_key_down(SDL_SCANCODE_W))
-    {
-        glm_vec3_sub(movement, forward, movement);
-        movement_inputs++;
-    }
+        glm_vec3_sub(movement, render_globals.camera.forward, movement);
 
     // Horizontal camera movement
-    vec3 right;
-    glm_vec3_copy(render_globals.camera.right, right);
-    right[2] = 0.0f;
     if (input_is_key_down(SDL_SCANCODE_A) && !input_is_key_down(SDL_SCANCODE_D))
-    {
-        glm_vec3_add(movement, right, movement);
-        movement_inputs++;
-    }
+        glm_vec3_add(movement, render_globals.camera.right, movement);
     else if (input_is_key_down(SDL_SCANCODE_D) && !input_is_key_down(SDL_SCANCODE_A))
-    {
-        glm_vec3_sub(movement, right, movement);
-        movement_inputs++;
-    }
+        glm_vec3_sub(movement, render_globals.camera.right, movement);
+    
+    // Normalize and clamp movement to ground plane
+    glm_vec3_normalize(movement);
+    movement[2] = 0.0f;
 
     // Vertical camera movement
     if (input_is_key_down(SDL_SCANCODE_R) && !input_is_key_down(SDL_SCANCODE_F))
-    {
         glm_vec3_add(movement, (vec3){0, 0, 1}, movement);
-        movement_inputs++;
-    }
     else if (input_is_key_down(SDL_SCANCODE_F) && !input_is_key_down(SDL_SCANCODE_R))
-    {
         glm_vec3_sub(movement, (vec3){0, 0, 1}, movement);
-        movement_inputs++;
-    }
-
-    // Normalize the movement amount using the number of movement inputs
-    movement[0] = movement[0] < 0.0f ? -fmodf(-movement[0], 1.0f) : fmodf(movement[0], 1.0f);
-    movement[1] = movement[1] < 0.0f ? -fmodf(-movement[1], 1.0f) : fmodf(movement[1], 1.0f);
 
     // Double movement amount if either shift key is down
     if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
