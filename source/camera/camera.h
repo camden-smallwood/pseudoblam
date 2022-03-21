@@ -10,10 +10,6 @@ CAMERA.H
 
 struct camera_data
 {
-    float look_sensitivity;
-    
-    float movement_speed;
-
     float horizontal_fov;
     float vertical_fov;
 

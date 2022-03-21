@@ -276,7 +276,16 @@ static void model_import_assimp_animation(
 {
     struct model_animation animation;
     memset(&animation, 0, sizeof(animation));
-    animation.name = strdup(in_animation->mName.data);
+    
+    const char *animation_name = in_animation->mName.data;
+
+    if (strncmp(animation_name, "Armature|", 9) == 0)
+    {
+        animation_name += 9; // blender hack
+    }
+
+    animation.name = strdup(animation_name);
+
     animation.duration = in_animation->mDuration;
     animation.ticks_per_second = in_animation->mTicksPerSecond;
 
@@ -425,8 +434,8 @@ static void model_import_assimp_animation(
 }
 
 static void model_import_assimp_mesh(
-    const struct aiScene *in_scene,
-    const struct aiNode *in_node,
+    // const struct aiScene *in_scene,
+    // const struct aiNode *in_node,
     const struct aiMesh *in_mesh,
     struct model_data *out_model,
     struct model_mesh *out_mesh)
@@ -586,7 +595,7 @@ static void model_import_assimp_node(
     {
         struct aiMesh *in_mesh = in_scene->mMeshes[in_node->mMeshes[mesh_index]];
 
-        model_import_assimp_mesh(in_scene, in_node, in_mesh, out_model, &mesh);
+        model_import_assimp_mesh(/*in_scene, in_node,*/ in_mesh, out_model, &mesh);
     }
     
     if (mesh.vertex_data)
@@ -631,9 +640,6 @@ static void model_import_markers_from_assimp_node(
 
             vec4 marker_translation;
             mat4 marker_rotation_matrix;
-            vec3 marker_rotation;
-            vec3 marker_scale;
-            glm_decompose(marker_matrix, marker_translation, marker_rotation_matrix, marker_scale);
             glm_vec3_copy(*(vec3 *)&marker_translation, marker.position);
             glm_euler_angles(marker_rotation_matrix, marker.rotation);
 

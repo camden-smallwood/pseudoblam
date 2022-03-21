@@ -35,6 +35,7 @@ enum render_flags
 {
     _render_input_tab_bit,
     _render_input_h_bit,
+    _render_input_1_bit,
 };
 
 /* ---------- private variables */
@@ -134,6 +135,8 @@ struct
     int sample_count;
 
     struct camera_data camera;
+    float camera_look_sensitivity;
+    float camera_movement_speed;
 
     struct render_geometry_pass_data geometry_pass;
     struct render_depth_pass_data depth_pass;
@@ -161,7 +164,8 @@ struct
 /* ---------- private prototypes */
 
 static void render_initialize_gl(void);
-
+static void render_initialize_default_textures(void);
+static void render_initialize_camera(void);
 static void render_initialize_quad(void);
 
 static void render_initialize_render_passes(void);
@@ -178,6 +182,7 @@ static void render_initialize_scene(void);
 static void render_initialize_models(void);
 static void render_initialize_objects(void);
 
+static void render_update_objects(void);
 static void render_update_input(float delta_ticks);
 static void render_update_flashlight(void);
 
@@ -203,30 +208,13 @@ void render_initialize(void)
 {
     memset(&render_globals, 0, sizeof(render_globals));
 
-    /* -------------------------------------------------------------------------------- */
-
     render_globals.screen_width = 1280;
     render_globals.screen_height = 720;
-
     render_globals.sample_count = 4;
 
-    /* -------------------------------------------------------------------------------- */
-
     render_initialize_gl();
-    
-    /* -------------------------------------------------------------------------------- */
-
-    render_globals.default_diffuse_texture_index = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
-    render_globals.default_specular_texture_index = dds_import_file_as_texture2d("../assets/textures/white.dds");
-    render_globals.default_normals_texture_index = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
-    render_globals.default_emissive_texture_index = dds_import_file_as_texture2d("../assets/textures/black.dds");
-
-    /* -------------------------------------------------------------------------------- */
-
-    camera_initialize(&render_globals.camera);
-
-    /* -------------------------------------------------------------------------------- */
-
+    render_initialize_default_textures();
+    render_initialize_camera();
     render_initialize_quad();
     render_initialize_render_passes();
     render_initialize_scene();
@@ -252,6 +240,7 @@ void render_handle_screen_resize(int width, int height)
 void render_update(float delta_ticks)
 {
     render_update_input(delta_ticks);
+    render_update_objects();
     camera_update(&render_globals.camera, delta_ticks);
     render_update_flashlight();
 
@@ -277,6 +266,22 @@ static void render_initialize_gl(void)
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+}
+
+static void render_initialize_default_textures(void)
+{
+    render_globals.default_diffuse_texture_index = dds_import_file_as_texture2d("../assets/textures/bricks_diffuse.dds");
+    render_globals.default_specular_texture_index = dds_import_file_as_texture2d("../assets/textures/white.dds");
+    render_globals.default_normals_texture_index = dds_import_file_as_texture2d("../assets/textures/bricks_normal.dds");
+    render_globals.default_emissive_texture_index = dds_import_file_as_texture2d("../assets/textures/black.dds");
+}
+
+static void render_initialize_camera(void)
+{
+    camera_initialize(&render_globals.camera);
+
+    render_globals.camera_look_sensitivity = 5.0f;
+    render_globals.camera_movement_speed = 1.0f;
 }
 
 static void render_initialize_quad(void)
@@ -661,15 +666,60 @@ static void render_initialize_objects(void)
     {
         object_initialize(iterator.index);
 
+        struct model_data *model = model_get_data(iterator.data->model_index);
+
+        if (!model)
+        {
+            continue;
+        }
+
+        for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
+        {
+            printf("animation: %s\n", model->animations[animation_index].name);
+        }
+        
         if (iterator.index == render_globals.weapon_object_index)
         {
-            model_set_animation_active(&iterator.data->animations, 0, true);
+            model_set_animation_flags(&iterator.data->animations, 0, BIT(_model_animation_state_looping_bit));
+            model_set_animation_active(&iterator.data->animations, 0, false);
+
+            model_set_animation_active(&iterator.data->animations, 1, true);
         }
 
         if (iterator.index == render_globals.grunt_object_index)
         {
+            model_set_animation_flags(&iterator.data->animations, 0, BIT(_model_animation_state_looping_bit));
             model_set_animation_active(&iterator.data->animations, 0, true);
         }
+    }
+}
+
+static void render_update_objects(void)
+{
+    if (input_is_key_down(SDL_SCANCODE_1))
+    {
+        SET_BIT(render_globals.flags, _render_input_1_bit, true);
+    }
+    else if (TEST_BIT(render_globals.flags, _render_input_1_bit))
+    {
+        SET_BIT(render_globals.flags, _render_input_1_bit, false);
+
+        // TODO: do this right
+        struct model_animation_manager *weapon_animations = &object_get_data(render_globals.weapon_object_index)->animations;
+        model_set_animation_active(weapon_animations, 0, false);
+        model_set_animation_active(weapon_animations, 2, true);
+    }
+
+    struct object_data *weapon_object = object_get_data(render_globals.weapon_object_index);
+    struct model_data *weapon_model = weapon_object ? model_get_data(weapon_object->model_index) : NULL;
+
+    bool ready_animation_finished_playing = !model_animation_is_active(&weapon_object->animations, 1);
+    bool moving_animation_not_already_playing = !model_animation_is_active(&weapon_object->animations, 0);
+    bool not_reloading = !model_animation_is_active(&weapon_object->animations, 2);
+
+    if (weapon_model && ready_animation_finished_playing && moving_animation_not_already_playing && not_reloading)
+    {
+        model_set_animation_active(&weapon_object->animations, 0, true);
     }
 }
 
@@ -696,10 +746,10 @@ static void render_update_input(float delta_ticks)
     {
         SET_BIT(render_globals.flags, _render_input_tab_bit, false);
         
-        if (render_globals.camera.movement_speed < 1000.0f)
-            render_globals.camera.movement_speed *= 2.0f;
+        if (render_globals.camera_movement_speed < 1000.0f)
+            render_globals.camera_movement_speed *= 2.0f;
         else
-            render_globals.camera.movement_speed = 1.0f;
+            render_globals.camera_movement_speed = 1.0f;
     }
 
     ivec2 mouse_motion_int;
@@ -711,7 +761,7 @@ static void render_update_input(float delta_ticks)
         (float)-mouse_motion_int[1]
     };
     glm_vec2_scale(mouse_motion, 0.01f, mouse_motion);
-    glm_vec2_scale(mouse_motion, render_globals.camera.look_sensitivity, mouse_motion);
+    glm_vec2_scale(mouse_motion, render_globals.camera_look_sensitivity, mouse_motion);
     glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
 
     vec3 movement = {0.0f, 0.0f, 0.0f};
@@ -749,7 +799,7 @@ static void render_update_input(float delta_ticks)
     float movement_amount = glm_vec3_norm(ground_movement);
 
     // Scale the movement amount by the camera's movement speed per tick
-    glm_vec3_scale(movement, render_globals.camera.movement_speed * delta_ticks, movement);
+    glm_vec3_scale(movement, render_globals.camera_movement_speed * delta_ticks, movement);
     
     // Add the movement amount to the camera velocity
     glm_vec3_copy(movement, render_globals.camera.velocity);

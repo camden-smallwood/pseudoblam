@@ -163,10 +163,18 @@ struct model_animation_morph_key
     float *weights;
 };
 
+enum model_animation_state_flags
+{
+    _model_animation_state_looping_bit,
+};
+
 struct model_animation_state
 {
+    unsigned int flags;
+
     float time;
     float speed;
+
     mat4 *node_matrices;
 };
 
@@ -196,6 +204,8 @@ int model_node_add_child_node(struct model_data *model, int node_index, struct m
 
 int model_find_marker_by_name(struct model_data *model, const char *marker_name);
 
+int model_find_animation_by_name(struct model_data *model, const char *animation_name);
+
 /* ---------- prototypes/MODEL_IMPORT.C */
 
 int model_import_from_file(enum vertex_type vertex_type, const char *file_path);
@@ -204,7 +214,13 @@ int model_import_from_file(enum vertex_type vertex_type, const char *file_path);
 
 void model_animations_initialize(struct model_animation_manager *manager, int model_index);
 void model_animations_dispose(struct model_animation_manager *manager);
+
+void model_set_animation_flags(struct model_animation_manager *manager, int animation_index, unsigned int flags);
+
+bool model_animation_is_active(struct model_animation_manager *manager, int animation_index);
 void model_set_animation_active(struct model_animation_manager *manager, int animation_index, bool active);
+
 void model_set_animation_time(struct model_animation_manager *manager, int animation_index, float time);
 void model_set_animation_speed(struct model_animation_manager *manager, int animation_index, float speed);
+
 void model_animations_update(struct model_animation_manager *manager, float delta_ticks);

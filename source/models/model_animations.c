@@ -72,6 +72,39 @@ void model_animations_dispose(
     free(manager->states);
 }
 
+void model_set_animation_flags(
+    struct model_animation_manager *manager,
+    int animation_index,
+    unsigned int flags)
+{
+    assert(manager);
+
+    struct model_data *model = model_get_data(manager->model_index);
+    assert(model);
+
+    assert(animation_index >= 0 && animation_index < model->animation_count);
+    
+    manager->states[animation_index].flags = flags;
+}
+
+bool model_animation_is_active(
+    struct model_animation_manager *manager,
+    int animation_index)
+{
+    assert(manager);
+
+    struct model_data *model = model_get_data(manager->model_index);
+    
+    if (!model)
+    {
+        return false;
+    }
+
+    assert(animation_index >= 0 && animation_index < model->animation_count);
+
+    return BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index) != 0;
+}
+
 void model_set_animation_active(
     struct model_animation_manager *manager,
     int animation_index,
@@ -84,6 +117,7 @@ void model_set_animation_active(
 
     assert(animation_index >= 0 && animation_index < model->animation_count);
     BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, active);
+    assert((BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index) ? true : false) == active);
 
     manager->states[animation_index].time = 0.0f;
 }
@@ -147,7 +181,17 @@ static void model_animation_update(
     struct model_animation *animation = model->animations + animation_index;
     struct model_animation_state *state = manager->states + animation_index;
 
-    state->time = fmodf(state->time + ((animation->ticks_per_second * state->speed) * delta_ticks), animation->duration);
+    state->time += (animation->ticks_per_second * state->speed) * delta_ticks;
+
+    if (TEST_BIT(state->flags, _model_animation_state_looping_bit))
+    {
+        state->time = fmodf(state->time, animation->duration);
+    }
+    else if (state->time > animation->duration)
+    {
+        state->time = 0.0f;
+        BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, 0);
+    }
     
     model_animation_compute_node_matrices(manager, animation_index, root_node_index, GLM_MAT4_IDENTITY);
 }
@@ -305,7 +349,7 @@ static void model_animation_compute_node_matrices(
             exit(EXIT_FAILURE);
         }
     }
-
+    
     mat4 node_transform;
     glm_mat4_mul(position_matrix, rotation_matrix, node_transform);
     glm_mat4_mul(node_transform, scaling_matrix, node_transform);
