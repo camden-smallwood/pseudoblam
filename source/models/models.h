@@ -204,7 +204,7 @@ int model_node_add_child_node(struct model_data *model, int node_index, struct m
 
 int model_find_marker_by_name(struct model_data *model, const char *marker_name);
 
-int model_find_animation_by_name(struct model_data *model, const char *animation_name);
+int model_find_animation_by_name(int model_index, const char *animation_name);
 
 /* ---------- prototypes/MODEL_IMPORT.C */
 

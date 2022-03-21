@@ -176,9 +176,13 @@ int model_find_marker_by_name(
 }
 
 int model_find_animation_by_name(
-    struct model_data *model,
+    int model_index,
     const char *animation_name)
 {
+    if (model_index == -1)
+        return -1;
+    
+    struct model_data *model = model_get_data(model_index);
     assert(model);
     assert(animation_name);
 

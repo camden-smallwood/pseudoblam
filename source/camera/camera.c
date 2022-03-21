@@ -24,7 +24,7 @@ void camera_initialize(struct camera_data *camera)
     camera->aspect_ratio = 1.0f;
     camera->near_clip = 0.01f;
     camera->far_clip = 1000.0f;
-    glm_vec3_copy((vec3){3, 2, 3}, camera->position);
+    glm_vec3_copy((vec3){3, 2, 0.7f}, camera->position);
     glm_vec3_copy((vec2){-130, -35}, camera->rotation);
     glm_vec3_copy((vec3){0, 0, 1}, camera->up);
 }
@@ -39,7 +39,7 @@ void camera_handle_screen_resize(struct camera_data *camera, int width, int heig
     camera->vertical_fov = 2.0f * atanf(tanf(glm_rad(camera->horizontal_fov) / 2.0f) * inverse_aspect_ratio);
 }
 
-void camera_update(struct camera_data *camera, float delta_ticks)
+void camera_update(struct camera_data *camera)
 {
     // Clamp camera rotation pitch angle between -89 and 89 degrees to prevent flipping
     if (camera->rotation[1] > 89.0f)

@@ -34,4 +34,4 @@ struct camera_data
 
 void camera_initialize(struct camera_data *camera);
 void camera_handle_screen_resize(struct camera_data *camera, int width, int height);
-void camera_update(struct camera_data *camera, float delta_ticks);
+void camera_update(struct camera_data *camera);

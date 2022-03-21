@@ -171,26 +171,26 @@ static void model_animation_update(
     struct model_animation_manager *manager,
     int animation_index,
     float delta_ticks)
-{
-    if (!BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index))
-        return;
-    
+{   
     struct model_data *model = model_get_data(manager->model_index);
     int root_node_index = model_find_root_node(model);
 
     struct model_animation *animation = model->animations + animation_index;
     struct model_animation_state *state = manager->states + animation_index;
-
-    state->time += (animation->ticks_per_second * state->speed) * delta_ticks;
-
-    if (TEST_BIT(state->flags, _model_animation_state_looping_bit))
+    
+    if (BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index))
     {
-        state->time = fmodf(state->time, animation->duration);
-    }
-    else if (state->time > animation->duration)
-    {
-        state->time = 0.0f;
-        BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, 0);
+        state->time += (animation->ticks_per_second * state->speed) * delta_ticks;
+
+        if (TEST_BIT(state->flags, _model_animation_state_looping_bit))
+        {
+            state->time = fmodf(state->time, animation->duration);
+        }
+        else if (state->time >= animation->duration)
+        {
+            state->time = 0.0f;
+            BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, 0);
+        }
     }
     
     model_animation_compute_node_matrices(manager, animation_index, root_node_index, GLM_MAT4_IDENTITY);

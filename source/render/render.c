@@ -34,8 +34,21 @@ RENDER.C
 enum render_flags
 {
     _render_input_tab_bit,
+    
     _render_input_h_bit,
+
     _render_input_1_bit,
+    _render_input_2_bit,
+    _render_input_3_bit,
+    _render_input_4_bit,
+    _render_input_5_bit,
+    _render_input_6_bit,
+    _render_input_7_bit,
+    _render_input_8_bit,
+    _render_input_9_bit,
+    _render_input_0_bit,
+
+    _render_played_initial_ready_animation_bit,
 };
 
 /* ---------- private variables */
@@ -154,8 +167,6 @@ struct
     int default_normals_texture_index;
     int default_emissive_texture_index;
 
-    int flashlight_light_index;
-    
     int plane_object_index;
     int weapon_object_index;
     int grunt_object_index;
@@ -184,7 +195,6 @@ static void render_initialize_objects(void);
 
 static void render_update_objects(void);
 static void render_update_input(float delta_ticks);
-static void render_update_flashlight(void);
 
 static void render_frame(void);
 static void render_geometry_pass(void);
@@ -241,8 +251,7 @@ void render_update(float delta_ticks)
 {
     render_update_input(delta_ticks);
     render_update_objects();
-    camera_update(&render_globals.camera, delta_ticks);
-    render_update_flashlight();
+    camera_update(&render_globals.camera);
 
     render_frame();
 }
@@ -510,27 +519,11 @@ static void render_initialize_scene(void)
     render_globals.grunt_object_index = object_new();
     struct object_data *grunt = object_get_data(render_globals.grunt_object_index);
     glm_vec3_copy((vec3){-5, 0, 0}, grunt->position);
-    glm_vec3_copy((vec3){0.5f, 0.5f, 0.5f}, grunt->scale);
+    glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, grunt->scale);
     grunt->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
 
-    struct light_data *light;
-
-    render_globals.flashlight_light_index = light_new();
-    light = light_get_data(render_globals.flashlight_light_index);
-    light->type = _light_type_spot;
-    SET_BIT(light->flags, _light_is_hidden_bit, true);
-    glm_vec3_copy(render_globals.camera.position, light->position);
-    glm_vec3_copy(render_globals.camera.forward, light->direction);
-    glm_vec3_copy((vec3){0.8, 0.8, 0.8}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.1f;
-    light->linear = 0.09f;
-    light->quadratic = 0.032f;
-    light->inner_cutoff = 18.5f;
-    light->outer_cutoff = 20.0f;
-
-    light = light_get_data(light_new());
+    int light_index = light_new();
+    struct light_data *light = light_get_data(light_index);
     light->type = _light_type_point;
     glm_vec3_copy((vec3){-2.0f, -1.0f, 20.0f}, light->position);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->diffuse_color);
@@ -680,22 +673,60 @@ static void render_initialize_objects(void)
         
         if (iterator.index == render_globals.weapon_object_index)
         {
-            model_set_animation_flags(&iterator.data->animations, 0, BIT(_model_animation_state_looping_bit));
-            model_set_animation_active(&iterator.data->animations, 0, false);
-
-            model_set_animation_active(&iterator.data->animations, 1, true);
+            int moving_animation_index = model_find_animation_by_name(iterator.data->model_index, "first_person moving");
+            model_set_animation_flags(&iterator.data->animations, moving_animation_index, BIT(_model_animation_state_looping_bit));
         }
 
         if (iterator.index == render_globals.grunt_object_index)
         {
             model_set_animation_flags(&iterator.data->animations, 0, BIT(_model_animation_state_looping_bit));
-            model_set_animation_active(&iterator.data->animations, 0, true);
         }
     }
 }
 
 static void render_update_objects(void)
 {
+    // --------------------------------------------------------------------------------
+    // Grunt object updates
+    // --------------------------------------------------------------------------------
+
+    struct object_data *grunt_object = object_get_data(render_globals.grunt_object_index);
+
+    if (!model_animation_is_active(&grunt_object->animations, 0))
+    {
+        model_set_animation_active(&grunt_object->animations, 0, true);
+    }
+
+    // --------------------------------------------------------------------------------
+    // First person weapon object updates
+    // --------------------------------------------------------------------------------
+
+    struct object_data *weapon_object = object_get_data(render_globals.weapon_object_index);
+
+    int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
+    bool moving_animation_playing = model_animation_is_active(&weapon_object->animations, moving_animation_index);
+
+    int ready_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person ready");
+    bool ready_animation_playing = model_animation_is_active(&weapon_object->animations, ready_animation_index);
+
+    int reload_empty_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person reload_empty");
+    bool reload_empty_animation_playing = model_animation_is_active(&weapon_object->animations, reload_empty_animation_index);
+
+    int melee_strike_1_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person melee_strike_1");
+    bool melee_strike_1_animation_playing = model_animation_is_active(&weapon_object->animations, melee_strike_1_animation_index);
+
+    // Play the ready animation at startup if it hasn't already played
+    if (!TEST_BIT(render_globals.flags, _render_played_initial_ready_animation_bit))
+    {
+        SET_BIT(render_globals.flags, _render_played_initial_ready_animation_bit, true);
+
+        if (moving_animation_playing) // TODO: do this right - blend, don't deactivate!
+            model_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_playing = false);
+
+        model_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_playing = true);
+    }
+
+    // Manual animation playback 1
     if (input_is_key_down(SDL_SCANCODE_1))
     {
         SET_BIT(render_globals.flags, _render_input_1_bit, true);
@@ -704,40 +735,52 @@ static void render_update_objects(void)
     {
         SET_BIT(render_globals.flags, _render_input_1_bit, false);
 
-        // TODO: do this right
-        struct model_animation_manager *weapon_animations = &object_get_data(render_globals.weapon_object_index)->animations;
-        model_set_animation_active(weapon_animations, 0, false);
-        model_set_animation_active(weapon_animations, 2, true);
+        if (moving_animation_playing) // TODO: do this right - blend, don't deactivate!
+            model_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_playing = false);
+
+        model_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_playing = true);
     }
 
-    struct object_data *weapon_object = object_get_data(render_globals.weapon_object_index);
-    struct model_data *weapon_model = weapon_object ? model_get_data(weapon_object->model_index) : NULL;
-
-    bool ready_animation_finished_playing = !model_animation_is_active(&weapon_object->animations, 1);
-    bool moving_animation_not_already_playing = !model_animation_is_active(&weapon_object->animations, 0);
-    bool not_reloading = !model_animation_is_active(&weapon_object->animations, 2);
-
-    if (weapon_model && ready_animation_finished_playing && moving_animation_not_already_playing && not_reloading)
+    // Manual animation playback 2
+    if (input_is_key_down(SDL_SCANCODE_2))
     {
-        model_set_animation_active(&weapon_object->animations, 0, true);
+        SET_BIT(render_globals.flags, _render_input_2_bit, true);
+    }
+    else if (TEST_BIT(render_globals.flags, _render_input_2_bit))
+    {
+        SET_BIT(render_globals.flags, _render_input_2_bit, false);
+
+        if (moving_animation_playing) // TODO: do this right - blend, don't deactivate!
+            model_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_playing = false);
+
+        model_set_animation_active(&weapon_object->animations, reload_empty_animation_index, reload_empty_animation_playing = true);
+    }
+
+    // Manual animation playback 3
+    if (input_is_key_down(SDL_SCANCODE_3))
+    {
+        SET_BIT(render_globals.flags, _render_input_3_bit, true);
+    }
+    else if (TEST_BIT(render_globals.flags, _render_input_3_bit))
+    {
+        SET_BIT(render_globals.flags, _render_input_3_bit, false);
+
+        if (moving_animation_playing) // TODO: do this right - blend, don't deactivate!
+            model_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_playing = false);
+
+        model_set_animation_active(&weapon_object->animations, melee_strike_1_animation_index, melee_strike_1_animation_playing = true);
+    }
+
+    // TODO: do this right - blend, don't deactivate!
+    if (!moving_animation_playing && !ready_animation_playing && !reload_empty_animation_playing && !melee_strike_1_animation_playing)
+    {
+        model_set_animation_active(&weapon_object->animations, moving_animation_index, true);
     }
 }
 
 static void render_update_input(float delta_ticks)
 {
-    if (input_is_key_down(SDL_SCANCODE_H))
-    {
-        SET_BIT(render_globals.flags, _render_input_h_bit, true);
-    }
-    else if (TEST_BIT(render_globals.flags, _render_input_h_bit))
-    {
-        SET_BIT(render_globals.flags, _render_input_h_bit, false);
-
-        light_set_hidden(
-            render_globals.flashlight_light_index,
-            !light_is_hidden(render_globals.flashlight_light_index));
-    }
-
+    // Cycle through camera movement speeds
     if (input_is_key_down(SDL_SCANCODE_TAB))
     {
         SET_BIT(render_globals.flags, _render_input_tab_bit, true);
@@ -764,134 +807,121 @@ static void render_update_input(float delta_ticks)
     glm_vec2_scale(mouse_motion, render_globals.camera_look_sensitivity, mouse_motion);
     glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
 
-    vec3 movement = {0.0f, 0.0f, 0.0f};
+    vec3 movement = GLM_VEC3_ZERO_INIT;
 
     // Forwards and backwards camera movement
     if (input_is_key_down(SDL_SCANCODE_W) && !input_is_key_down(SDL_SCANCODE_S))
-        glm_vec3_add(movement, render_globals.camera.forward, movement);
+    {
+        glm_vec3_normalize_to(render_globals.camera.forward, movement);
+        glm_vec3_abs(movement, movement);
+        glm_vec3_scale(
+            render_globals.camera.forward,
+            (movement[0] > movement[1] && movement[0] > movement[2]) ? 1.0f / movement[0] :
+            (movement[1] > movement[0] && movement[1] > movement[2]) ? 1.0f / movement[1] :
+            (movement[2] > movement[0] && movement[2] > movement[1]) ? 1.0f / movement[2] :
+            1.0f,
+            movement);
+        
+        // Apply forwards movement speed
+        glm_vec3_scale(movement, 2.25f, movement);
+    }
     else if (input_is_key_down(SDL_SCANCODE_S) && !input_is_key_down(SDL_SCANCODE_W))
-        glm_vec3_sub(movement, render_globals.camera.forward, movement);
+    {
+        glm_vec3_normalize_to(render_globals.camera.forward, movement);
+        glm_vec3_abs(movement, movement);
+        glm_vec3_scale(
+            render_globals.camera.forward,
+            (movement[0] > movement[1] && movement[0] > movement[2]) ? 1.0f / movement[0] :
+            (movement[1] > movement[0] && movement[1] > movement[2]) ? 1.0f / movement[1] :
+            (movement[2] > movement[0] && movement[2] > movement[1]) ? 1.0f / movement[2] :
+            1.0f,
+            movement);
+        
+        // Apply backwards movement speed
+        glm_vec3_scale(movement, -2.0f, movement);
+    }
 
-    // Horizontal camera movement
+    // Sideways camera movement
     if (input_is_key_down(SDL_SCANCODE_A) && !input_is_key_down(SDL_SCANCODE_D))
-        glm_vec3_add(movement, render_globals.camera.right, movement);
+    {
+        glm_vec3_normalize_to(render_globals.camera.right, movement);
+        glm_vec3_abs(movement, movement);
+        glm_vec3_scale(
+            render_globals.camera.right,
+            (movement[0] > movement[1] && movement[0] > movement[2]) ? 1.0f / movement[0] :
+            (movement[1] > movement[0] && movement[1] > movement[2]) ? 1.0f / movement[1] :
+            (movement[2] > movement[0] && movement[2] > movement[1]) ? 1.0f / movement[2] :
+            1.0f,
+            movement);
+        
+        // Apply sideways movement speed
+        glm_vec3_scale(movement, 2.0f, movement);
+    }
     else if (input_is_key_down(SDL_SCANCODE_D) && !input_is_key_down(SDL_SCANCODE_A))
-        glm_vec3_sub(movement, render_globals.camera.right, movement);
+    {
+        glm_vec3_normalize_to(render_globals.camera.right, movement);
+        glm_vec3_abs(movement, movement);
+        glm_vec3_scale(
+            render_globals.camera.right,
+            (movement[0] > movement[1] && movement[0] > movement[2]) ? 1.0f / movement[0] :
+            (movement[1] > movement[0] && movement[1] > movement[2]) ? 1.0f / movement[1] :
+            (movement[2] > movement[0] && movement[2] > movement[1]) ? 1.0f / movement[2] :
+            1.0f,
+            movement);
+        
+        // Apply sideways movement speed
+        glm_vec3_scale(movement, -2.0f, movement);
+    }
     
-    // Normalize and clamp movement to ground plane
-    glm_vec3_normalize(movement);
+    // Clamp camera movement to ground plane
     movement[2] = 0.0f;
 
     // Vertical camera movement
     if (input_is_key_down(SDL_SCANCODE_R) && !input_is_key_down(SDL_SCANCODE_F))
-        glm_vec3_add(movement, (vec3){0, 0, 1}, movement);
+        glm_vec3_add(movement, (vec3){0, 0, 2}, movement);
     else if (input_is_key_down(SDL_SCANCODE_F) && !input_is_key_down(SDL_SCANCODE_R))
-        glm_vec3_sub(movement, (vec3){0, 0, 1}, movement);
+        glm_vec3_sub(movement, (vec3){0, 0, 2}, movement);
 
     // Double movement amount if either shift key is down
     if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
         glm_vec3_scale(movement, 2.0f, movement);
     
-    // Update the view model animations based on the movement amount
-    vec3 ground_movement;
-    glm_vec3_copy(movement, ground_movement);
-    ground_movement[2] = 0.0f;
-    float movement_amount = glm_vec3_norm(ground_movement);
-
     // Scale the movement amount by the camera's movement speed per tick
     glm_vec3_scale(movement, render_globals.camera_movement_speed * delta_ticks, movement);
     
     // Add the movement amount to the camera velocity
     glm_vec3_copy(movement, render_globals.camera.velocity);
 
-    // Update the view model transform
-    struct object_data *weapon = object_get_data(render_globals.weapon_object_index);
+    // Update the view model animations based on the ground plane movement amount
+    vec3 ground_movement;
+    glm_vec3_copy(movement, ground_movement);
+    glm_vec3_normalize(ground_movement);
+    ground_movement[2] = 0.0f;
+    float movement_amount = glm_vec3_norm(ground_movement);
 
-    if (weapon)
+    struct object_data *weapon_object = object_get_data(render_globals.weapon_object_index);
+
+    if (weapon_object)
     {
-        if (movement_amount == 0.0f)
-        {
-            // Reset the walking animation when camera movement stops
-            model_set_animation_time(&weapon->animations, 0, 0.0f);
-        }
+        int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
+
+        // // Reset the walking animation when camera movement stops
+        // if (movement_amount == 0.0f)
+        //     model_set_animation_time(&weapon_object->animations, moving_animation_index, 0.0f);
         
         // Play the walking animation as fast as the camera is moving
-        model_set_animation_speed(&weapon->animations, 0, movement_amount);
+        model_set_animation_speed(&weapon_object->animations, moving_animation_index, movement_amount);
 
         // Move the view model to the camera position + camera velocity
-        glm_vec3_copy(render_globals.camera.position, weapon->position);
-        glm_vec3_add(weapon->position, render_globals.camera.velocity, weapon->position);
+        glm_vec3_copy(render_globals.camera.position, weapon_object->position);
+        glm_vec3_add(weapon_object->position, render_globals.camera.velocity, weapon_object->position);
 
         // Apply the view model position offset
-        glm_vec3_add(weapon->position, (vec3){0.0f, 0.0f, -0.015f}, weapon->position);
+        glm_vec3_add(weapon_object->position, (vec3){0.0f, 0.0f, -0.015f}, weapon_object->position);
 
         // Rotate the view model in the same direction as the camera
-        glm_vec3_copy((vec3){0.0f, -render_globals.camera.rotation[1], render_globals.camera.rotation[0]}, weapon->rotation);
+        glm_vec3_copy((vec3){0.0f, -render_globals.camera.rotation[1], render_globals.camera.rotation[0]}, weapon_object->rotation);
     }
-}
-
-static void render_update_flashlight(void)
-{
-    struct light_data *light = light_get_data(render_globals.flashlight_light_index);
-    
-    if (!light)
-    {
-        return;
-    }
-
-    // Move the light to the camera position
-    glm_vec3_copy(render_globals.camera.position, light->position);
-
-    // Check if the weapon is available
-    struct object_data *weapon = object_get_data(render_globals.weapon_object_index);
-
-    vec3 attachment_offset = GLM_VEC3_ZERO_INIT;
-    
-    if (weapon)
-    {
-        // Check if the weapon model is available
-        struct model_data *model = model_get_data(weapon->model_index);
-
-        if (model)
-        {
-            // Check if the weapon model has a flashlight marker
-            int flashlight_marker_index = model_find_marker_by_name(model, "flashlight.001");
-
-            if (flashlight_marker_index != -1)
-            {
-                struct model_marker *marker = model->markers + flashlight_marker_index;
-
-                if (marker->node_index != -1)
-                {
-                    mat4 node_matrix;
-                    glm_mat4_copy(weapon->animations.states[0].node_matrices[marker->node_index], node_matrix);
-
-                    vec4 node_translation;
-                    mat4 node_rotation_matrix;
-                    vec3 node_position;
-                    vec3 node_rotation;
-                    vec3 node_scale;
-                    glm_decompose(node_matrix, node_translation, node_rotation_matrix, node_scale);
-                    glm_vec3_copy(*(vec3 *)&node_translation, node_position);
-                    glm_euler_angles(node_rotation_matrix, node_rotation);
-
-                    vec3 node_offset = { node_position[0], node_position[2], node_position[1] };
-                    glm_vec3_mul(node_offset, weapon->scale, node_offset);
-                    glm_vec3_add(attachment_offset, node_offset, attachment_offset);
-                }
-
-                vec3 marker_offset = { marker->position[0], marker->position[2], marker->position[1] };
-                glm_vec3_mul(marker_offset, weapon->scale, marker_offset);
-
-                glm_vec3_add(attachment_offset, marker_offset, attachment_offset);
-            }
-        }
-    }
-
-    // TODO: project the offset in the camera direction...
-    glm_vec3_add(light->position, attachment_offset, light->position);
-
-    glm_vec3_copy(render_globals.camera.forward, light->direction);
 }
 
 static void render_frame(void)
