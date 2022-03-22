@@ -16,6 +16,17 @@ enum model_animation_state_flags
 
 /* ---------- structures */
 
+struct animation_node_state
+{
+    vec3 position;
+    vec4 rotation;
+    vec3 scale;
+    mat4 parent_transform;
+    mat4 local_transform;
+    mat4 global_transform;
+    mat4 final_transform;
+};
+
 struct animation_state
 {
     unsigned int flags;
@@ -23,7 +34,7 @@ struct animation_state
     float time;
     float speed;
 
-    mat4 *node_matrices;
+    struct animation_node_state *node_states;
 };
 
 struct animation_manager
@@ -31,6 +42,7 @@ struct animation_manager
     int model_index;
     unsigned int *active_animations_bit_vector;
     struct animation_state *states;
+    mat4 *blended_node_matrices;
 };
 
 /* ---------- prototypes/ANIMATION_MANAGER.C */

@@ -1344,7 +1344,7 @@ static void render_object(int shader_index, int object_index)
                     continue;
                 
                 struct animation_state *animation_state = object->animations.states + animation_index;
-                glm_mat4_mul(animation_state->node_matrices[node_index], node_matrix, node_matrix);
+                glm_mat4_mul(animation_state->node_states[node_index].final_transform, node_matrix, node_matrix);
                 
                 transform_count++;
             }

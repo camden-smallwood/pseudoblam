@@ -16,11 +16,13 @@ ANIMATION_MANAGER.C
 
 static void animation_manager_update_animation(
     struct animation_manager *manager,
+    struct model_data *model,
     int animation_index,
     float delta_ticks);
 
 static void animation_manager_compute_node_matrices(
     struct animation_manager *manager,
+    struct model_data *model,
     int animation_index,
     int node_index,
     mat4 transform);
@@ -44,6 +46,7 @@ void animation_manager_initialize(
     manager->model_index = model_index;
     assert(manager->active_animations_bit_vector = calloc(BIT_VECTOR_LENGTH_IN_WORDS(model->animation_count), sizeof(unsigned int)));
     assert(manager->states = calloc(model->animation_count, sizeof(*manager->states)));
+    assert(manager->blended_node_matrices = calloc(model->node_count, sizeof(*manager->blended_node_matrices)));
     
     for (int state_index = 0; state_index < model->animation_count; state_index++)
     {
@@ -52,7 +55,7 @@ void animation_manager_initialize(
         state->time = 0.0f;
         state->speed = 1.0f;
 
-        assert(state->node_matrices = calloc(model->node_count, sizeof(*state->node_matrices)));
+        assert(state->node_states = calloc(model->node_count, sizeof(*state->node_states)));
     }
 }
 
@@ -67,10 +70,12 @@ void animation_manager_dispose(
     for (int state_index = 0; state_index < model->animation_count; state_index++)
     {
         struct animation_state *state = manager->states + state_index;
-        free(state->node_matrices);
+        free(state->node_states);
     }
 
+    free(manager->active_animations_bit_vector);
     free(manager->states);
+    free(manager->blended_node_matrices);
 }
 
 void animation_manager_update(
@@ -85,7 +90,7 @@ void animation_manager_update(
     {
         for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
         {
-            animation_manager_update_animation(manager, animation_index, delta_ticks);
+            animation_manager_update_animation(manager, model, animation_index, delta_ticks);
         }
     }
 }
@@ -170,10 +175,10 @@ void animation_manager_set_animation_state_speed(
 
 static void animation_manager_update_animation(
     struct animation_manager *manager,
+    struct model_data *model,
     int animation_index,
     float delta_ticks)
-{   
-    struct model_data *model = model_get_data(manager->model_index);
+{
     int root_node_index = model_find_root_node(model);
 
     struct model_animation *animation = model->animations + animation_index;
@@ -194,19 +199,22 @@ static void animation_manager_update_animation(
         }
     }
     
-    animation_manager_compute_node_matrices(manager, animation_index, root_node_index, GLM_MAT4_IDENTITY);
+    animation_manager_compute_node_matrices(manager, model, animation_index, root_node_index, GLM_MAT4_IDENTITY);
 }
 
 static void animation_manager_compute_node_matrices(
     struct animation_manager *manager,
+    struct model_data *model,
     int animation_index,
     int node_index,
     mat4 parent_transform)
 {
-    struct model_data *model = model_get_data(manager->model_index);
     struct model_node *node = model->nodes + node_index;
     struct model_animation *animation = model->animations + animation_index;
     struct animation_state *state = manager->states + animation_index;
+    struct animation_node_state *node_state = state->node_states + node_index;
+
+    glm_mat4_copy(parent_transform, node_state->parent_transform);
     
     int key_count = 0;
     mat4 position_matrix = GLM_MAT4_IDENTITY_INIT;
@@ -351,22 +359,20 @@ static void animation_manager_compute_node_matrices(
         }
     }
     
-    mat4 node_transform;
-    glm_mat4_mul(position_matrix, rotation_matrix, node_transform);
-    glm_mat4_mul(node_transform, scaling_matrix, node_transform);
+    glm_mat4_mul(position_matrix, rotation_matrix, node_state->local_transform);
+    glm_mat4_mul(node_state->local_transform, scaling_matrix, node_state->local_transform);
     
     if (!key_count)
-        glm_mat4_copy(node->transform, node_transform);
+        glm_mat4_copy(node->transform, node_state->local_transform);
 
-    mat4 global_transform;
-    glm_mat4_mul(parent_transform, node_transform, global_transform);
+    glm_mat4_mul(parent_transform, node_state->local_transform, node_state->global_transform);
 
-    glm_mat4_mul(global_transform, node->offset_matrix, state->node_matrices[node_index]);
+    glm_mat4_mul(node_state->global_transform, node->offset_matrix, node_state->final_transform);
 
     for (int child_node_index = node->first_child_index;
         child_node_index != -1;
         child_node_index = model->nodes[child_node_index].next_sibling_index)
     {
-        animation_manager_compute_node_matrices(manager, animation_index, child_node_index, global_transform);
+        animation_manager_compute_node_matrices(manager, model, animation_index, child_node_index, node_state->global_transform);
     }
 }
