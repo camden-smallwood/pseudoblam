@@ -8,6 +8,7 @@ OBJECTS.H
 #include <cglm/cglm.h>
 
 #include "models/models.h"
+#include "animations/animation_manager.h"
 
 /* ---------- constants */
 
@@ -29,7 +30,7 @@ struct object_data
     vec3 scale;
 
     int model_index;
-    struct model_animation_manager animations;
+    struct animation_manager animations;
     mat4 node_matrices[MAXIMUM_NUMBER_OF_MODEL_NODES];
 };
 

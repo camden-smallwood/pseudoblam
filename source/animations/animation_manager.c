@@ -1,6 +1,6 @@
 /*
-MODEL_ANIMATIONS.C
-    Model animation management.
+ANIMATION_MANAGER.C
+    Animation management code.
 */
 
 #include <assert.h>
@@ -10,24 +10,25 @@ MODEL_ANIMATIONS.C
 
 #include "common/common.h"
 #include "models/models.h"
+#include "animations/animation_manager.h"
 
 /* ---------- private prototypes */
 
-static void model_animation_update(
-    struct model_animation_manager *manager,
+static void animation_manager_update_animation(
+    struct animation_manager *manager,
     int animation_index,
     float delta_ticks);
 
-static void model_animation_compute_node_matrices(
-    struct model_animation_manager *manager,
+static void animation_manager_compute_node_matrices(
+    struct animation_manager *manager,
     int animation_index,
     int node_index,
     mat4 transform);
 
 /* ---------- public code */
 
-void model_animations_initialize(
-    struct model_animation_manager *manager,
+void animation_manager_initialize(
+    struct animation_manager *manager,
     int model_index)
 {
     assert(manager);
@@ -46,7 +47,7 @@ void model_animations_initialize(
     
     for (int state_index = 0; state_index < model->animation_count; state_index++)
     {
-        struct model_animation_state *state = manager->states + state_index;
+        struct animation_state *state = manager->states + state_index;
         
         state->time = 0.0f;
         state->speed = 1.0f;
@@ -55,8 +56,8 @@ void model_animations_initialize(
     }
 }
 
-void model_animations_dispose(
-    struct model_animation_manager *manager)
+void animation_manager_dispose(
+    struct animation_manager *manager)
 {
     assert(manager);
 
@@ -65,15 +66,32 @@ void model_animations_dispose(
 
     for (int state_index = 0; state_index < model->animation_count; state_index++)
     {
-        struct model_animation_state *state = manager->states + state_index;
+        struct animation_state *state = manager->states + state_index;
         free(state->node_matrices);
     }
 
     free(manager->states);
 }
 
-void model_set_animation_flags(
-    struct model_animation_manager *manager,
+void animation_manager_update(
+    struct animation_manager *manager,
+    float delta_ticks)
+{
+    assert(manager);
+
+    struct model_data *model = model_get_data(manager->model_index);
+
+    if (model)
+    {
+        for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
+        {
+            animation_manager_update_animation(manager, animation_index, delta_ticks);
+        }
+    }
+}
+
+void animation_manager_set_animation_flags(
+    struct animation_manager *manager,
     int animation_index,
     unsigned int flags)
 {
@@ -87,8 +105,8 @@ void model_set_animation_flags(
     manager->states[animation_index].flags = flags;
 }
 
-bool model_animation_is_active(
-    struct model_animation_manager *manager,
+bool animation_manager_is_animation_active(
+    struct animation_manager *manager,
     int animation_index)
 {
     assert(manager);
@@ -105,8 +123,8 @@ bool model_animation_is_active(
     return BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index) != 0;
 }
 
-void model_set_animation_active(
-    struct model_animation_manager *manager,
+void animation_manager_set_animation_active(
+    struct animation_manager *manager,
     int animation_index,
     bool active)
 {
@@ -122,8 +140,8 @@ void model_set_animation_active(
     manager->states[animation_index].time = 0.0f;
 }
 
-void model_set_animation_time(
-    struct model_animation_manager *manager,
+void animation_manager_set_animation_state_time(
+    struct animation_manager *manager,
     int animation_index,
     float time)
 {
@@ -135,8 +153,8 @@ void model_set_animation_time(
     manager->states[animation_index].time = time;
 }
 
-void model_set_animation_speed(
-    struct model_animation_manager *manager,
+void animation_manager_set_animation_state_speed(
+    struct animation_manager *manager,
     int animation_index,
     float speed)
 {
@@ -148,27 +166,10 @@ void model_set_animation_speed(
     manager->states[animation_index].speed = speed;
 }
 
-void model_animations_update(
-    struct model_animation_manager *manager,
-    float delta_ticks)
-{
-    assert(manager);
-
-    struct model_data *model = model_get_data(manager->model_index);
-
-    if (model)
-    {
-        for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
-        {
-            model_animation_update(manager, animation_index, delta_ticks);
-        }
-    }
-}
-
 /* ---------- private code */
 
-static void model_animation_update(
-    struct model_animation_manager *manager,
+static void animation_manager_update_animation(
+    struct animation_manager *manager,
     int animation_index,
     float delta_ticks)
 {   
@@ -176,7 +177,7 @@ static void model_animation_update(
     int root_node_index = model_find_root_node(model);
 
     struct model_animation *animation = model->animations + animation_index;
-    struct model_animation_state *state = manager->states + animation_index;
+    struct animation_state *state = manager->states + animation_index;
     
     if (BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index))
     {
@@ -193,11 +194,11 @@ static void model_animation_update(
         }
     }
     
-    model_animation_compute_node_matrices(manager, animation_index, root_node_index, GLM_MAT4_IDENTITY);
+    animation_manager_compute_node_matrices(manager, animation_index, root_node_index, GLM_MAT4_IDENTITY);
 }
 
-static void model_animation_compute_node_matrices(
-    struct model_animation_manager *manager,
+static void animation_manager_compute_node_matrices(
+    struct animation_manager *manager,
     int animation_index,
     int node_index,
     mat4 parent_transform)
@@ -205,7 +206,7 @@ static void model_animation_compute_node_matrices(
     struct model_data *model = model_get_data(manager->model_index);
     struct model_node *node = model->nodes + node_index;
     struct model_animation *animation = model->animations + animation_index;
-    struct model_animation_state *state = manager->states + animation_index;
+    struct animation_state *state = manager->states + animation_index;
     
     int key_count = 0;
     mat4 position_matrix = GLM_MAT4_IDENTITY_INIT;
@@ -366,6 +367,6 @@ static void model_animation_compute_node_matrices(
         child_node_index != -1;
         child_node_index = model->nodes[child_node_index].next_sibling_index)
     {
-        model_animation_compute_node_matrices(manager, animation_index, child_node_index, global_transform);
+        animation_manager_compute_node_matrices(manager, animation_index, child_node_index, global_transform);
     }
 }

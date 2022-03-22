@@ -25,7 +25,7 @@ void camera_initialize(struct camera_data *camera)
     camera->near_clip = 0.01f;
     camera->far_clip = 1000.0f;
     glm_vec3_copy((vec3){3, 2, 0.7f}, camera->position);
-    glm_vec3_copy((vec2){-130, -35}, camera->rotation);
+    glm_vec2_copy((vec2){-130, -35}, camera->rotation);
     glm_vec3_copy((vec3){0, 0, 1}, camera->up);
 }
 

@@ -674,12 +674,12 @@ static void render_initialize_objects(void)
         if (iterator.index == render_globals.weapon_object_index)
         {
             int moving_animation_index = model_find_animation_by_name(iterator.data->model_index, "first_person moving");
-            model_set_animation_flags(&iterator.data->animations, moving_animation_index, BIT(_model_animation_state_looping_bit));
+            animation_manager_set_animation_flags(&iterator.data->animations, moving_animation_index, BIT(_model_animation_state_looping_bit));
         }
 
         if (iterator.index == render_globals.grunt_object_index)
         {
-            model_set_animation_flags(&iterator.data->animations, 0, BIT(_model_animation_state_looping_bit));
+            animation_manager_set_animation_flags(&iterator.data->animations, 0, BIT(_model_animation_state_looping_bit));
         }
     }
 }
@@ -692,9 +692,9 @@ static void render_update_objects(void)
 
     struct object_data *grunt_object = object_get_data(render_globals.grunt_object_index);
 
-    if (!model_animation_is_active(&grunt_object->animations, 0))
+    if (!animation_manager_is_animation_active(&grunt_object->animations, 0))
     {
-        model_set_animation_active(&grunt_object->animations, 0, true);
+        animation_manager_set_animation_active(&grunt_object->animations, 0, true);
     }
 
     // --------------------------------------------------------------------------------
@@ -704,26 +704,26 @@ static void render_update_objects(void)
     struct object_data *weapon_object = object_get_data(render_globals.weapon_object_index);
 
     int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
-    bool moving_animation_playing = model_animation_is_active(&weapon_object->animations, moving_animation_index);
+    bool moving_animation_active = animation_manager_is_animation_active(&weapon_object->animations, moving_animation_index);
 
     int ready_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person ready");
-    bool ready_animation_playing = model_animation_is_active(&weapon_object->animations, ready_animation_index);
+    bool ready_animation_active = animation_manager_is_animation_active(&weapon_object->animations, ready_animation_index);
 
     int reload_empty_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person reload_empty");
-    bool reload_empty_animation_playing = model_animation_is_active(&weapon_object->animations, reload_empty_animation_index);
+    bool reload_empty_animation_active = animation_manager_is_animation_active(&weapon_object->animations, reload_empty_animation_index);
 
     int melee_strike_1_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person melee_strike_1");
-    bool melee_strike_1_animation_playing = model_animation_is_active(&weapon_object->animations, melee_strike_1_animation_index);
+    bool melee_strike_1_animation_active = animation_manager_is_animation_active(&weapon_object->animations, melee_strike_1_animation_index);
 
     // Play the ready animation at startup if it hasn't already played
     if (!TEST_BIT(render_globals.flags, _render_played_initial_ready_animation_bit))
     {
         SET_BIT(render_globals.flags, _render_played_initial_ready_animation_bit, true);
 
-        if (moving_animation_playing) // TODO: do this right - blend, don't deactivate!
-            model_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_playing = false);
+        if (moving_animation_active) // TODO: do this right - blend, don't deactivate!
+            animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
 
-        model_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_playing = true);
+        animation_manager_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_active = true);
     }
 
     // Manual animation playback 1
@@ -735,10 +735,10 @@ static void render_update_objects(void)
     {
         SET_BIT(render_globals.flags, _render_input_1_bit, false);
 
-        if (moving_animation_playing) // TODO: do this right - blend, don't deactivate!
-            model_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_playing = false);
+        if (moving_animation_active) // TODO: do this right - blend, don't deactivate!
+            animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
 
-        model_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_playing = true);
+        animation_manager_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_active = true);
     }
 
     // Manual animation playback 2
@@ -750,10 +750,10 @@ static void render_update_objects(void)
     {
         SET_BIT(render_globals.flags, _render_input_2_bit, false);
 
-        if (moving_animation_playing) // TODO: do this right - blend, don't deactivate!
-            model_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_playing = false);
+        if (moving_animation_active) // TODO: do this right - blend, don't deactivate!
+            animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
 
-        model_set_animation_active(&weapon_object->animations, reload_empty_animation_index, reload_empty_animation_playing = true);
+        animation_manager_set_animation_active(&weapon_object->animations, reload_empty_animation_index, reload_empty_animation_active = true);
     }
 
     // Manual animation playback 3
@@ -765,16 +765,16 @@ static void render_update_objects(void)
     {
         SET_BIT(render_globals.flags, _render_input_3_bit, false);
 
-        if (moving_animation_playing) // TODO: do this right - blend, don't deactivate!
-            model_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_playing = false);
+        if (moving_animation_active) // TODO: do this right - blend, don't deactivate!
+            animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
 
-        model_set_animation_active(&weapon_object->animations, melee_strike_1_animation_index, melee_strike_1_animation_playing = true);
+        animation_manager_set_animation_active(&weapon_object->animations, melee_strike_1_animation_index, melee_strike_1_animation_active = true);
     }
 
     // TODO: do this right - blend, don't deactivate!
-    if (!moving_animation_playing && !ready_animation_playing && !reload_empty_animation_playing && !melee_strike_1_animation_playing)
+    if (!moving_animation_active && !ready_animation_active && !reload_empty_animation_active && !melee_strike_1_animation_active)
     {
-        model_set_animation_active(&weapon_object->animations, moving_animation_index, true);
+        animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, true);
     }
 }
 
@@ -807,80 +807,93 @@ static void render_update_input(float delta_ticks)
     glm_vec2_scale(mouse_motion, render_globals.camera_look_sensitivity, mouse_motion);
     glm_vec2_add(render_globals.camera.rotation, mouse_motion, render_globals.camera.rotation);
 
-    vec3 movement = GLM_VEC3_ZERO_INIT;
+    vec3 forward_movement = GLM_VEC3_ZERO_INIT;
 
-    // Forwards and backwards camera movement
+    // Forwards and backwards camera forward_movement
     if (input_is_key_down(SDL_SCANCODE_W) && !input_is_key_down(SDL_SCANCODE_S))
     {
-        glm_vec3_normalize_to(render_globals.camera.forward, movement);
-        glm_vec3_abs(movement, movement);
+        glm_vec3_normalize_to(render_globals.camera.forward, forward_movement);
+        glm_vec3_abs(forward_movement, forward_movement);
         glm_vec3_scale(
             render_globals.camera.forward,
-            (movement[0] > movement[1] && movement[0] > movement[2]) ? 1.0f / movement[0] :
-            (movement[1] > movement[0] && movement[1] > movement[2]) ? 1.0f / movement[1] :
-            (movement[2] > movement[0] && movement[2] > movement[1]) ? 1.0f / movement[2] :
+            (forward_movement[0] > forward_movement[1] && forward_movement[0] > forward_movement[2]) ? 1.0f / forward_movement[0] :
+            (forward_movement[1] > forward_movement[0] && forward_movement[1] > forward_movement[2]) ? 1.0f / forward_movement[1] :
+            (forward_movement[2] > forward_movement[0] && forward_movement[2] > forward_movement[1]) ? 1.0f / forward_movement[2] :
             1.0f,
-            movement);
+            forward_movement);
         
-        // Apply forwards movement speed
-        glm_vec3_scale(movement, 2.25f, movement);
+        // Apply forwards forward_movement speed
+        glm_vec3_scale(forward_movement, 2.25f, forward_movement);
     }
     else if (input_is_key_down(SDL_SCANCODE_S) && !input_is_key_down(SDL_SCANCODE_W))
     {
-        glm_vec3_normalize_to(render_globals.camera.forward, movement);
-        glm_vec3_abs(movement, movement);
+        glm_vec3_normalize_to(render_globals.camera.forward, forward_movement);
+        glm_vec3_abs(forward_movement, forward_movement);
         glm_vec3_scale(
             render_globals.camera.forward,
-            (movement[0] > movement[1] && movement[0] > movement[2]) ? 1.0f / movement[0] :
-            (movement[1] > movement[0] && movement[1] > movement[2]) ? 1.0f / movement[1] :
-            (movement[2] > movement[0] && movement[2] > movement[1]) ? 1.0f / movement[2] :
+            (forward_movement[0] > forward_movement[1] && forward_movement[0] > forward_movement[2]) ? 1.0f / forward_movement[0] :
+            (forward_movement[1] > forward_movement[0] && forward_movement[1] > forward_movement[2]) ? 1.0f / forward_movement[1] :
+            (forward_movement[2] > forward_movement[0] && forward_movement[2] > forward_movement[1]) ? 1.0f / forward_movement[2] :
             1.0f,
-            movement);
+            forward_movement);
         
-        // Apply backwards movement speed
-        glm_vec3_scale(movement, -2.0f, movement);
+        // Apply backwards forward_movement speed
+        glm_vec3_scale(forward_movement, -2.0f, forward_movement);
     }
 
-    // Sideways camera movement
+    // Clamp camera forward_movement to ground plane
+    forward_movement[2] = 0.0f;
+
+    vec3 sideways_movement = GLM_VEC3_ZERO_INIT;
+
+    // Sideways camera sideways_movement
     if (input_is_key_down(SDL_SCANCODE_A) && !input_is_key_down(SDL_SCANCODE_D))
     {
-        glm_vec3_normalize_to(render_globals.camera.right, movement);
-        glm_vec3_abs(movement, movement);
+        glm_vec3_normalize_to(render_globals.camera.right, sideways_movement);
+        glm_vec3_abs(sideways_movement, sideways_movement);
         glm_vec3_scale(
             render_globals.camera.right,
-            (movement[0] > movement[1] && movement[0] > movement[2]) ? 1.0f / movement[0] :
-            (movement[1] > movement[0] && movement[1] > movement[2]) ? 1.0f / movement[1] :
-            (movement[2] > movement[0] && movement[2] > movement[1]) ? 1.0f / movement[2] :
+            (sideways_movement[0] > sideways_movement[1] && sideways_movement[0] > sideways_movement[2]) ? 1.0f / sideways_movement[0] :
+            (sideways_movement[1] > sideways_movement[0] && sideways_movement[1] > sideways_movement[2]) ? 1.0f / sideways_movement[1] :
+            (sideways_movement[2] > sideways_movement[0] && sideways_movement[2] > sideways_movement[1]) ? 1.0f / sideways_movement[2] :
             1.0f,
-            movement);
+            sideways_movement);
         
-        // Apply sideways movement speed
-        glm_vec3_scale(movement, 2.0f, movement);
+        // Apply sideways sideways_movement speed
+        glm_vec3_scale(sideways_movement, 2.0f, sideways_movement);
     }
     else if (input_is_key_down(SDL_SCANCODE_D) && !input_is_key_down(SDL_SCANCODE_A))
     {
-        glm_vec3_normalize_to(render_globals.camera.right, movement);
-        glm_vec3_abs(movement, movement);
+        glm_vec3_normalize_to(render_globals.camera.right, sideways_movement);
+        glm_vec3_abs(sideways_movement, sideways_movement);
         glm_vec3_scale(
             render_globals.camera.right,
-            (movement[0] > movement[1] && movement[0] > movement[2]) ? 1.0f / movement[0] :
-            (movement[1] > movement[0] && movement[1] > movement[2]) ? 1.0f / movement[1] :
-            (movement[2] > movement[0] && movement[2] > movement[1]) ? 1.0f / movement[2] :
+            (sideways_movement[0] > sideways_movement[1] && sideways_movement[0] > sideways_movement[2]) ? 1.0f / sideways_movement[0] :
+            (sideways_movement[1] > sideways_movement[0] && sideways_movement[1] > sideways_movement[2]) ? 1.0f / sideways_movement[1] :
+            (sideways_movement[2] > sideways_movement[0] && sideways_movement[2] > sideways_movement[1]) ? 1.0f / sideways_movement[2] :
             1.0f,
-            movement);
+            sideways_movement);
         
-        // Apply sideways movement speed
-        glm_vec3_scale(movement, -2.0f, movement);
+        // Apply sideways sideways_movement speed
+        glm_vec3_scale(sideways_movement, -2.0f, sideways_movement);
     }
     
-    // Clamp camera movement to ground plane
-    movement[2] = 0.0f;
+    // Clamp camera sideways_movement to ground plane
+    sideways_movement[2] = 0.0f;
 
-    // Vertical camera movement
+    vec3 vertical_movement = GLM_VEC3_ZERO_INIT;
+
+    // Vertical camera vertical_movement
     if (input_is_key_down(SDL_SCANCODE_R) && !input_is_key_down(SDL_SCANCODE_F))
-        glm_vec3_add(movement, (vec3){0, 0, 2}, movement);
+        glm_vec3_add(vertical_movement, (vec3){0, 0, 2}, vertical_movement);
     else if (input_is_key_down(SDL_SCANCODE_F) && !input_is_key_down(SDL_SCANCODE_R))
-        glm_vec3_sub(movement, (vec3){0, 0, 2}, movement);
+        glm_vec3_sub(vertical_movement, (vec3){0, 0, 2}, vertical_movement);
+
+    vec3 movement;
+    glm_vec3_mix(forward_movement, sideways_movement, 0.5f, movement);
+    glm_vec3_scale(movement, 2.0f, movement);
+    glm_vec3_mix(vertical_movement, movement, 0.5f, movement);
+    glm_vec3_scale(movement, 2.0f, movement);
 
     // Double movement amount if either shift key is down
     if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
@@ -903,14 +916,9 @@ static void render_update_input(float delta_ticks)
 
     if (weapon_object)
     {
-        int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
-
-        // // Reset the walking animation when camera movement stops
-        // if (movement_amount == 0.0f)
-        //     model_set_animation_time(&weapon_object->animations, moving_animation_index, 0.0f);
-        
         // Play the walking animation as fast as the camera is moving
-        model_set_animation_speed(&weapon_object->animations, moving_animation_index, movement_amount);
+        int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
+        animation_manager_set_animation_state_speed(&weapon_object->animations, moving_animation_index, movement_amount);
 
         // Move the view model to the camera position + camera velocity
         glm_vec3_copy(render_globals.camera.position, weapon_object->position);
@@ -1335,7 +1343,7 @@ static void render_object(int shader_index, int object_index)
                 if (!BIT_VECTOR_TEST_BIT(object->animations.active_animations_bit_vector, animation_index))
                     continue;
                 
-                struct model_animation_state *animation_state = object->animations.states + animation_index;
+                struct animation_state *animation_state = object->animations.states + animation_index;
                 glm_mat4_mul(animation_state->node_matrices[node_index], node_matrix, node_matrix);
                 
                 transform_count++;

@@ -44,7 +44,7 @@ void objects_update(float delta_ticks)
     {
         struct object_data *object = iterator.data;
 
-        model_animations_update(&object->animations, delta_ticks);
+        animation_manager_update(&object->animations, delta_ticks);
         // TODO: compute node transforms from position/rotation/scale/animations
     }
 }
@@ -74,7 +74,7 @@ void object_delete(int object_index)
     struct object_data *object = object_get_data(object_index);
     assert(object);
 
-    model_animations_dispose(&object->animations);
+    animation_manager_dispose(&object->animations);
 }
 
 void object_initialize(int object_index)
@@ -87,7 +87,7 @@ void object_initialize(int object_index)
     struct object_data *object = object_get_data(object_index);
     assert(object);
 
-    model_animations_initialize(&object->animations, object->model_index);
+    animation_manager_initialize(&object->animations, object->model_index);
 }
 
 struct object_data *object_get_data(int object_index)
