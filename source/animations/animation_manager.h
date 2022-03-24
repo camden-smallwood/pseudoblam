@@ -9,9 +9,9 @@ ANIMATION_MANAGER.H
 
 /* ---------- constants */
 
-enum model_animation_state_flags
+enum animation_state_flags
 {
-    _model_animation_state_looping_bit,
+    _animation_state_looping_bit,
 };
 
 /* ---------- structures */
@@ -40,8 +40,12 @@ struct animation_state
 struct animation_manager
 {
     int model_index;
+
+    int active_animation_count;
     unsigned int *active_animations_bit_vector;
+
     struct animation_state *states;
+    
     mat4 *blended_node_matrices;
 };
 

@@ -522,12 +522,37 @@ static void render_initialize_scene(void)
     glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, grunt->scale);
     grunt->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
 
-    int light_index = light_new();
-    struct light_data *light = light_get_data(light_index);
+    int light_index;
+    struct light_data *light;
+
+    light_index = light_new();
+    light = light_get_data(light_index);
     light->type = _light_type_point;
     glm_vec3_copy((vec3){-2.0f, -1.0f, 20.0f}, light->position);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.0f;
+    light->linear = 0.009f;
+    light->quadratic = 0.0032f;
+
+    light_index = light_new();
+    light = light_get_data(light_index);
+    light->type = _light_type_point;
+    glm_vec3_copy((vec3){4.0f, 2.0f, 30.0f}, light->position);
+    glm_vec3_copy((vec3){1.0f, 0.2f, 0.1f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.5f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.0f;
+    light->linear = 0.009f;
+    light->quadratic = 0.0032f;
+
+    light_index = light_new();
+    light = light_get_data(light_index);
+    light->type = _light_type_point;
+    glm_vec3_copy((vec3){-6.0f, 17.0f, 7.0f}, light->position);
+    glm_vec3_copy((vec3){0.25f, 0.4f, 1.0f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.5f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.009f;
@@ -674,12 +699,12 @@ static void render_initialize_objects(void)
         if (iterator.index == render_globals.weapon_object_index)
         {
             int moving_animation_index = model_find_animation_by_name(iterator.data->model_index, "first_person moving");
-            animation_manager_set_animation_flags(&iterator.data->animations, moving_animation_index, BIT(_model_animation_state_looping_bit));
+            animation_manager_set_animation_flags(&iterator.data->animations, moving_animation_index, BIT(_animation_state_looping_bit));
         }
 
         if (iterator.index == render_globals.grunt_object_index)
         {
-            animation_manager_set_animation_flags(&iterator.data->animations, 0, BIT(_model_animation_state_looping_bit));
+            animation_manager_set_animation_flags(&iterator.data->animations, 0, BIT(_animation_state_looping_bit));
         }
     }
 }

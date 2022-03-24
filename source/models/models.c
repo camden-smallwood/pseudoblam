@@ -88,7 +88,7 @@ int model_iterator_next(struct model_iterator *iterator)
     return model_index;
 }
 
-int model_find_root_node(
+int model_get_root_node(
     struct model_data *model)
 {
     assert(model);
@@ -188,7 +188,7 @@ int model_find_animation_by_name(
 
     for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
     {
-        struct model_animation *animation = model->animations + animation_index;
+        struct animation_data *animation = model->animations + animation_index;
 
         if (strcmp(animation_name, animation->name) == 0)
             return animation_index;

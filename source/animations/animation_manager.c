@@ -10,6 +10,7 @@ ANIMATION_MANAGER.C
 
 #include "common/common.h"
 #include "models/models.h"
+#include "animations/animation_data.h"
 #include "animations/animation_manager.h"
 
 /* ---------- private prototypes */
@@ -139,8 +140,9 @@ void animation_manager_set_animation_active(
     assert(model);
 
     assert(animation_index >= 0 && animation_index < model->animation_count);
+    
     BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, active);
-    assert((BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index) ? true : false) == active);
+    manager->active_animation_count += active ? 1 : -1;
 
     manager->states[animation_index].time = 0.0f;
 }
@@ -179,16 +181,16 @@ static void animation_manager_update_animation(
     int animation_index,
     float delta_ticks)
 {
-    int root_node_index = model_find_root_node(model);
+    int root_node_index = model_get_root_node(model);
 
-    struct model_animation *animation = model->animations + animation_index;
+    struct animation_data *animation = model->animations + animation_index;
     struct animation_state *state = manager->states + animation_index;
     
     if (BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index))
     {
         state->time += (animation->ticks_per_second * state->speed) * delta_ticks;
 
-        if (TEST_BIT(state->flags, _model_animation_state_looping_bit))
+        if (TEST_BIT(state->flags, _animation_state_looping_bit))
         {
             state->time = fmodf(state->time, animation->duration);
         }
@@ -196,6 +198,7 @@ static void animation_manager_update_animation(
         {
             state->time = 0.0f;
             BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, 0);
+            assert(manager->active_animation_count--);
         }
     }
     
@@ -210,7 +213,7 @@ static void animation_manager_compute_node_matrices(
     mat4 parent_transform)
 {
     struct model_node *node = model->nodes + node_index;
-    struct model_animation *animation = model->animations + animation_index;
+    struct animation_data *animation = model->animations + animation_index;
     struct animation_state *state = manager->states + animation_index;
     struct animation_node_state *node_state = state->node_states + node_index;
 
@@ -223,139 +226,121 @@ static void animation_manager_compute_node_matrices(
 
     for (int channel_index = 0; channel_index < animation->channel_count; channel_index++)
     {
-        struct model_animation_channel *channel = animation->channels + channel_index;
-        
-        switch (channel->type)
+        struct animation_channel *channel = animation->channels + channel_index;
+        assert(channel->type == _animation_channel_type_node);
+
+        if (channel->node_index != node_index)
+            continue;
+
+        if (channel->position_key_count == 1)
         {
-        case _model_animation_channel_type_node:
-            if (channel->node_index == node_index)
+            mat4 current_position_matrix;
+            glm_mat4_identity(current_position_matrix);
+            glm_translate(current_position_matrix, channel->position_keys[0].position);
+            glm_mat4_mul(position_matrix, current_position_matrix, position_matrix);
+            key_count++;
+        }
+        else
+        {
+            for (int position_key_index = 0; position_key_index < channel->position_key_count; position_key_index++)
             {
-                if (channel->position_key_count == 1)
+                struct animation_position_key *position_key = channel->position_keys + position_key_index;
+
+                int next_position_key_index = position_key_index + 1;
+                if (next_position_key_index >= channel->position_key_count)
+                    next_position_key_index = 0;
+                
+                struct animation_position_key *next_position_key = channel->position_keys + next_position_key_index;
+
+                if (state->time < position_key->time)
                 {
+                    float scale_factor = (state->time - position_key->time) / (next_position_key->time - position_key->time);
+
+                    vec3 interpolated_position;
+                    glm_vec3_mix(position_key->position, next_position_key->position, scale_factor, interpolated_position);
+
                     mat4 current_position_matrix;
                     glm_mat4_identity(current_position_matrix);
-                    glm_translate(current_position_matrix, channel->position_keys[0].position);
+                    glm_translate(current_position_matrix, interpolated_position);
                     glm_mat4_mul(position_matrix, current_position_matrix, position_matrix);
                     key_count++;
-                }
-                else
-                {
-                    for (int position_key_index = 0; position_key_index < channel->position_key_count; position_key_index++)
-                    {
-                        struct model_animation_position_key *position_key = channel->position_keys + position_key_index;
-
-                        int next_position_key_index = position_key_index + 1;
-                        if (next_position_key_index >= channel->position_key_count)
-                            next_position_key_index = 0;
-                        
-                        struct model_animation_position_key *next_position_key = channel->position_keys + next_position_key_index;
-
-                        if (state->time < position_key->time)
-                        {
-                            float scale_factor = (state->time - position_key->time) / (next_position_key->time - position_key->time);
-
-                            vec3 interpolated_position;
-                            glm_vec3_mix(position_key->position, next_position_key->position, scale_factor, interpolated_position);
-
-                            mat4 current_position_matrix;
-                            glm_mat4_identity(current_position_matrix);
-                            glm_translate(current_position_matrix, interpolated_position);
-                            glm_mat4_mul(position_matrix, current_position_matrix, position_matrix);
-                            key_count++;
-                            break;
-                        }
-                    }
-                }
-
-                if (channel->rotation_key_count == 1)
-                {
-                    mat4 current_rotation_matrix;
-                    glm_mat4_identity(current_rotation_matrix);
-                    glm_quat_mat4(channel->rotation_keys[0].rotation, current_rotation_matrix);
-                    glm_mat4_mul(rotation_matrix, current_rotation_matrix, rotation_matrix);
-                    key_count++;
-                }
-                else
-                {
-                    for (int rotation_key_index = 0; rotation_key_index < channel->rotation_key_count; rotation_key_index++)
-                    {
-                        struct model_animation_rotation_key *rotation_key = channel->rotation_keys + rotation_key_index;
-
-                        int next_rotation_key_index = rotation_key_index + 1;
-                        if (next_rotation_key_index >= channel->rotation_key_count)
-                            next_rotation_key_index = 0;
-                        
-                        struct model_animation_rotation_key *next_rotation_key = channel->rotation_keys + next_rotation_key_index;
-
-                        if (state->time < rotation_key->time)
-                        {
-                            float scale_factor = (state->time - rotation_key->time) / (next_rotation_key->time - rotation_key->time);
-
-                            vec4 interpolated_rotation;
-                            glm_quat_slerp(rotation_key->rotation, next_rotation_key->rotation, scale_factor, interpolated_rotation);
-
-                            mat4 current_rotation_matrix;
-                            glm_mat4_identity(current_rotation_matrix);
-                            glm_quat_mat4(interpolated_rotation, current_rotation_matrix);
-                            glm_mat4_mul(rotation_matrix, current_rotation_matrix, rotation_matrix);
-                            key_count++;
-                            break;
-                        }
-                    }
-                }
-
-                if (channel->scaling_key_count == 1)
-                {
-                    mat4 current_scaling_matrix;
-                    glm_mat4_identity(current_scaling_matrix);
-                    glm_scale(current_scaling_matrix, channel->scaling_keys[0].scaling);
-                    glm_mat4_mul(scaling_matrix, current_scaling_matrix, scaling_matrix);
-                    key_count++;
-                }
-                else
-                {
-                    for (int scaling_key_index = 0; scaling_key_index < channel->scaling_key_count; scaling_key_index++)
-                    {
-                        struct model_animation_scaling_key *scaling_key = channel->scaling_keys + scaling_key_index;
-
-                        int next_scaling_key_index = scaling_key_index + 1;
-                        if (next_scaling_key_index >= channel->scaling_key_count)
-                            next_scaling_key_index = 0;
-                        
-                        struct model_animation_scaling_key *next_scaling_key = channel->scaling_keys + next_scaling_key_index;
-
-                        if (state->time < scaling_key->time)
-                        {
-                            float scale_factor = (state->time - scaling_key->time) / (next_scaling_key->time - scaling_key->time);
-
-                            vec3 interpolated_scaling;
-                            glm_vec3_mix(scaling_key->scaling, next_scaling_key->scaling, scale_factor, interpolated_scaling);
-
-                            mat4 current_scaling_matrix;
-                            glm_mat4_identity(current_scaling_matrix);
-                            glm_scale(current_scaling_matrix, interpolated_scaling);
-                            glm_mat4_mul(scaling_matrix, current_scaling_matrix, scaling_matrix);
-                            key_count++;
-                            break;
-                        }
-                    }
+                    break;
                 }
             }
-            break;
-        
-        case _model_animation_channel_type_mesh:
-            // TODO: implement
-            fprintf(stderr, "ERROR: mesh channel animations not implemented\n");
-            exit(EXIT_FAILURE);
-        
-        case _model_animation_channel_type_morph:
-            // TODO: implement
-            fprintf(stderr, "ERROR: morph channel animations not implemented\n");
-            exit(EXIT_FAILURE);
-        
-        default:
-            fprintf(stderr, "ERROR: unhandled animation channel type %i\n", channel->type);
-            exit(EXIT_FAILURE);
+        }
+
+        if (channel->rotation_key_count == 1)
+        {
+            mat4 current_rotation_matrix;
+            glm_mat4_identity(current_rotation_matrix);
+            glm_quat_mat4(channel->rotation_keys[0].rotation, current_rotation_matrix);
+            glm_mat4_mul(rotation_matrix, current_rotation_matrix, rotation_matrix);
+            key_count++;
+        }
+        else
+        {
+            for (int rotation_key_index = 0; rotation_key_index < channel->rotation_key_count; rotation_key_index++)
+            {
+                struct animation_rotation_key *rotation_key = channel->rotation_keys + rotation_key_index;
+
+                int next_rotation_key_index = rotation_key_index + 1;
+                if (next_rotation_key_index >= channel->rotation_key_count)
+                    next_rotation_key_index = 0;
+                
+                struct animation_rotation_key *next_rotation_key = channel->rotation_keys + next_rotation_key_index;
+
+                if (state->time < rotation_key->time)
+                {
+                    float scale_factor = (state->time - rotation_key->time) / (next_rotation_key->time - rotation_key->time);
+
+                    vec4 interpolated_rotation;
+                    glm_quat_slerp(rotation_key->rotation, next_rotation_key->rotation, scale_factor, interpolated_rotation);
+
+                    mat4 current_rotation_matrix;
+                    glm_mat4_identity(current_rotation_matrix);
+                    glm_quat_mat4(interpolated_rotation, current_rotation_matrix);
+                    glm_mat4_mul(rotation_matrix, current_rotation_matrix, rotation_matrix);
+                    key_count++;
+                    break;
+                }
+            }
+        }
+
+        if (channel->scaling_key_count == 1)
+        {
+            mat4 current_scaling_matrix;
+            glm_mat4_identity(current_scaling_matrix);
+            glm_scale(current_scaling_matrix, channel->scaling_keys[0].scaling);
+            glm_mat4_mul(scaling_matrix, current_scaling_matrix, scaling_matrix);
+            key_count++;
+        }
+        else
+        {
+            for (int scaling_key_index = 0; scaling_key_index < channel->scaling_key_count; scaling_key_index++)
+            {
+                struct animation_scaling_key *scaling_key = channel->scaling_keys + scaling_key_index;
+
+                int next_scaling_key_index = scaling_key_index + 1;
+                if (next_scaling_key_index >= channel->scaling_key_count)
+                    next_scaling_key_index = 0;
+                
+                struct animation_scaling_key *next_scaling_key = channel->scaling_keys + next_scaling_key_index;
+
+                if (state->time < scaling_key->time)
+                {
+                    float scale_factor = (state->time - scaling_key->time) / (next_scaling_key->time - scaling_key->time);
+
+                    vec3 interpolated_scaling;
+                    glm_vec3_mix(scaling_key->scaling, next_scaling_key->scaling, scale_factor, interpolated_scaling);
+
+                    mat4 current_scaling_matrix;
+                    glm_mat4_identity(current_scaling_matrix);
+                    glm_scale(current_scaling_matrix, interpolated_scaling);
+                    glm_mat4_mul(scaling_matrix, current_scaling_matrix, scaling_matrix);
+                    key_count++;
+                    break;
+                }
+            }
         }
     }
     

@@ -19,7 +19,7 @@ MODEL_IMPORT.C
 #include "models/models.h"
 #include "textures/dds.h"
 
-/* ---------- code */
+/* ---------- private code */
 
 static inline char *material_get_assimp_string(
     const struct aiMaterial *in_material,
@@ -274,7 +274,7 @@ static void model_import_assimp_animation(
     const struct aiAnimation *in_animation,
     struct model_data *out_model)
 {
-    struct model_animation animation;
+    struct animation_data animation;
     memset(&animation, 0, sizeof(animation));
     
     const char *animation_name = in_animation->mName.data;
@@ -296,10 +296,10 @@ static void model_import_assimp_animation(
         if (strncmp("Armature", in_channel->mNodeName.data, in_channel->mNodeName.length) == 0)
             continue; // blender hack
 
-        struct model_animation_channel channel;
+        struct animation_channel channel;
         memset(&channel, 0, sizeof(channel));
         
-        channel.type = _model_animation_channel_type_node;
+        channel.type = _animation_channel_type_node;
         
         channel.node_index = model_find_node_by_name(out_model, in_channel->mNodeName.data);
         assert(channel.node_index != -1);
@@ -308,7 +308,7 @@ static void model_import_assimp_animation(
         {
             struct aiVectorKey *in_position_key = in_channel->mPositionKeys + position_key_index;
 
-            struct model_animation_position_key position_key =
+            struct animation_position_key position_key =
             {
                 .time = in_position_key->mTime,
                 .position =
@@ -326,7 +326,7 @@ static void model_import_assimp_animation(
         {
             struct aiQuatKey *in_rotation_key = in_channel->mRotationKeys + rotation_key_index;
 
-            struct model_animation_rotation_key rotation_key =
+            struct animation_rotation_key rotation_key =
             {
                 .time = in_rotation_key->mTime,
                 .rotation =
@@ -345,7 +345,7 @@ static void model_import_assimp_animation(
         {
             struct aiVectorKey *in_scaling_key = in_channel->mScalingKeys + scaling_key_index;
 
-            struct model_animation_scaling_key scaling_key =
+            struct animation_scaling_key scaling_key =
             {
                 .time = in_scaling_key->mTime,
                 .scaling =
@@ -366,16 +366,16 @@ static void model_import_assimp_animation(
     {
         struct aiMeshAnim *in_channel = in_animation->mMeshChannels[channel_index];
 
-        struct model_animation_channel channel;
+        struct animation_channel channel;
         memset(&channel, 0, sizeof(channel));
-        channel.type = _model_animation_channel_type_mesh;
+        channel.type = _animation_channel_type_mesh;
         channel.mesh_index = -1;
 
         for (unsigned int mesh_key_index = 0; mesh_key_index < in_channel->mNumKeys; mesh_key_index++)
         {
             struct aiMeshKey *in_mesh_key = in_channel->mKeys + mesh_key_index;
 
-            struct model_animation_mesh_key mesh_key =
+            struct animation_mesh_key mesh_key =
             {
                 .time = in_mesh_key->mTime,
                 .mesh_index = (int)in_mesh_key->mValue,
@@ -391,16 +391,16 @@ static void model_import_assimp_animation(
     {
         struct aiMeshMorphAnim *in_channel = in_animation->mMorphMeshChannels[channel_index];
 
-        struct model_animation_channel channel;
+        struct animation_channel channel;
         memset(&channel, 0, sizeof(channel));
-        channel.type = _model_animation_channel_type_morph;
+        channel.type = _animation_channel_type_morph;
         channel.mesh_index = -1;
 
         for (unsigned int morph_key_index = 0; morph_key_index < in_channel->mNumKeys; morph_key_index++)
         {
             struct aiMeshMorphKey *in_morph_key = in_channel->mKeys + morph_key_index;
 
-            struct model_animation_morph_key morph_key;
+            struct animation_morph_key morph_key;
             memset(&morph_key, 0, sizeof(morph_key));
             morph_key.time = in_morph_key->mTime;
 
@@ -664,6 +664,8 @@ static void model_import_markers_from_assimp_node(
         model_import_markers_from_assimp_node(directory_path, vertex_type, in_scene, in_node->mChildren[child_index], out_model);
     }
 }
+
+/* ---------- public code */
 
 int model_import_from_file(
     enum vertex_type vertex_type,
