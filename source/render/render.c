@@ -798,8 +798,7 @@ static void render_set_lighting_uniforms(int shader_index)
     static struct light_iterator light_iterator;
     light_iterator_new(&light_iterator);
 
-    int light_counts[NUMBER_OF_LIGHT_TYPES];
-    memset(light_counts, 0, sizeof(light_counts));
+    int light_count = 0;
 
     while (light_iterator_next(&light_iterator) != -1)
     {
@@ -807,57 +806,23 @@ static void render_set_lighting_uniforms(int shader_index)
 
         if (TEST_BIT(light->flags, _light_is_hidden_bit))
             continue;
-
-        const char *lights_array_name;
-
-        switch (light->type)
-        {
-        case _light_type_directional:
-            lights_array_name = "directional_lights";
-            break;
         
-        case _light_type_point:
-            lights_array_name = "point_lights";
-            break;
-        
-        case _light_type_spot:
-            lights_array_name = "spot_lights";
-            break;
-        
-        default:
-            fprintf(stderr, "ERROR: unhandled light type %i\n", light->type);
-            exit(EXIT_FAILURE);
-        }
+        shader_set_uint_v(shader_index, light->type, "lights[%i].type", light_count);
+        shader_set_vec3_v(shader_index, light->position, "lights[%i].position", light_count);
+        shader_set_vec3_v(shader_index, light->direction, "lights[%i].direction", light_count);
+        shader_set_vec3_v(shader_index, light->diffuse_color, "lights[%i].diffuse_color", light_count);
+        shader_set_vec3_v(shader_index, light->ambient_color, "lights[%i].ambient_color", light_count);
+        shader_set_vec3_v(shader_index, light->specular_color, "lights[%i].specular_color", light_count);
+        shader_set_float_v(shader_index, light->constant, "lights[%i].constant", light_count);
+        shader_set_float_v(shader_index, light->linear, "lights[%i].linear", light_count);
+        shader_set_float_v(shader_index, light->quadratic, "lights[%i].quadratic", light_count);
+        shader_set_float_v(shader_index, cosf(glm_rad(light->inner_cutoff)), "lights[%i].inner_cutoff", light_count);
+        shader_set_float_v(shader_index, cosf(glm_rad(light->outer_cutoff)), "lights[%i].outer_cutoff", light_count);
 
-        shader_set_vec3_v(shader_index, light->position, "%s[%i].position", lights_array_name, light_counts[light->type]);
-        shader_set_vec3_v(shader_index, light->diffuse_color, "%s[%i].diffuse_color", lights_array_name, light_counts[light->type]);
-        shader_set_vec3_v(shader_index, light->ambient_color, "%s[%i].ambient_color", lights_array_name, light_counts[light->type]);
-        shader_set_vec3_v(shader_index, light->specular_color, "%s[%i].specular_color", lights_array_name, light_counts[light->type]);
-
-        if (light->type == _light_type_directional || light->type == _light_type_spot)
-        {
-            shader_set_vec3_v(shader_index, light->direction, "%s[%i].direction", lights_array_name, light_counts[light->type]);
-        }
-
-        if (light->type == _light_type_point || light->type == _light_type_spot)
-        {
-            shader_set_float_v(shader_index, light->constant, "%s[%i].constant", lights_array_name, light_counts[light->type]);
-            shader_set_float_v(shader_index, light->linear, "%s[%i].linear", lights_array_name, light_counts[light->type]);
-            shader_set_float_v(shader_index, light->quadratic, "%s[%i].quadratic", lights_array_name, light_counts[light->type]);
-        }
-
-        if (light->type == _light_type_spot)
-        {
-            shader_set_float_v(shader_index, cosf(glm_rad(light->inner_cutoff)), "%s[%i].inner_cutoff", lights_array_name, light_counts[light->type]);
-            shader_set_float_v(shader_index, cosf(glm_rad(light->outer_cutoff)), "%s[%i].outer_cutoff", lights_array_name, light_counts[light->type]);
-        }
-
-        light_counts[light->type]++;
+        light_count++;
     }
 
-    shader_set_uint(shader_index, light_counts[_light_type_directional], "directional_light_count");
-    shader_set_uint(shader_index, light_counts[_light_type_point], "point_light_count");
-    shader_set_uint(shader_index, light_counts[_light_type_spot], "spot_light_count");
+    shader_set_uint(shader_index, light_count, "light_count");
 }
 
 static void render_set_material_uniforms(int shader_index, struct material_data *material)
