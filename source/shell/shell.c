@@ -16,6 +16,7 @@ SHELL.C
 #include "objects/objects.h"
 #include "rasterizer/rasterizer_shaders.h"
 #include "render/render_lights.h"
+#include "game/game.h"
 #include "render/render.h"
 
 /* ---------- private types */
@@ -26,6 +27,7 @@ struct shell_component
     void(*initialize)(void);
     void(*dispose)(void);
     void(*handle_screen_resize)(int width, int height);
+    void(*load_content)(void);
     void(*update)(float delta_ticks);
 };
 
@@ -39,11 +41,13 @@ static const struct shell_component shell_components[] =
         input_dispose,
         NULL,
         NULL,
+        NULL,
     },
     {
         "lights",
         lights_initialize,
         lights_dispose,
+        NULL,
         NULL,
         NULL,
     },
@@ -53,11 +57,13 @@ static const struct shell_component shell_components[] =
         models_dispose,
         NULL,
         NULL,
+        NULL,
     },
     {
         "objects",
         objects_initialize,
         objects_dispose,
+        NULL,
         NULL,
         objects_update,
     },
@@ -67,12 +73,22 @@ static const struct shell_component shell_components[] =
         shaders_dispose,
         NULL,
         NULL,
+        NULL,
+    },
+    {
+        "game",
+        game_initialize,
+        game_dispose,
+        game_handle_screen_resize,
+        game_load_content,
+        game_update,
     },
     {
         "render",
         render_initialize,
         render_dispose,
         render_handle_screen_resize,
+        render_load_content,
         render_update,
     },
 };
@@ -160,6 +176,15 @@ static inline void shell_initialize(void)
         {
             printf("initializing %s component...\n", shell_components[i].name);
             shell_components[i].initialize();
+        }
+    }
+
+    for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
+    {
+        if (shell_components[i].load_content)
+        {
+            printf("initializing %s component...\n", shell_components[i].name);
+            shell_components[i].load_content();
         }
     }
 

@@ -24,7 +24,8 @@ static void animation_manager_update_animation(
 static void animation_manager_compute_node_matrices(
     struct animation_manager *manager,
     struct model_data *model,
-    int animation_index,
+    struct animation_data *animation,
+    struct animation_state *state,
     int node_index,
     mat4 transform);
 
@@ -77,23 +78,6 @@ void animation_manager_dispose(
     free(manager->active_animations_bit_vector);
     free(manager->states);
     free(manager->blended_node_matrices);
-}
-
-void animation_manager_update(
-    struct animation_manager *manager,
-    float delta_ticks)
-{
-    assert(manager);
-
-    struct model_data *model = model_get_data(manager->model_index);
-
-    if (model)
-    {
-        for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
-        {
-            animation_manager_update_animation(manager, model, animation_index, delta_ticks);
-        }
-    }
 }
 
 void animation_manager_set_animation_flags(
@@ -173,6 +157,23 @@ void animation_manager_set_animation_state_speed(
     manager->states[animation_index].speed = speed;
 }
 
+void animation_manager_update(
+    struct animation_manager *manager,
+    float delta_ticks)
+{
+    assert(manager);
+
+    struct model_data *model = model_get_data(manager->model_index);
+
+    if (!model)
+        return;
+    
+    for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
+    {
+        animation_manager_update_animation(manager, model, animation_index, delta_ticks);
+    }
+}
+
 /* ---------- private code */
 
 static void animation_manager_update_animation(
@@ -181,8 +182,6 @@ static void animation_manager_update_animation(
     int animation_index,
     float delta_ticks)
 {
-    int root_node_index = model_get_root_node(model);
-
     struct animation_data *animation = model->animations + animation_index;
     struct animation_state *state = manager->states + animation_index;
     
@@ -202,19 +201,19 @@ static void animation_manager_update_animation(
         }
     }
     
-    animation_manager_compute_node_matrices(manager, model, animation_index, root_node_index, GLM_MAT4_IDENTITY);
+    int root_node_index = model_get_root_node(model);
+    animation_manager_compute_node_matrices(manager, model, animation, state, root_node_index, GLM_MAT4_IDENTITY);
 }
 
 static void animation_manager_compute_node_matrices(
     struct animation_manager *manager,
     struct model_data *model,
-    int animation_index,
+    struct animation_data *animation,
+    struct animation_state *state,
     int node_index,
     mat4 parent_transform)
 {
     struct model_node *node = model->nodes + node_index;
-    struct animation_data *animation = model->animations + animation_index;
-    struct animation_state *state = manager->states + animation_index;
     struct animation_node_state *node_state = state->node_states + node_index;
 
     glm_mat4_copy(parent_transform, node_state->parent_transform);
@@ -344,20 +343,24 @@ static void animation_manager_compute_node_matrices(
         }
     }
     
+    // Compute the node's final local transform matrix
     glm_mat4_mul(position_matrix, rotation_matrix, node_state->local_transform);
     glm_mat4_mul(node_state->local_transform, scaling_matrix, node_state->local_transform);
     
+    // Use the node's default transform if no local transforms have been performed
     if (!key_count)
         glm_mat4_copy(node->transform, node_state->local_transform);
 
+    // Combine the node's parent transform and local transform to get the node's global transform
     glm_mat4_mul(parent_transform, node_state->local_transform, node_state->global_transform);
 
+    // Combine the node's global transform and offset matrix to get the node's final world transform
     glm_mat4_mul(node_state->global_transform, node->offset_matrix, node_state->final_transform);
 
     for (int child_node_index = node->first_child_index;
         child_node_index != -1;
         child_node_index = model->nodes[child_node_index].next_sibling_index)
     {
-        animation_manager_compute_node_matrices(manager, model, animation_index, child_node_index, node_state->global_transform);
+        animation_manager_compute_node_matrices(manager, model, animation, state, child_node_index, node_state->global_transform);
     }
 }
