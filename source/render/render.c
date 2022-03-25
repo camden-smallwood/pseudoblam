@@ -23,7 +23,7 @@ RENDER.C
 #include "objects/objects.h"
 #include "textures/dds.h"
 
-#include "render/render_lights.h"
+#include "objects/lights.h"
 #include "render/render.h"
 
 #include "rasterizer/rasterizer_render_targets.h"

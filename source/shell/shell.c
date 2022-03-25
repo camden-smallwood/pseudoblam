@@ -15,7 +15,7 @@ SHELL.C
 #include "models/models.h"
 #include "objects/objects.h"
 #include "rasterizer/rasterizer_shaders.h"
-#include "render/render_lights.h"
+#include "objects/lights.h"
 #include "game/game.h"
 #include "render/render.h"
 

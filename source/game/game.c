@@ -15,7 +15,7 @@ GAME.C
 #include "game/game.h"
 #include "input/input.h"
 #include "objects/objects.h"
-#include "render/render_lights.h"
+#include "objects/lights.h"
 
 /* ---------- private constants */
 
