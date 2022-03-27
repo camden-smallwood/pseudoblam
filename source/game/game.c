@@ -70,11 +70,6 @@ void game_initialize(void)
 {
     memset(&game_globals, 0, sizeof(game_globals));
     
-    camera_initialize(&game_globals.camera);
-
-    game_globals.camera_look_sensitivity = 5.0f;
-    game_globals.camera_movement_speed = 1.0f;
-
     // TODO
 }
 
@@ -94,6 +89,16 @@ void game_load_content(void)
     game_globals.plane_object_index = object_new();
     struct object_data *plane_object = object_get_data(game_globals.plane_object_index);
     plane_object->model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
+    object_initialize(game_globals.plane_object_index);
+
+    // Initialize grunt character
+    game_globals.grunt_object_index = object_new();
+    struct object_data *grunt = object_get_data(game_globals.grunt_object_index);
+    glm_vec3_copy((vec3){-5, 0, 0}, grunt->position);
+    glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, grunt->scale);
+    grunt->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
+    object_initialize(game_globals.grunt_object_index);
+    animation_manager_set_animation_flags(&grunt->animations, 0, BIT(_animation_state_looping_bit));
 
     // Initialize first person weapons
     game_globals.weapon_object_index = object_new();
@@ -104,47 +109,19 @@ void game_load_content(void)
     int moving_animation_index = model_find_animation_by_name(weapon->model_index, "first_person moving");
     animation_manager_set_animation_flags(&weapon->animations, moving_animation_index, BIT(_animation_state_looping_bit));
     
-    // Initialize grunt character
-    game_globals.grunt_object_index = object_new();
-    struct object_data *grunt = object_get_data(game_globals.grunt_object_index);
-    glm_vec3_copy((vec3){-5, 0, 0}, grunt->position);
-    glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, grunt->scale);
-    grunt->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
-    object_initialize(game_globals.grunt_object_index);
-    animation_manager_set_animation_flags(&grunt->animations, 0, BIT(_animation_state_looping_bit));
+    // Initialize the player camera
+    camera_initialize(&game_globals.camera);
+    game_globals.camera_look_sensitivity = 5.0f;
+    game_globals.camera_movement_speed = 1.0f;
 
     // Create scene lights
-    int light_index;
     struct light_data *light;
 
-    light_index = light_new();
-    light = light_get_data(light_index);
+    light = light_get_data(light_new());
     light->type = _light_type_point;
-    glm_vec3_copy((vec3){-2.0f, -1.0f, 20.0f}, light->position);
+    glm_vec3_copy((vec3){-10.0f, -10.0f, 10.0f}, light->position);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.009f;
-    light->quadratic = 0.0032f;
-
-    light_index = light_new();
-    light = light_get_data(light_index);
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){4.0f, 2.0f, 30.0f}, light->position);
-    glm_vec3_copy((vec3){1.0f, 0.2f, 0.1f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.5f, 0.05f, 0.05f}, light->ambient_color);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
-    light->constant = 1.0f;
-    light->linear = 0.009f;
-    light->quadratic = 0.0032f;
-
-    light_index = light_new();
-    light = light_get_data(light_index);
-    light->type = _light_type_point;
-    glm_vec3_copy((vec3){-6.0f, 17.0f, 7.0f}, light->position);
-    glm_vec3_copy((vec3){0.25f, 0.4f, 1.0f}, light->diffuse_color);
-    glm_vec3_copy((vec3){0.05f, 0.05f, 0.5f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
     light->linear = 0.009f;
@@ -161,6 +138,19 @@ void game_update(float delta_ticks)
 
 static void game_update_camera(float delta_ticks)
 {
+    // Rotate the camera towards the grunt
+    {
+        static float rotation_amount = 0.0f;
+
+        if (rotation_amount <= 1.0f)
+        {
+            struct object_data *grunt = object_get_data(game_globals.grunt_object_index);
+            camera_rotate_towards_point(&game_globals.camera, grunt->position, rotation_amount);
+            
+            rotation_amount += delta_ticks * 2.0f;
+        }
+    }
+
     // Cycle through camera movement speeds
     if (input_is_key_down(SDL_SCANCODE_TAB))
     {
@@ -293,13 +283,12 @@ static void game_update_camera(float delta_ticks)
     ground_movement[2] = 0.0f;
     float movement_amount = glm_vec3_norm(ground_movement);
     
-    {
-        struct object_data *weapon_object = object_get_data(game_globals.weapon_object_index);
-        int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
+    struct object_data *weapon_object = object_get_data(game_globals.weapon_object_index);
+    int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
 
-        // Play the walking animation as fast as the camera is moving
-        animation_manager_set_animation_state_speed(&weapon_object->animations, moving_animation_index, movement_amount);
-    }
+    // Play the walking animation as fast as the camera is moving
+
+    animation_manager_set_animation_state_speed(&weapon_object->animations, moving_animation_index, movement_amount);
 
     // Apply the camera updates
     camera_update(&game_globals.camera);

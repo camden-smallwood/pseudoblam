@@ -35,3 +35,4 @@ struct camera_data
 void camera_initialize(struct camera_data *camera);
 void camera_handle_screen_resize(struct camera_data *camera, int width, int height);
 void camera_update(struct camera_data *camera);
+void camera_rotate_towards_point(struct camera_data *camera, vec3 point, float amount);

@@ -24,10 +24,8 @@ void main()
     vec3 hdr_color = texture(base_texture, frag_texcoord).rgb;
     vec3 bloom_color = texture(hdr_texture, frag_texcoord).rgb;
 
-    vec3 color = hdr_color + bloom_color;
+    hdr_color = calculate_gamma(hdr_color, 1.0 / 2.2);
+    hdr_color = calculate_brightness_contrast(hdr_color, 0.7, 1.0);
     
-    color = calculate_gamma(color, 1.0 / 2.2);
-    color = calculate_brightness_contrast(color, 0.7, 1.0);
-    
-    out_color = vec4(color, 1.0);
+    out_color = vec4(hdr_color + bloom_color, 1.0);
 }

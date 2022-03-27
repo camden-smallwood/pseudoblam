@@ -645,14 +645,14 @@ static void model_import_markers_from_assimp_node(
 
             // TODO: get position/rotation from marker_transform
 
-            printf("marker \"%s\":\n"
-                "\tnode_index: %i (from node \"%s\")\n"
-                "\tposition: { x: %f, y: %f, z: %f }\n"
-                "\trotation: { x: %f, y: %f, z: %f }\n",
-                marker.name,
-                marker.node_index, in_node->mParent->mName.data,
-                marker.position[0], marker.position[1], marker.position[2],
-                marker.rotation[0], marker.rotation[1], marker.rotation[2]);
+            // printf("marker \"%s\":\n"
+            //     "\tnode_index: %i (from node \"%s\")\n"
+            //     "\tposition: { x: %f, y: %f, z: %f }\n"
+            //     "\trotation: { x: %f, y: %f, z: %f }\n",
+            //     marker.name,
+            //     marker.node_index, in_node->mParent->mName.data,
+            //     marker.position[0], marker.position[1], marker.position[2],
+            //     marker.rotation[0], marker.rotation[1], marker.rotation[2]);
 
             mempush(&out_model->marker_count, (void **)&out_model->markers, &marker, sizeof(marker), realloc);
             return;

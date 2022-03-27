@@ -174,7 +174,6 @@ static inline void shell_initialize(void)
     {
         if (shell_components[i].initialize)
         {
-            printf("initializing %s component...\n", shell_components[i].name);
             shell_components[i].initialize();
         }
     }
@@ -183,7 +182,6 @@ static inline void shell_initialize(void)
     {
         if (shell_components[i].load_content)
         {
-            printf("initializing %s component...\n", shell_components[i].name);
             shell_components[i].load_content();
         }
     }
@@ -197,7 +195,6 @@ static inline void shell_dispose(void)
     {
         if (shell_components[i].dispose)
         {
-            printf("disposing %s component...\n", shell_components[i].name);
             shell_components[i].dispose();
         }
     }
