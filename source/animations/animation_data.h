@@ -44,11 +44,6 @@ struct animation_channel
     struct animation_morph_key *morph_keys;
 };
 
-struct animation_key
-{
-    float time;
-};
-
 struct animation_position_key
 {
     float time;

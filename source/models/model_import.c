@@ -474,15 +474,15 @@ static void model_import_assimp_mesh(
                 .parent_index = -1,
                 .first_child_index = -1,
                 .next_sibling_index = -1,
-                .offset_matrix = GLM_MAT4_ZERO_INIT,
-                .transform = GLM_MAT4_ZERO_INIT,
+                .offset_matrix = GLM_MAT4_IDENTITY_INIT,
+                .default_transform = GLM_MAT4_IDENTITY_INIT,
             };
 
             if (in_bone->mNode)
-                glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.transform);
+                glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.default_transform);
             else
-                glm_mat4_copy(GLM_MAT4_IDENTITY, node.transform);
-            glm_mat4_transpose(node.transform);
+                glm_mat4_copy(GLM_MAT4_IDENTITY, node.default_transform);
+            glm_mat4_transpose(node.default_transform);
 
             glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
             glm_mat4_transpose(node.offset_matrix);

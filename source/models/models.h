@@ -51,7 +51,7 @@ struct model_node
     int next_sibling_index;
     
     mat4 offset_matrix;
-    mat4 transform;
+    mat4 default_transform;
 };
 
 struct model_marker

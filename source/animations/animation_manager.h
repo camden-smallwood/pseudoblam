@@ -12,6 +12,7 @@ ANIMATION_MANAGER.H
 enum animation_state_flags
 {
     _animation_state_looping_bit,
+    _animation_state_paused_bit,
 };
 
 /* ---------- structures */
@@ -21,10 +22,6 @@ struct animation_node_state
     vec3 position;
     vec4 rotation;
     vec3 scale;
-    mat4 parent_transform;
-    mat4 local_transform;
-    mat4 global_transform;
-    mat4 final_transform;
 };
 
 struct animation_state
@@ -55,6 +52,12 @@ void animation_manager_initialize(struct animation_manager *manager, int model_i
 void animation_manager_dispose(struct animation_manager *manager);
 
 void animation_manager_set_animation_flags(struct animation_manager *manager, int animation_index, unsigned int flags);
+
+bool animation_manager_is_animation_looping(struct animation_manager *manager, int animation_index);
+void animation_manager_set_animation_looping(struct animation_manager *manager, int animation_index, bool looping);
+
+bool animation_manager_is_animation_paused(struct animation_manager *manager, int animation_index);
+void animation_manager_set_animation_paused(struct animation_manager *manager, int animation_index, bool paused);
 
 bool animation_manager_is_animation_active(struct animation_manager *manager, int animation_index);
 void animation_manager_set_animation_active(struct animation_manager *manager, int animation_index, bool active);

@@ -98,7 +98,7 @@ void game_load_content(void)
     glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, grunt->scale);
     grunt->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/grunt.fbx");
     object_initialize(game_globals.grunt_object_index);
-    animation_manager_set_animation_flags(&grunt->animations, 0, BIT(_animation_state_looping_bit));
+    animation_manager_set_animation_looping(&grunt->animations, 0, true);
 
     // Initialize first person weapons
     game_globals.weapon_object_index = object_new();
@@ -107,7 +107,7 @@ void game_load_content(void)
     weapon->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
     object_initialize(game_globals.weapon_object_index);
     int moving_animation_index = model_find_animation_by_name(weapon->model_index, "first_person moving");
-    animation_manager_set_animation_flags(&weapon->animations, moving_animation_index, BIT(_animation_state_looping_bit));
+    animation_manager_set_animation_looping(&weapon->animations, moving_animation_index, true);
     
     // Initialize the player camera
     camera_initialize(&game_globals.camera);
@@ -284,9 +284,14 @@ static void game_update_camera(float delta_ticks)
     float movement_amount = glm_vec3_norm(ground_movement);
     
     struct object_data *weapon_object = object_get_data(game_globals.weapon_object_index);
+    
     int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
+    bool moving_animation_active = animation_manager_is_animation_active(&weapon_object->animations, moving_animation_index);
 
-    // Play the walking animation as fast as the camera is moving
+    if (!moving_animation_active && movement_amount != 0.0f)
+        animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = true);
+    else if (moving_animation_active && movement_amount == 0.0f)
+        animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
 
     animation_manager_set_animation_state_speed(&weapon_object->animations, moving_animation_index, movement_amount);
 
@@ -313,9 +318,6 @@ static void game_update_objects(void)
 
     struct object_data *weapon_object = object_get_data(game_globals.weapon_object_index);
 
-    int moving_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person moving");
-    bool moving_animation_active = animation_manager_is_animation_active(&weapon_object->animations, moving_animation_index);
-
     int ready_animation_index = model_find_animation_by_name(weapon_object->model_index, "first_person ready");
     bool ready_animation_active = animation_manager_is_animation_active(&weapon_object->animations, ready_animation_index);
 
@@ -338,10 +340,6 @@ static void game_update_objects(void)
     if (!TEST_BIT(game_globals.flags, _game_played_initial_ready_animation_bit))
     {
         SET_BIT(game_globals.flags, _game_played_initial_ready_animation_bit, true);
-
-        if (moving_animation_active) // TODO: do this right - blend, don't deactivate!
-            animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
-
         animation_manager_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_active = true);
     }
 
@@ -353,10 +351,6 @@ static void game_update_objects(void)
     else if (TEST_BIT(game_globals.flags, _game_input_1_bit))
     {
         SET_BIT(game_globals.flags, _game_input_1_bit, false);
-
-        if (moving_animation_active) // TODO: do this right - blend, don't deactivate!
-            animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
-
         animation_manager_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_active = true);
     }
 
@@ -368,10 +362,6 @@ static void game_update_objects(void)
     else if (TEST_BIT(game_globals.flags, _game_input_2_bit))
     {
         SET_BIT(game_globals.flags, _game_input_2_bit, false);
-
-        if (moving_animation_active) // TODO: do this right - blend, don't deactivate!
-            animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
-
         animation_manager_set_animation_active(&weapon_object->animations, reload_empty_animation_index, reload_empty_animation_active = true);
     }
 
@@ -383,16 +373,6 @@ static void game_update_objects(void)
     else if (TEST_BIT(game_globals.flags, _game_input_3_bit))
     {
         SET_BIT(game_globals.flags, _game_input_3_bit, false);
-
-        if (moving_animation_active) // TODO: do this right - blend, don't deactivate!
-            animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, moving_animation_active = false);
-
         animation_manager_set_animation_active(&weapon_object->animations, melee_strike_1_animation_index, melee_strike_1_animation_active = true);
-    }
-
-    // TODO: do this right - blend, don't deactivate!
-    if (!moving_animation_active && !ready_animation_active && !reload_empty_animation_active && !melee_strike_1_animation_active)
-    {
-        animation_manager_set_animation_active(&weapon_object->animations, moving_animation_index, true);
     }
 }

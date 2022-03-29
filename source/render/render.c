@@ -727,7 +727,7 @@ static void render_postprocess_blur_pass(void)
 
         shader_use(render_globals.postprocess_pass.blur_pass.shader_index);
 
-        shader_bind_texture(render_globals.postprocess_pass.blur_pass.shader_index,render_globals.postprocess_pass.texture_index, "blur_texture");
+        shader_bind_texture(render_globals.postprocess_pass.blur_pass.shader_index, render_globals.postprocess_pass.texture_index, "blur_texture");
         shader_set_bool(render_globals.postprocess_pass.blur_pass.shader_index, blur_horizontal, "blur_horizontal");
         
         // TODO: draw as mesh (?)
@@ -930,30 +930,7 @@ static void render_object(int shader_index, int object_index)
 
         for (int node_index = 0; node_index < model->node_count; node_index++)
         {
-            struct model_node *node = model->nodes + node_index;
-            
-            mat4 node_matrix;
-            glm_mat4_identity(node_matrix);
-
-            int transform_count = 0;
-
-            for (int animation_index = 0; animation_index < model->animation_count; animation_index++)
-            {
-                if (!BIT_VECTOR_TEST_BIT(object->animations.active_animations_bit_vector, animation_index))
-                    continue;
-                
-                struct animation_state *animation_state = object->animations.states + animation_index;
-                glm_mat4_mul(animation_state->node_states[node_index].final_transform, node_matrix, node_matrix);
-                
-                transform_count++;
-            }
-
-            if (!transform_count)
-            {
-                glm_mat4_copy(node->offset_matrix, node_matrix);
-            }
-            
-            shader_set_mat4_v(shader_index, node_matrix, "node_matrices[%i]", node_index);
+            shader_set_mat4_v(shader_index, object->animations.blended_node_matrices[node_index], "node_matrices[%i]", node_index);
         }
         
         glBindVertexArray(mesh->vertex_array);
