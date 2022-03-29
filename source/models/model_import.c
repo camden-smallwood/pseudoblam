@@ -480,8 +480,7 @@ static void model_import_assimp_mesh(
 
             if (in_bone->mNode)
                 glm_mat4_copy((vec4 *)&in_bone->mNode->mTransformation, node.default_transform);
-            else
-                glm_mat4_copy(GLM_MAT4_IDENTITY, node.default_transform);
+            
             glm_mat4_transpose(node.default_transform);
 
             glm_mat4_copy((vec4 *)&in_bone->mOffsetMatrix, node.offset_matrix);
