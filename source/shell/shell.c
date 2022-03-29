@@ -36,14 +36,6 @@ struct shell_component
 static const struct shell_component shell_components[] =
 {
     {
-        "input",
-        input_initialize,
-        input_dispose,
-        NULL,
-        NULL,
-        NULL,
-    },
-    {
         "lights",
         lights_initialize,
         lights_dispose,
@@ -242,8 +234,6 @@ static inline void shell_update(void)
 
     double delta_ticks = ((double)(frame_start_time - shell_globals.last_frame_time) / (double)SDL_GetPerformanceFrequency());
 
-    input_set_mouse_motion(0.0f, 0.0f);
-    
     SDL_Event event;
 
     while (SDL_PollEvent(&event))
@@ -259,20 +249,6 @@ static inline void shell_update(void)
             }
             break;
         
-        case SDL_KEYDOWN:
-            input_set_key_down(event.key.keysym.scancode, true);
-            break;
-        
-        case SDL_KEYUP:
-            if (event.key.keysym.scancode == SDL_SCANCODE_M)
-                SET_BIT(shell_globals.flags, _shell_capture_mouse_bit, !TEST_BIT(shell_globals.flags, _shell_capture_mouse_bit));
-            input_set_key_down(event.key.keysym.scancode, false);
-            break;
-        
-        case SDL_MOUSEMOTION:
-            input_set_mouse_motion(-event.motion.xrel, -event.motion.yrel);
-            break;
-            
         case SDL_QUIT:
             shell_dispose();
         }

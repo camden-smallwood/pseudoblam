@@ -170,16 +170,18 @@ static void game_update_camera(float delta_ticks)
     int mouse_motion_x, mouse_motion_y;
     input_get_mouse_motion(&mouse_motion_x, &mouse_motion_y);
     
-    vec2 mouse_motion = {(float)mouse_motion_x, (float)mouse_motion_y};
+    vec2 mouse_motion = {(float)-mouse_motion_x, (float)-mouse_motion_y};
 
     glm_vec2_scale(mouse_motion, 0.01f, mouse_motion);
     glm_vec2_scale(mouse_motion, game_globals.camera_look_sensitivity, mouse_motion);
     glm_vec2_add(game_globals.camera.rotation, mouse_motion, game_globals.camera.rotation);
 
     vec3 forward_movement = GLM_VEC3_ZERO_INIT;
+    vec3 sideways_movement = GLM_VEC3_ZERO_INIT;
+    vec3 vertical_movement = GLM_VEC3_ZERO_INIT;
 
-    // Forwards and backwards camera forward_movement
-    if (input_is_key_down(SDL_SCANCODE_W) && !input_is_key_down(SDL_SCANCODE_S))
+    // Forwards camera forward_movement
+    if (input_is_key_down(SDL_SCANCODE_W))
     {
         glm_vec3_normalize_to(game_globals.camera.forward, forward_movement);
         glm_vec3_abs(forward_movement, forward_movement);
@@ -194,7 +196,9 @@ static void game_update_camera(float delta_ticks)
         // Apply forwards forward_movement speed
         glm_vec3_scale(forward_movement, 2.25f, forward_movement);
     }
-    else if (input_is_key_down(SDL_SCANCODE_S) && !input_is_key_down(SDL_SCANCODE_W))
+    
+    // Backwards camera forward_movement
+    if (input_is_key_down(SDL_SCANCODE_S))
     {
         glm_vec3_normalize_to(game_globals.camera.forward, forward_movement);
         glm_vec3_abs(forward_movement, forward_movement);
@@ -210,10 +214,8 @@ static void game_update_camera(float delta_ticks)
         glm_vec3_scale(forward_movement, -2.0f, forward_movement);
     }
 
-    vec3 sideways_movement = GLM_VEC3_ZERO_INIT;
-
-    // Sideways camera sideways_movement
-    if (input_is_key_down(SDL_SCANCODE_A) && !input_is_key_down(SDL_SCANCODE_D))
+    // Left camera sideways_movement
+    if (input_is_key_down(SDL_SCANCODE_A))
     {
         glm_vec3_normalize_to(game_globals.camera.right, sideways_movement);
         glm_vec3_abs(sideways_movement, sideways_movement);
@@ -228,7 +230,9 @@ static void game_update_camera(float delta_ticks)
         // Apply sideways sideways_movement speed
         glm_vec3_scale(sideways_movement, 2.0f, sideways_movement);
     }
-    else if (input_is_key_down(SDL_SCANCODE_D) && !input_is_key_down(SDL_SCANCODE_A))
+    
+    // Right camera sideways_movement
+    if (input_is_key_down(SDL_SCANCODE_D))
     {
         glm_vec3_normalize_to(game_globals.camera.right, sideways_movement);
         glm_vec3_abs(sideways_movement, sideways_movement);
@@ -243,18 +247,23 @@ static void game_update_camera(float delta_ticks)
         // Apply sideways sideways_movement speed
         glm_vec3_scale(sideways_movement, -2.0f, sideways_movement);
     }
-    
-    vec3 vertical_movement = GLM_VEC3_ZERO_INIT;
 
-    // Vertical camera vertical_movement
-    if (input_is_key_down(SDL_SCANCODE_R) && !input_is_key_down(SDL_SCANCODE_F))
+    // Upward camera vertical_movement
+    if (input_is_key_down(SDL_SCANCODE_R))
+    {
         glm_vec3_add(vertical_movement, (vec3){0, 0, 2}, vertical_movement);
-    else if (input_is_key_down(SDL_SCANCODE_F) && !input_is_key_down(SDL_SCANCODE_R))
+    }
+
+    // Downward camera vertical_movement
+    if (input_is_key_down(SDL_SCANCODE_F) && !input_is_key_down(SDL_SCANCODE_R))
+    {
         glm_vec3_sub(vertical_movement, (vec3){0, 0, 2}, vertical_movement);
+    }
 
     vec3 movement;
     glm_vec3_mix(forward_movement, sideways_movement, 0.5f, movement);
     glm_vec3_scale(movement, 2.0f, movement);
+    movement[2] = 0.0f;
     glm_vec3_mix(vertical_movement, movement, 0.5f, movement);
     glm_vec3_scale(movement, 2.0f, movement);
 
