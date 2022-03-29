@@ -59,6 +59,9 @@ void animation_manager_initialize(
         
         state->time = 0.0f;
         state->speed = 1.0f;
+        state->weight = 1.0f;
+        state->fade_in_duration = 0.0f;
+        state->fade_out_duration = 0.0f;
 
         assert(state->node_states = calloc(model->node_count, sizeof(*state->node_states)));
     }
@@ -83,10 +86,9 @@ void animation_manager_dispose(
     free(manager->blended_node_matrices);
 }
 
-void animation_manager_set_animation_flags(
+struct animation_state *animation_manager_get_animation_state(
     struct animation_manager *manager,
-    int animation_index,
-    unsigned int flags)
+    int animation_index)
 {
     assert(manager);
 
@@ -95,21 +97,24 @@ void animation_manager_set_animation_flags(
 
     assert(animation_index >= 0 && animation_index < model->animation_count);
     
-    manager->states[animation_index].flags = flags;
+    return manager->states + animation_index;
+}
+
+void animation_manager_set_animation_flags(
+    struct animation_manager *manager,
+    int animation_index,
+    unsigned int flags)
+{
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    state->flags = flags;
 }
 
 bool animation_manager_is_animation_looping(
     struct animation_manager *manager,
     int animation_index)
 {
-    assert(manager);
-
-    struct model_data *model = model_get_data(manager->model_index);
-    assert(model);
-
-    assert(animation_index >= 0 && animation_index < model->animation_count);
-
-    return TEST_BIT(manager->states[animation_index].flags, _animation_state_looping_bit);
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    return TEST_BIT(state->flags, _animation_state_looping_bit);
 }
 
 void animation_manager_set_animation_looping(
@@ -117,28 +122,16 @@ void animation_manager_set_animation_looping(
     int animation_index,
     bool looping)
 {
-    assert(manager);
-
-    struct model_data *model = model_get_data(manager->model_index);
-    assert(model);
-
-    assert(animation_index >= 0 && animation_index < model->animation_count);
-
-    SET_BIT(manager->states[animation_index].flags, _animation_state_looping_bit, looping);
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    SET_BIT(state->flags, _animation_state_looping_bit, looping);
 }
 
 bool animation_manager_is_animation_paused(
     struct animation_manager *manager,
     int animation_index)
 {
-    assert(manager);
-
-    struct model_data *model = model_get_data(manager->model_index);
-    assert(model);
-
-    assert(animation_index >= 0 && animation_index < model->animation_count);
-
-    return TEST_BIT(manager->states[animation_index].flags, _animation_state_paused_bit);
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    return TEST_BIT(state->flags, _animation_state_paused_bit);
 }
 
 void animation_manager_set_animation_paused(
@@ -146,14 +139,8 @@ void animation_manager_set_animation_paused(
     int animation_index,
     bool paused)
 {
-    assert(manager);
-
-    struct model_data *model = model_get_data(manager->model_index);
-    assert(model);
-
-    assert(animation_index >= 0 && animation_index < model->animation_count);
-
-    SET_BIT(manager->states[animation_index].flags, _animation_state_paused_bit, paused);
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    SET_BIT(state->flags, _animation_state_paused_bit, paused);
 }
 
 bool animation_manager_is_animation_active(
@@ -179,17 +166,13 @@ void animation_manager_set_animation_active(
     int animation_index,
     bool active)
 {
-    assert(manager);
-
-    struct model_data *model = model_get_data(manager->model_index);
-    assert(model);
-
-    assert(animation_index >= 0 && animation_index < model->animation_count);
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
     
+    state->time = 0.0f;
+    state->weight = 1.0f;
+
     BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, active);
     manager->active_animation_count += active ? 1 : -1;
-
-    manager->states[animation_index].time = 0.0f;
 }
 
 void animation_manager_set_animation_state_time(
@@ -197,12 +180,8 @@ void animation_manager_set_animation_state_time(
     int animation_index,
     float time)
 {
-    assert(manager);
-
-    struct model_data *model = model_get_data(manager->model_index);
-    assert(model);
-
-    manager->states[animation_index].time = time;
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    state->time = time;
 }
 
 void animation_manager_set_animation_state_speed(
@@ -210,12 +189,28 @@ void animation_manager_set_animation_state_speed(
     int animation_index,
     float speed)
 {
-    assert(manager);
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    state->speed = speed;
+}
 
-    struct model_data *model = model_get_data(manager->model_index);
-    assert(model);
+void animation_manager_set_animation_fade_in_duration(
+    struct animation_manager *manager,
+    int animation_index,
+    float duration)
+{
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    SET_BIT(state->flags, _animation_state_fade_in_bit, true);
+    state->fade_in_duration = duration;
+}
 
-    manager->states[animation_index].speed = speed;
+void animation_manager_set_animation_fade_out_duration(
+    struct animation_manager *manager,
+    int animation_index,
+    float duration)
+{
+    struct animation_state *state = animation_manager_get_animation_state(manager, animation_index);
+    SET_BIT(state->flags, _animation_state_fade_out_bit, true);
+    state->fade_out_duration = duration;
 }
 
 void animation_manager_update(
@@ -251,6 +246,13 @@ static void animation_manager_update_animation(
 {
     struct animation_data *animation = model->animations + animation_index;
     struct animation_state *state = manager->states + animation_index;
+
+    if (TEST_BIT(state->flags, _animation_state_fade_in_bit) && (state->time <= state->fade_in_duration))
+        state->weight = state->time / state->fade_in_duration;
+    else if (TEST_BIT(state->flags, _animation_state_fade_out_bit) && (state->time >= (animation->duration - state->fade_out_duration)))
+        state->weight = (animation->duration - state->time) / state->fade_out_duration;
+    else
+        state->weight = 1.0f;
     
     if (BIT_VECTOR_TEST_BIT(manager->active_animations_bit_vector, animation_index))
     {
@@ -262,9 +264,7 @@ static void animation_manager_update_animation(
         }
         else if (state->time >= animation->duration)
         {
-            state->time = 0.0f;
-            BIT_VECTOR_SET_BIT(manager->active_animations_bit_vector, animation_index, 0);
-            assert(manager->active_animation_count--);
+            animation_manager_set_animation_active(manager, animation_index, false);
         }
     }
 
@@ -454,9 +454,9 @@ static void animation_manager_compute_node_matrices(
         }
         else
         {
-            glm_vec3_mix(node_state->position, total_position, 0.5f, total_position);
-            glm_quat_slerp(node_state->rotation, total_rotation, 0.5f, total_rotation);
-            glm_vec3_mix(node_state->scale, total_scale, 0.5f, total_scale);
+            glm_vec3_mix(node_state->position, total_position, 0.5f * state->weight, total_position);
+            glm_quat_slerp(node_state->rotation, total_rotation, 0.5f * state->weight, total_rotation);
+            glm_vec3_mix(node_state->scale, total_scale, 0.5f * state->weight, total_scale);
         }
 
         animation_count++;

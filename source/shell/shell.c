@@ -270,7 +270,7 @@ static inline void shell_update(void)
             break;
         
         case SDL_MOUSEMOTION:
-            input_set_mouse_motion(event.motion.xrel, event.motion.yrel);
+            input_set_mouse_motion(-event.motion.xrel, -event.motion.yrel);
             break;
             
         case SDL_QUIT:

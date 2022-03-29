@@ -106,6 +106,7 @@ void game_load_content(void)
     glm_vec3_copy((vec3){0.01f, 0.01f, 0.01f}, weapon->scale);
     weapon->model_index = model_import_from_file(_vertex_type_skinned, "../assets/models/assault_rifle.fbx");
     object_initialize(game_globals.weapon_object_index);
+
     int moving_animation_index = model_find_animation_by_name(weapon->model_index, "first_person moving");
     animation_manager_set_animation_looping(&weapon->animations, moving_animation_index, true);
     
@@ -142,12 +143,12 @@ static void game_update_camera(float delta_ticks)
     {
         static float rotation_amount = 0.0f;
 
-        if (rotation_amount <= 1.0f)
+        if (rotation_amount < 1.0f)
         {
             struct object_data *grunt = object_get_data(game_globals.grunt_object_index);
             camera_rotate_towards_point(&game_globals.camera, grunt->position, rotation_amount);
             
-            rotation_amount += delta_ticks * 2.0f;
+            rotation_amount = fminf(1.0f, rotation_amount + (delta_ticks * 2.0f));
         }
     }
 
@@ -166,14 +167,11 @@ static void game_update_camera(float delta_ticks)
             game_globals.camera_movement_speed = 1.0f;
     }
 
-    ivec2 mouse_motion_int;
-    input_get_mouse_motion(&mouse_motion_int[0], &mouse_motion_int[1]);
+    int mouse_motion_x, mouse_motion_y;
+    input_get_mouse_motion(&mouse_motion_x, &mouse_motion_y);
     
-    vec2 mouse_motion =
-    {
-        (float)-mouse_motion_int[0],
-        (float)-mouse_motion_int[1]
-    };
+    vec2 mouse_motion = {(float)mouse_motion_x, (float)mouse_motion_y};
+
     glm_vec2_scale(mouse_motion, 0.01f, mouse_motion);
     glm_vec2_scale(mouse_motion, game_globals.camera_look_sensitivity, mouse_motion);
     glm_vec2_add(game_globals.camera.rotation, mouse_motion, game_globals.camera.rotation);
@@ -212,9 +210,6 @@ static void game_update_camera(float delta_ticks)
         glm_vec3_scale(forward_movement, -2.0f, forward_movement);
     }
 
-    // Clamp camera forward_movement to ground plane
-    forward_movement[2] = 0.0f;
-
     vec3 sideways_movement = GLM_VEC3_ZERO_INIT;
 
     // Sideways camera sideways_movement
@@ -249,9 +244,6 @@ static void game_update_camera(float delta_ticks)
         glm_vec3_scale(sideways_movement, -2.0f, sideways_movement);
     }
     
-    // Clamp camera sideways_movement to ground plane
-    sideways_movement[2] = 0.0f;
-
     vec3 vertical_movement = GLM_VEC3_ZERO_INIT;
 
     // Vertical camera vertical_movement
@@ -280,7 +272,6 @@ static void game_update_camera(float delta_ticks)
     vec3 ground_movement;
     glm_vec3_copy(movement, ground_movement);
     glm_vec3_normalize(ground_movement);
-    ground_movement[2] = 0.0f;
     float movement_amount = glm_vec3_norm(ground_movement);
     
     struct object_data *weapon_object = object_get_data(game_globals.weapon_object_index);
