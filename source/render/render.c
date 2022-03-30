@@ -55,7 +55,7 @@ struct render_depth_pass_data
 
 enum render_occlusion_ssao_constants
 {
-    NUMBER_OF_SSAO_KERNEL_SAMPLES = 32,
+    NUMBER_OF_SSAO_KERNEL_SAMPLES = 64,
 
     SSAO_NOISE_TEXTURE_WIDTH = 4,
     SSAO_NOISE_TEXTURE_HEIGHT = 4,
@@ -412,9 +412,6 @@ static void render_initialize_geometry_pass(void)
     render_globals.geometry_pass.emissive_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.emissive_texture_index);
 
-    render_globals.geometry_pass.view_normal_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
-    framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.view_normal_texture_index);
-
     renderbuffer_initialize(&render_globals.geometry_pass.depth_buffer, 0, GL_DEPTH_COMPONENT, render_globals.screen_width, render_globals.screen_height);
     framebuffer_attach_renderbuffer(&render_globals.geometry_pass.framebuffer, &render_globals.geometry_pass.depth_buffer);
 
@@ -443,7 +440,7 @@ static void render_initialize_occlusion_pass(void)
     framebuffer_initialize(&render_globals.occlusion_pass.framebuffer);
     framebuffer_use(&render_globals.occlusion_pass.framebuffer);
     
-    render_globals.occlusion_pass.base_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
+    render_globals.occlusion_pass.base_texture_index = texture_new(_texture_type_2d, GL_RED, GL_RED, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.occlusion_pass.framebuffer, render_globals.occlusion_pass.base_texture_index);
     
     framebuffer_build(&render_globals.occlusion_pass.framebuffer);
@@ -644,9 +641,14 @@ static void render_occlusion_pass(void)
     shader_use(render_globals.occlusion_pass.shader_index);
 
     shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.occlusion_pass.noise_texture_index, "noise_texture");
-    shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.geometry_pass.view_normal_texture_index, "normal_texture");
+    shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.geometry_pass.normal_texture_index, "normal_texture");
     shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.depth_pass.texture_index, "depth_texture");
     
+    for (int i = 0; i < NUMBER_OF_SSAO_KERNEL_SAMPLES; i++)
+    {
+        shader_set_vec3_v(render_globals.occlusion_pass.shader_index, render_globals.occlusion_pass.kernel_samples[i], "kernel_samples[%i]", i);
+    }
+
     // TODO: draw as mesh (?)
     glBindVertexArray(render_globals.quad_vertex_array);
     glDrawArrays(GL_TRIANGLES, 0, 6);
