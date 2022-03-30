@@ -35,8 +35,8 @@ uniform sampler2D ssao_texture;
 
 in vec2 frag_texcoord;
 
-layout(location = 0) out vec4 out_base_color;
-layout(location = 1) out vec4 out_hdr_color;
+layout(location = 0) out vec3 out_base_color;
+layout(location = 1) out vec3 out_hdr_color;
 
 void main()
 {
@@ -107,14 +107,14 @@ void main()
     
     light_color += emissive_color;
 
-    out_base_color = vec4(light_color, 1.0);
+    out_base_color = light_color;
 
     float brightness = dot(light_color, vec3(0.2126, 0.7152, 0.0722));
 
     if (brightness > 0.7)
-        out_hdr_color = vec4(light_color, 1.0);
+        out_hdr_color = light_color;
     else
-        out_hdr_color = vec4(0.0, 0.0, 0.0, 1.0);
+        out_hdr_color = vec3(0.0);
     
-    out_hdr_color += vec4(emissive_color, 1.0);
+    out_hdr_color += emissive_color;
 }

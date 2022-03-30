@@ -5,7 +5,7 @@ uniform bool blur_horizontal;
 
 in vec2 frag_texcoord;
 
-out vec4 out_color;
+out vec3 out_color;
 
 void main()
 {
@@ -51,5 +51,5 @@ void main()
     blur_texcoord += blur_direction;			// +5
     blur_color += (1/1024.0) * texture(blur_texture, blur_texcoord).rgb;
 
-    out_color = vec4(blur_color, 1.0);
+    out_color = blur_color;
 }

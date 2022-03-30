@@ -7,7 +7,7 @@ uniform float exposure;
 
 in vec2 frag_texcoord;
 
-layout(location = 0) out vec4 out_color;
+layout(location = 0) out vec3 out_color;
 
 vec3 calculate_brightness_contrast(vec3 color, float brightness, float contrast)
 {
@@ -27,5 +27,5 @@ void main()
     hdr_color = calculate_gamma(hdr_color, 1.0 / 2.2);
     hdr_color = calculate_brightness_contrast(hdr_color, 0.7, 1.0);
     
-    out_color = vec4(hdr_color + bloom_color, 1.0);
+    out_color = hdr_color + bloom_color;
 }
