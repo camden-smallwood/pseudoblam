@@ -68,7 +68,7 @@ void main()
         }
         else
         {
-            surface_direction = normalize(camera_direction - frag_position);
+            surface_direction = normalize(camera_position - frag_position);
             light_direction = normalize(lights[i].position - frag_position);
         }
 
