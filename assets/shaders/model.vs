@@ -21,6 +21,7 @@ out vec3 frag_position;
 out vec3 frag_normal;
 out vec2 frag_texcoord;
 out mat3 frag_tbn;
+out mat3 frag_view_tbn;
 
 void main()
 {
@@ -44,6 +45,14 @@ void main()
         normalize(normal_matrix * tangent),
         normalize(normal_matrix * bitangent),
         normalize(normal_matrix * normal));
+
+    mat3 view_normal_matrix = transpose(inverse(mat3(view * model * transform)));    
+    vec3 T = normalize(view_normal_matrix * tangent);
+    vec3 N = normalize(view_normal_matrix * normal);
+    T = normalize(T - dot(T, N) * N);
+    vec3 B = cross(N, T);
+
+    frag_view_tbn = mat3(T, B, N);
 
     gl_Position = projection * view * model * transform * vec4(position, 1.0);
 }

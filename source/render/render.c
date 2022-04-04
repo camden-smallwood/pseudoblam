@@ -148,6 +148,7 @@ struct
 static void render_initialize_gl(void);
 static void render_initialize_default_textures(void);
 static void render_initialize_quad(void);
+static void render_initialize_decals(void);
 
 static void render_initialize_render_passes(void);
 static void render_initialize_geometry_pass(void);
@@ -188,6 +189,7 @@ void render_initialize(void)
     render_initialize_gl();
     render_initialize_default_textures();
     render_initialize_quad();
+    render_initialize_decals();
     render_initialize_render_passes();
 }
 
@@ -380,6 +382,25 @@ static void render_initialize_quad(void)
     shader_bind_vertex_attributes(render_globals.postprocess_pass.blur_pass.shader_index, _vertex_type_flat);
 }
 
+static void render_initialize_decals(void)
+{
+    // struct vertex_rigid decal_vertices[] =
+    // {
+    //     { .position = { 0.0f, 0.5f, 0.0f }, .texcoord = }
+    // };
+
+    // float transparentVertices[] = {
+    //     // positions         // texture Coords (swapped y coordinates because texture is flipped upside down)
+    //     0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+    //     0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
+    //     1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+
+    //     0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+    //     1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+    //     1.0f,  0.5f,  0.0f,  1.0f,  0.0f
+    // };
+}
+
 static void render_initialize_render_passes(void)
 {
     render_initialize_geometry_pass();
@@ -411,6 +432,9 @@ static void render_initialize_geometry_pass(void)
 
     render_globals.geometry_pass.emissive_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.emissive_texture_index);
+
+    render_globals.geometry_pass.view_normal_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
+    framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.view_normal_texture_index);
 
     renderbuffer_initialize(&render_globals.geometry_pass.depth_buffer, 0, GL_DEPTH_COMPONENT, render_globals.screen_width, render_globals.screen_height);
     framebuffer_attach_renderbuffer(&render_globals.geometry_pass.framebuffer, &render_globals.geometry_pass.depth_buffer);
@@ -620,7 +644,7 @@ static void render_occlusion_pass(void)
     shader_use(render_globals.occlusion_pass.shader_index);
 
     shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.occlusion_pass.noise_texture_index, "noise_texture");
-    shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.geometry_pass.normal_texture_index, "normal_texture");
+    shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.geometry_pass.view_normal_texture_index, "normal_texture");
     shader_bind_texture(render_globals.occlusion_pass.shader_index, render_globals.depth_pass.texture_index, "depth_texture");
     
     for (int i = 0; i < NUMBER_OF_SSAO_KERNEL_SAMPLES; i++)

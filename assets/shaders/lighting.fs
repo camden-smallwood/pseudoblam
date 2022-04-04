@@ -54,7 +54,7 @@ void main()
 
     float ambient_occlusion = texture(ssao_texture, frag_texcoord).r;
 
-    vec3 light_color = (material_ambient_amount > 0.0 ? material_ambient_amount : 0.3) * albedo_specular.rgb * ambient_occlusion;
+    vec3 light_color = material_ambient_amount * albedo_specular.rgb * ambient_occlusion;
 
     for (uint i = 0; i < light_count; i++)
     {
