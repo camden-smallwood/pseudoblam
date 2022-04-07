@@ -18,7 +18,6 @@ RENDER.C
 #include "common/common.h"
 #include "camera/camera.h"
 #include "game/game.h"
-#include "input/input.h"
 #include "models/models.h"
 #include "objects/objects.h"
 #include "textures/dds.h"

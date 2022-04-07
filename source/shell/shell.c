@@ -9,7 +9,6 @@ SHELL.C
 #include <SDL.h>
 
 #include "common/common.h"
-#include "input/input.h"
 #include "models/models.h"
 #include "objects/objects.h"
 #include "rasterizer/rasterizer_shaders.h"

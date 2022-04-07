@@ -8,12 +8,11 @@ GAME.C
 #include <stdlib.h>
 #include <string.h>
 
-#include <SDL_scancode.h>
+#include <SDL.h>
 
 #include "common/common.h"
 #include "camera/camera.h"
 #include "game/game.h"
-#include "input/input.h"
 #include "objects/objects.h"
 #include "objects/lights.h"
 
@@ -159,8 +158,10 @@ static void game_update_camera(float delta_ticks)
         }
     }
 
+    const uint8_t *keys = SDL_GetKeyboardState(NULL);
+
     // Cycle through camera movement speeds
-    if (input_is_key_down(SDL_SCANCODE_TAB))
+    if (keys[SDL_SCANCODE_TAB])
     {
         SET_BIT(game_globals.flags, _game_input_tab_bit, true);
     }
@@ -175,7 +176,7 @@ static void game_update_camera(float delta_ticks)
     }
 
     int mouse_motion_x, mouse_motion_y;
-    input_get_mouse_motion(&mouse_motion_x, &mouse_motion_y);
+    SDL_GetRelativeMouseState(&mouse_motion_x, &mouse_motion_y);
     
     vec2 mouse_motion = {(float)-mouse_motion_x, (float)-mouse_motion_y};
 
@@ -188,7 +189,7 @@ static void game_update_camera(float delta_ticks)
     vec3 vertical_movement = GLM_VEC3_ZERO_INIT;
 
     // Forwards camera forward_movement
-    if (input_is_key_down(SDL_SCANCODE_W))
+    if (keys[SDL_SCANCODE_W])
     {
         glm_vec3_normalize_to(game_globals.camera.forward, forward_movement);
         glm_vec3_abs(forward_movement, forward_movement);
@@ -205,7 +206,7 @@ static void game_update_camera(float delta_ticks)
     }
     
     // Backwards camera forward_movement
-    if (input_is_key_down(SDL_SCANCODE_S))
+    if (keys[SDL_SCANCODE_S])
     {
         glm_vec3_normalize_to(game_globals.camera.forward, forward_movement);
         glm_vec3_abs(forward_movement, forward_movement);
@@ -222,7 +223,7 @@ static void game_update_camera(float delta_ticks)
     }
 
     // Left camera sideways_movement
-    if (input_is_key_down(SDL_SCANCODE_A))
+    if (keys[SDL_SCANCODE_A])
     {
         glm_vec3_normalize_to(game_globals.camera.right, sideways_movement);
         glm_vec3_abs(sideways_movement, sideways_movement);
@@ -239,7 +240,7 @@ static void game_update_camera(float delta_ticks)
     }
     
     // Right camera sideways_movement
-    if (input_is_key_down(SDL_SCANCODE_D))
+    if (keys[SDL_SCANCODE_D])
     {
         glm_vec3_normalize_to(game_globals.camera.right, sideways_movement);
         glm_vec3_abs(sideways_movement, sideways_movement);
@@ -256,13 +257,13 @@ static void game_update_camera(float delta_ticks)
     }
 
     // Upward camera vertical_movement
-    if (input_is_key_down(SDL_SCANCODE_R))
+    if (keys[SDL_SCANCODE_R])
     {
         glm_vec3_add(vertical_movement, (vec3){0, 0, 2}, vertical_movement);
     }
 
     // Downward camera vertical_movement
-    if (input_is_key_down(SDL_SCANCODE_F) && !input_is_key_down(SDL_SCANCODE_R))
+    if (keys[SDL_SCANCODE_F] && !keys[SDL_SCANCODE_R])
     {
         glm_vec3_sub(vertical_movement, (vec3){0, 0, 2}, vertical_movement);
     }
@@ -275,7 +276,7 @@ static void game_update_camera(float delta_ticks)
     glm_vec3_scale(movement, 2.0f, movement);
 
     // Double movement amount if either shift key is down
-    if (input_is_key_down(SDL_SCANCODE_LSHIFT) || input_is_key_down(SDL_SCANCODE_RSHIFT))
+    if (keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT])
         glm_vec3_scale(movement, 2.0f, movement);
     
     // Scale the movement amount by the camera's movement speed per tick
@@ -350,8 +351,10 @@ static void game_update_objects(void)
         animation_manager_set_animation_active(&weapon_object->animations, ready_animation_index, ready_animation_active = true);
     }
 
+    const uint8_t *keys = SDL_GetKeyboardState(NULL);
+
     // Manual animation playback 1
-    if (input_is_key_down(SDL_SCANCODE_1))
+    if (keys[SDL_SCANCODE_1])
     {
         SET_BIT(game_globals.flags, _game_input_1_bit, true);
     }
@@ -362,7 +365,7 @@ static void game_update_objects(void)
     }
 
     // Manual animation playback 2
-    if (input_is_key_down(SDL_SCANCODE_2))
+    if (keys[SDL_SCANCODE_2])
     {
         SET_BIT(game_globals.flags, _game_input_2_bit, true);
     }
@@ -373,7 +376,7 @@ static void game_update_objects(void)
     }
 
     // Manual animation playback 3
-    if (input_is_key_down(SDL_SCANCODE_3))
+    if (keys[SDL_SCANCODE_3])
     {
         SET_BIT(game_globals.flags, _game_input_3_bit, true);
     }
