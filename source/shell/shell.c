@@ -249,6 +249,11 @@ static inline void shell_update(void)
             }
             break;
         
+        case SDL_KEYUP:
+            if (event.key.keysym.scancode == SDL_SCANCODE_M)
+                SET_BIT(shell_globals.flags, _shell_capture_mouse_bit, !TEST_BIT(shell_globals.flags, _shell_capture_mouse_bit));
+            break;
+        
         case SDL_QUIT:
             shell_dispose();
         }

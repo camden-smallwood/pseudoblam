@@ -100,6 +100,11 @@ static inline void material_import_assimp_textures(
 
     for (int i = 0, count = aiGetMaterialTextureCount(in_material, texture_type); i < count; i++)
     {
+        if (texture_usage == _material_texture_usage_opacity)
+        {
+            SET_BIT(out_material->flags, _material_has_transparency_bit, true);
+        }
+
         struct material_texture texture =
         {
             .usage = texture_usage,

@@ -198,8 +198,14 @@ struct material_ambient_occlussion_properties
 
 /* ---------- */
 
+enum material_flags
+{
+    _material_has_transparency_bit,
+};
+
 struct material_data
 {
+    unsigned int flags;
     int shader_index;
 
     int texture_count;

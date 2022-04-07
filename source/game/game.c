@@ -50,6 +50,7 @@ struct
     float camera_movement_speed;
 
     int plane_object_index;
+    int grass_object_index;
     int weapon_object_index;
     int grunt_object_index;
 } game_globals;
@@ -90,6 +91,12 @@ void game_load_content(void)
     struct object_data *plane_object = object_get_data(game_globals.plane_object_index);
     plane_object->model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/plane.fbx");
     object_initialize(game_globals.plane_object_index);
+
+    // Initialize ground grass
+    game_globals.grass_object_index = object_new();
+    struct object_data *grass_object = object_get_data(game_globals.grass_object_index);
+    grass_object->model_index = model_import_from_file(_vertex_type_rigid, "../assets/models/grass.fbx");
+    object_initialize(game_globals.grass_object_index);
 
     // Initialize grunt character
     game_globals.grunt_object_index = object_new();
