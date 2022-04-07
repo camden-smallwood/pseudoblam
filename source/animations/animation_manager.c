@@ -51,7 +51,7 @@ void animation_manager_initialize(
     manager->model_index = model_index;
     assert(manager->active_animations_bit_vector = calloc(BIT_VECTOR_LENGTH_IN_WORDS(model->animation_count), sizeof(unsigned int)));
     assert(manager->states = calloc(model->animation_count, sizeof(*manager->states)));
-    assert(manager->blended_node_matrices = calloc(model->node_count, sizeof(*manager->blended_node_matrices)));
+    assert(manager->node_matrices = calloc(model->node_count, sizeof(*manager->node_matrices)));
     
     for (int state_index = 0; state_index < model->animation_count; state_index++)
     {
@@ -83,7 +83,7 @@ void animation_manager_dispose(
 
     free(manager->active_animations_bit_vector);
     free(manager->states);
-    free(manager->blended_node_matrices);
+    free(manager->node_matrices);
 }
 
 struct animation_state *animation_manager_get_animation_state(
@@ -485,7 +485,7 @@ static void animation_manager_compute_node_matrices(
     mat4 global_transform;
     glm_mat4_mul(parent_transform, local_transform, global_transform);
 
-    glm_mat4_mul(global_transform, node->offset_matrix, manager->blended_node_matrices[node_index]);
+    glm_mat4_mul(global_transform, node->offset_matrix, manager->node_matrices[node_index]);
     
     for (int child_node_index = node->first_child_index;
         child_node_index != -1;

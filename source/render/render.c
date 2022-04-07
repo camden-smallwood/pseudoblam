@@ -470,7 +470,7 @@ static void render_object(int shader_index, int object_index)
 
         for (int node_index = 0; node_index < model->node_count; node_index++)
         {
-            shader_set_mat4_v(shader_index, object->animations.blended_node_matrices[node_index], "node_matrices[%i]", node_index);
+            shader_set_mat4_v(shader_index, object->animations.node_matrices[node_index], "node_matrices[%i]", node_index);
         }
         
         glBindVertexArray(mesh->vertex_array);

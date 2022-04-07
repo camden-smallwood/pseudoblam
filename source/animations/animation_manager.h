@@ -49,7 +49,7 @@ struct animation_manager
 
     struct animation_state *states;
     
-    mat4 *blended_node_matrices;
+    mat4 *node_matrices;
 };
 
 /* ---------- prototypes/ANIMATION_MANAGER.C */

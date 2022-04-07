@@ -3,8 +3,6 @@ SHELL.C
     Main application code.
 */
 
-/* ---------- headers */
-
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -114,7 +112,8 @@ struct
 
 static inline void shell_initialize(void);
 static inline void shell_dispose(void);
-static inline void shell_handle_screen_resize(int width, int height);
+static inline void shell_load_content(void);
+static inline void shell_handle_screen_resize(void);
 static inline void shell_update(void);
 
 /* ---------- public code */
@@ -127,6 +126,8 @@ void shell_get_window_size(int *out_width, int *out_height)
 int main(void)
 {
     shell_initialize();
+    shell_load_content();
+    shell_handle_screen_resize();
 
     for (;;)
     {
@@ -156,40 +157,23 @@ static inline void shell_initialize(void)
     shell_globals.window = SDL_CreateWindow("asdf", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_width, screen_height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     shell_globals.gl_context = SDL_GL_CreateContext(shell_globals.window);
     
+    SDL_WarpMouseInWindow(shell_globals.window, screen_width / 2, screen_height / 2);
+    SET_BIT(shell_globals.flags, _shell_capture_mouse_bit, 1);
+    
     shell_globals.frame_rate = 60;
 
     SDL_GL_SetSwapInterval(0);
 
-    SET_BIT(shell_globals.flags, _shell_capture_mouse_bit, 1);
-
     for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
-    {
         if (shell_components[i].initialize)
-        {
             shell_components[i].initialize();
-        }
-    }
-
-    for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
-    {
-        if (shell_components[i].load_content)
-        {
-            shell_components[i].load_content();
-        }
-    }
-
-    shell_handle_screen_resize(screen_width, screen_height);
 }
 
 static inline void shell_dispose(void)
 {
     for (int i = NUMBER_OF_SHELL_COMPONENTS - 1; i >= 0; i--)
-    {
         if (shell_components[i].dispose)
-        {
             shell_components[i].dispose();
-        }
-    }
 
     SDL_GL_DeleteContext(shell_globals.gl_context);
     SDL_DestroyWindow(shell_globals.window);
@@ -198,15 +182,22 @@ static inline void shell_dispose(void)
     exit(EXIT_SUCCESS);
 }
 
-static inline void shell_handle_screen_resize(int width, int height)
+static inline void shell_load_content(void)
 {
     for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
-    {
+        if (shell_components[i].load_content)
+            shell_components[i].load_content();
+}
+
+static inline void shell_handle_screen_resize(void)
+{
+    int width;
+    int height;
+    SDL_GetWindowSize(shell_globals.window, &width, &height);
+
+    for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
         if (shell_components[i].handle_screen_resize)
-        {
             shell_components[i].handle_screen_resize(width, height);
-        }
-    }
 }
 
 static inline void shell_update(void)
@@ -217,9 +208,7 @@ static inline void shell_update(void)
     uint64_t frame_start_time = SDL_GetPerformanceCounter();
 
     if (!shell_globals.last_frame_time)
-    {
         shell_globals.last_frame_time = frame_start_time;
-    }
 
     if (((double)(frame_start_time - shell_globals.last_fps_display_time) / (double)SDL_GetPerformanceFrequency()) >= 1.0)
     {
@@ -244,7 +233,7 @@ static inline void shell_update(void)
             switch (event.window.event)
             {
             case SDL_WINDOWEVENT_RESIZED:
-                shell_handle_screen_resize(event.window.data1, event.window.data2);
+                shell_handle_screen_resize();
                 break;
             }
             break;
@@ -260,12 +249,8 @@ static inline void shell_update(void)
     }
 
     for (int i = 0; i < NUMBER_OF_SHELL_COMPONENTS; i++)
-    {
         if (shell_components[i].update)
-        {
             shell_components[i].update(delta_ticks);
-        }
-    }
     
     SDL_GL_SwapWindow(shell_globals.window);
 
