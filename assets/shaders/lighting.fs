@@ -116,7 +116,7 @@ void main()
     }
     
     light_color += emissive_color;
-
+    
     light_color = calculate_gamma(light_color, 1.0 / 2.2);
     light_color = calculate_brightness_contrast(light_color, 0.7, 1.0);
     

@@ -87,6 +87,143 @@ void framebuffer_use(
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer ? framebuffer->id : 0);
 }
 
+void framebuffer_clear(
+    struct framebuffer *framebuffer,
+    int width,
+    int height)
+{
+    assert(framebuffer);
+
+    GLbitfield clear_flags = 0;
+
+    for (int i = 0; i < framebuffer->attachment_count; i++)
+    {
+        switch (framebuffer->attachments[i].type)
+        {
+        case _framebuffer_attachment_type_texture:
+            clear_flags |= GL_COLOR_BUFFER_BIT;
+            break;
+
+        case _framebuffer_attachment_type_depth:
+            clear_flags |= GL_DEPTH_BUFFER_BIT;
+            break;
+        
+        default:
+            fprintf(stderr, "ERROR: unhandled framebuffer attachment type: %i\n", framebuffer->attachments[i].type);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (clear_flags & GL_DEPTH_BUFFER_BIT)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+    
+    glViewport(0, 0, width, height);
+    framebuffer_use(framebuffer);
+    glClear(clear_flags);
+}
+
+void framebuffer_copy(
+    struct framebuffer *source_framebuffer,
+    int source_attachment_index,
+    int source_x,
+    int source_y,
+    int source_width,
+    int source_height,
+    struct framebuffer *dest_framebuffer,
+    int dest_attachment_index,
+    int dest_x,
+    int dest_y,
+    int dest_width,
+    int dest_height)
+{
+    assert(source_framebuffer);
+    assert(source_attachment_index >= 0 && source_attachment_index < source_framebuffer->attachment_count);
+    assert(dest_framebuffer);
+    assert(dest_attachment_index >= 0 && dest_attachment_index < dest_framebuffer->attachment_count);
+
+    GLbitfield blit_flags = 0;
+    GLenum source_attachment = GL_COLOR_ATTACHMENT0;
+    GLenum dest_attachment = GL_COLOR_ATTACHMENT0;
+
+    for (int attachment_index = 0, color_index = 0, depth_index = 0;
+        attachment_index < source_framebuffer->attachment_count;
+        attachment_index++)
+    {
+        struct framebuffer_attachment *attachment = source_framebuffer->attachments + attachment_index;
+
+        if (attachment->type == _framebuffer_attachment_type_texture)
+        {
+            if (attachment_index == source_attachment_index)
+            {
+                source_attachment = GL_COLOR_ATTACHMENT0 + color_index;
+                blit_flags |= GL_COLOR_BUFFER_BIT;
+                break;
+            }
+            color_index++;
+        }
+        else if (attachment->type == _framebuffer_attachment_type_depth)
+        {
+            if (attachment_index == source_attachment_index)
+            {
+                source_attachment = GL_DEPTH_ATTACHMENT + depth_index;
+                blit_flags |= GL_DEPTH_BUFFER_BIT;
+                break;
+            }
+            depth_index++;
+        }
+        else
+        {
+            fprintf(stderr, "ERROR: unhandled source_framebuffer attachment type: %i\n", attachment->type);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    for (int attachment_index = 0, color_index = 0, depth_index = 0;
+        attachment_index < dest_framebuffer->attachment_count;
+        attachment_index++)
+    {
+        struct framebuffer_attachment *attachment = dest_framebuffer->attachments + attachment_index;
+
+        if (attachment->type == _framebuffer_attachment_type_texture)
+        {
+            if (attachment_index == dest_attachment_index)
+            {
+                dest_attachment = GL_COLOR_ATTACHMENT0 + color_index;
+                blit_flags |= GL_COLOR_BUFFER_BIT;
+                break;
+            }
+            color_index++;
+        }
+        else if (attachment->type == _framebuffer_attachment_type_depth)
+        {
+            if (attachment_index == dest_attachment_index)
+            {
+                dest_attachment = GL_DEPTH_ATTACHMENT + depth_index;
+                blit_flags |= GL_DEPTH_BUFFER_BIT;
+                break;
+            }
+            depth_index++;
+        }
+        else
+        {
+            fprintf(stderr, "ERROR: unhandled dest_framebuffer attachment type: %i\n", attachment->type);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, source_framebuffer->id);
+    glReadBuffer(source_attachment);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest_framebuffer->id);
+    glDrawBuffer(dest_attachment);
+    glBlitFramebuffer(
+        source_x, source_y, source_x + source_width, source_y + source_height,
+        dest_x, dest_y, dest_x + dest_width, dest_y + dest_height,
+        blit_flags,
+        GL_NEAREST);
+}
+
 void framebuffer_attach_texture(
     struct framebuffer *framebuffer,
     int texture_index)

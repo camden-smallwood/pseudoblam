@@ -528,11 +528,7 @@ static void render_initialize_geometry_pass(void)
 
 static void render_geometry_pass(void)
 {
-    // TODO: framebuffer_clear
-    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
-    glEnable(GL_DEPTH_TEST);
-    framebuffer_use(&render_globals.geometry_pass.framebuffer);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    framebuffer_clear(&render_globals.geometry_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
 
     static struct object_iterator iterator;
     object_iterator_new(&iterator);
@@ -562,21 +558,10 @@ static void render_initialize_depth_pass(void)
 
 static void render_depth_pass(void)
 {
-    // TODO: framebuffer_clear
-    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
-    glEnable(GL_DEPTH_TEST);
-
-    // TODO: framebuffer_copy
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.geometry_pass.framebuffer.id);
-    glReadBuffer(GL_DEPTH_ATTACHMENT);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.depth_pass.framebuffer.id);
-    glDrawBuffer(GL_DEPTH_ATTACHMENT);
-    glBlitFramebuffer(
-        0, 0, render_globals.screen_width, render_globals.screen_height,
-        0, 0, render_globals.screen_width, render_globals.screen_height,
-        GL_DEPTH_BUFFER_BIT,
-        GL_NEAREST);
-    
+    framebuffer_clear(&render_globals.depth_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
+    framebuffer_copy(
+        &render_globals.geometry_pass.framebuffer, 6, 0, 0, render_globals.screen_width, render_globals.screen_height,
+        &render_globals.depth_pass.framebuffer, 0, 0, 0, render_globals.screen_width, render_globals.screen_height);
     framebuffer_use(NULL);
 }
 
@@ -634,10 +619,7 @@ static void render_initialize_occlusion_pass(void)
 
 static void render_occlusion_pass(void)
 {
-    // TODO: framebuffer_clear
-    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
-    glDisable(GL_DEPTH_TEST);
-    framebuffer_use(&render_globals.occlusion_pass.framebuffer);
+    framebuffer_clear(&render_globals.occlusion_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
 
     shader_use(render_globals.occlusion_pass.shader_index);
 
@@ -681,11 +663,7 @@ static void render_initialize_lighting_pass(void)
 
 static void render_lighting_pass(void)
 {
-    // TODO: framebuffer_clear
-    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
-    glDisable(GL_DEPTH_TEST);
-    framebuffer_use(&render_globals.lighting_pass.framebuffer);
-    glClear(GL_COLOR_BUFFER_BIT);
+    framebuffer_clear(&render_globals.lighting_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
 
     shader_use(render_globals.lighting_pass.shader_index);
     
@@ -709,16 +687,9 @@ static void render_lighting_pass(void)
 
     shader_unbind_textures(render_globals.lighting_pass.shader_index);
 
-    // TODO: framebuffer_copy
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.lighting_pass.framebuffer.id);
-    glReadBuffer(GL_COLOR_ATTACHMENT1);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer.id);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    glBlitFramebuffer(
-        0, 0, render_globals.screen_width, render_globals.screen_height,
-        0, 0, render_globals.screen_width, render_globals.screen_height,
-        GL_COLOR_BUFFER_BIT,
-        GL_NEAREST);
+    framebuffer_copy(
+        &render_globals.lighting_pass.framebuffer, 1, 0, 0, render_globals.screen_width, render_globals.screen_height,
+        &render_globals.postprocess_pass.framebuffer, 0, 0, 0, render_globals.screen_width, render_globals.screen_height);
     
     framebuffer_use(NULL);
 }
@@ -782,9 +753,6 @@ static void render_initialize_blur_pass(void)
 
 static void render_blur_pass(void)
 {
-    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
-    glDisable(GL_DEPTH_TEST);
-
     bool blur_horizontal = true;
     const int blur_pass_count = 1;
 
@@ -792,9 +760,7 @@ static void render_blur_pass(void)
     {
         for (int blur_axis = 0; blur_axis < 2; blur_axis++, blur_horizontal = !blur_horizontal)
         {
-            framebuffer_use(&render_globals.blur_pass.framebuffer);
-            // TODO: framebuffer_clear
-            glClear(GL_COLOR_BUFFER_BIT);
+            framebuffer_clear(&render_globals.blur_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
 
             shader_use(render_globals.blur_pass.shader_index);
 
@@ -807,17 +773,9 @@ static void render_blur_pass(void)
 
             shader_unbind_textures(render_globals.blur_pass.shader_index);
 
-            // TODO: framebuffer_copy
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.blur_pass.framebuffer.id);
-            glReadBuffer(GL_COLOR_ATTACHMENT0);
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer.id);
-            glDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-            glBlitFramebuffer(
-                0, 0, render_globals.screen_width, render_globals.screen_height,
-                0, 0, render_globals.screen_width, render_globals.screen_height,
-                GL_COLOR_BUFFER_BIT,
-                GL_NEAREST);
+            framebuffer_copy(
+                &render_globals.blur_pass.framebuffer, 0, 0, 0, render_globals.screen_width, render_globals.screen_height,
+                &render_globals.postprocess_pass.framebuffer, 0, 0, 0, render_globals.screen_width, render_globals.screen_height);
             
             framebuffer_use(NULL);
         }
@@ -843,11 +801,7 @@ static void render_initialize_hdr_pass(void)
 
 static void render_hdr_pass(void)
 {
-    // TODO: framebuffer_clear
-    glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
-    glDisable(GL_DEPTH_TEST);
-    framebuffer_use(&render_globals.hdr_pass.framebuffer);
-    glClear(GL_COLOR_BUFFER_BIT);
+    framebuffer_clear(&render_globals.hdr_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
 
     shader_use(render_globals.hdr_pass.shader_index);
     
