@@ -38,6 +38,16 @@ in vec2 frag_texcoord;
 layout(location = 0) out vec3 out_base_color;
 layout(location = 1) out vec3 out_hdr_color;
 
+vec3 calculate_brightness_contrast(vec3 color, float brightness, float contrast)
+{
+    return ((color - 0.5) * (contrast + 0.5)) + brightness;
+}
+
+vec3 calculate_gamma(vec3 value, float param)
+{
+    return vec3(pow(abs(value.r), param), pow(abs(value.g), param), pow(abs(value.b), param));
+}
+
 void main()
 {
     vec3 frag_position = texture(position_texture, frag_texcoord).rgb;
@@ -107,11 +117,14 @@ void main()
     
     light_color += emissive_color;
 
+    light_color = calculate_gamma(light_color, 1.0 / 2.2);
+    light_color = calculate_brightness_contrast(light_color, 0.7, 1.0);
+    
     out_base_color = light_color;
 
     float brightness = dot(light_color, vec3(0.2126, 0.7152, 0.0722));
 
-    if (brightness > 0.7)
+    if (brightness > 1.0)
         out_hdr_color = light_color;
     else
         out_hdr_color = vec3(0.0);

@@ -44,5 +44,5 @@ void main()
     out_material = vec4(material.ambient_amount, material.specular_amount, material.specular_shininess, 0);
     out_emissive = texture(material.emissive_texture, frag_texcoord).rgb;
     
-    out_view_normal = normalize(frag_view_tbn * frag_normal) + normalize(frag_view_tbn * normal_map);
+    out_view_normal = normalize(frag_view_tbn * normal_map);
 }

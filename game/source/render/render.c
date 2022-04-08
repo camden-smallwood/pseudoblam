@@ -786,38 +786,41 @@ static void render_blur_pass(void)
     glDisable(GL_DEPTH_TEST);
 
     bool blur_horizontal = true;
-    const int blur_pass_count = 2;
+    const int blur_pass_count = 1;
 
-    for (int i = 0; i < blur_pass_count; blur_horizontal = !blur_horizontal, i++)
+    for (int i = 0; i < blur_pass_count; i++)
     {
-        framebuffer_use(&render_globals.blur_pass.framebuffer);
-        // TODO: framebuffer_clear
-        glClear(GL_COLOR_BUFFER_BIT);
+        for (int blur_axis = 0; blur_axis < 2; blur_axis++, blur_horizontal = !blur_horizontal)
+        {
+            framebuffer_use(&render_globals.blur_pass.framebuffer);
+            // TODO: framebuffer_clear
+            glClear(GL_COLOR_BUFFER_BIT);
 
-        shader_use(render_globals.blur_pass.shader_index);
+            shader_use(render_globals.blur_pass.shader_index);
 
-        shader_bind_texture(render_globals.blur_pass.shader_index, render_globals.postprocess_pass.texture_index, "blur_texture");
-        shader_set_bool(render_globals.blur_pass.shader_index, blur_horizontal, "blur_horizontal");
-        
-        // TODO: draw as mesh (?)
-        glBindVertexArray(render_globals.quad_vertex_array);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+            shader_bind_texture(render_globals.blur_pass.shader_index, render_globals.postprocess_pass.texture_index, "blur_texture");
+            shader_set_bool(render_globals.blur_pass.shader_index, blur_horizontal, "blur_horizontal");
+            
+            // TODO: draw as mesh (?)
+            glBindVertexArray(render_globals.quad_vertex_array);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        shader_unbind_textures(render_globals.blur_pass.shader_index);
+            shader_unbind_textures(render_globals.blur_pass.shader_index);
 
-        // TODO: framebuffer_copy
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.blur_pass.framebuffer.id);
-        glReadBuffer(GL_COLOR_ATTACHMENT0);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer.id);
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+            // TODO: framebuffer_copy
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, render_globals.blur_pass.framebuffer.id);
+            glReadBuffer(GL_COLOR_ATTACHMENT0);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, render_globals.postprocess_pass.framebuffer.id);
+            glDrawBuffer(GL_COLOR_ATTACHMENT0);
 
-        glBlitFramebuffer(
-            0, 0, render_globals.screen_width, render_globals.screen_height,
-            0, 0, render_globals.screen_width, render_globals.screen_height,
-            GL_COLOR_BUFFER_BIT,
-            GL_NEAREST);
-        
-        framebuffer_use(NULL);
+            glBlitFramebuffer(
+                0, 0, render_globals.screen_width, render_globals.screen_height,
+                0, 0, render_globals.screen_width, render_globals.screen_height,
+                GL_COLOR_BUFFER_BIT,
+                GL_NEAREST);
+            
+            framebuffer_use(NULL);
+        }
     }
 }
 

@@ -9,47 +9,32 @@ out vec3 out_color;
 
 void main()
 {
-    vec2 blur_direction = 1.0 / textureSize(blur_texture, 0);
-    vec2 blur_texcoord = frag_texcoord;
-    vec3 blur_color = vec3(0);
+    vec2 blur_texture_size = textureSize(blur_texture, 0).xy;
+
+    vec2 blur_direction = 1.0 / blur_texture_size;
+    int blur_size;
 
     if (blur_horizontal)
-        blur_direction.y = 0;
+    {
+        blur_direction.y = 0.0;
+        blur_size = int(blur_texture_size.x);
+    }
     else
-        blur_direction.x = 0;
+    {
+        blur_direction.x = 0.0;
+        blur_size = int(blur_texture_size.y);
+    }
 
-    blur_texcoord -= 5.0 * blur_direction;		// -5
-    blur_color += (1/1024.0) * texture(blur_texture, blur_texcoord).rgb;
+    vec4 blur_color = vec4(texture(blur_texture, frag_texcoord).rgb, 1.0);
 
-    blur_texcoord += blur_direction;			// -4
-    blur_color += (10/1024.0) * texture(blur_texture, blur_texcoord).rgb;
+    for (int i = 1; i <= 5; ++ i)
+    {
+        vec2 blur_offset = float(i) * blur_direction;
+        float weight = (1.0 / (2.0 * 3.14157)) * exp(-exp2(float(i) / float(blur_size)) / 2.0);
 
-    blur_texcoord += blur_direction;			// -3
-    blur_color += (45/1024.0) * texture(blur_texture, blur_texcoord).rgb;
+        blur_color += vec4(texture(blur_texture, frag_texcoord + blur_offset).rgb * weight, weight);
+        blur_color += vec4(texture(blur_texture, frag_texcoord - blur_offset).rgb * weight, weight);
+    }
 
-    blur_texcoord += blur_direction;			// -2
-    blur_color += (120/1024.0) * texture(blur_texture, blur_texcoord).rgb;
-
-    blur_texcoord += blur_direction;			// -1
-    blur_color += (210/1024.0) * texture(blur_texture, blur_texcoord).rgb;
-
-    blur_texcoord += blur_direction;			// 0
-    blur_color += (252/1024.0) * texture(blur_texture, blur_texcoord).rgb;
-
-    blur_texcoord += blur_direction;			// +1
-    blur_color += (210/1024.0) * texture(blur_texture, blur_texcoord).rgb;
-
-    blur_texcoord += blur_direction;			// +2
-    blur_color += (120/1024.0) * texture(blur_texture, blur_texcoord).rgb;
-
-    blur_texcoord += blur_direction;			// +3
-    blur_color += (45/1024.0) * texture(blur_texture, blur_texcoord).rgb;
-
-    blur_texcoord += blur_direction;			// +4
-    blur_color += (10/1024.0) * texture(blur_texture, blur_texcoord).rgb;
-
-    blur_texcoord += blur_direction;			// +5
-    blur_color += (1/1024.0) * texture(blur_texture, blur_texcoord).rgb;
-
-    out_color = blur_color;
+    out_color = blur_color.rgb / blur_color.w;
 }
