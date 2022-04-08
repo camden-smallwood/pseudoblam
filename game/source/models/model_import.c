@@ -121,80 +121,6 @@ static inline void material_import_assimp_textures(
         if (AI_SUCCESS == aiGetMaterialTexture(in_material, texture_type, i, &string, &mapping, &uvindex, &blend, &op, &mapmode, &flags))
         {
             texture.index = dds_import_file_as_texture2d(string.data);
-
-            puts(string.data);
-
-            switch (mapping)
-            {
-            case aiTextureMapping_UV:
-                puts("mapping: aiTextureMapping_UV");
-                break;
-            case aiTextureMapping_SPHERE:
-                puts("mapping: aiTextureMapping_SPHERE");
-                break;
-            case aiTextureMapping_CYLINDER:
-                puts("mapping: aiTextureMapping_CYLINDER");
-                break;
-            case aiTextureMapping_BOX:
-                puts("mapping: aiTextureMapping_BOX");
-                break;
-            case aiTextureMapping_PLANE:
-                puts("mapping: aiTextureMapping_PLANE");
-                break;
-            case aiTextureMapping_OTHER:
-                puts("mapping: aiTextureMapping_OTHER");
-                break;
-            }
-
-            printf("uvindex: %u\n", uvindex);
-            printf("blend: %f\n", blend);
-            
-            switch (op)
-            {
-            case aiTextureOp_Multiply:
-                puts("op: aiTextureOp_Multiply");
-                break;
-            case aiTextureOp_Add:
-                puts("op: aiTextureOp_Add");
-                break;
-            case aiTextureOp_Subtract:
-                puts("op: aiTextureOp_Subtract");
-                break;
-            case aiTextureOp_Divide:
-                puts("op: aiTextureOp_Divide");
-                break;
-            case aiTextureOp_SmoothAdd:
-                puts("op: aiTextureOp_SmoothAdd");
-                break;
-            case aiTextureOp_SignedAdd:
-                puts("op: aiTextureOp_SignedAdd");
-                break;
-            }
-
-            switch (mapmode)
-            {
-            case aiTextureMapMode_Wrap:
-                puts("mapmode: aiTextureMapMode_Wrap");
-                break;
-            case aiTextureMapMode_Clamp:
-                puts("mapmode: aiTextureMapMode_Clamp");
-                break;
-            case aiTextureMapMode_Decal:
-                puts("mapmode: aiTextureMapMode_Decal");
-                break;
-            case aiTextureMapMode_Mirror:
-                puts("mapmode: aiTextureMapMode_Mirror");
-                break;
-            }
-
-            puts("flags:");
-
-            if (flags & aiTextureFlags_Invert)
-                puts("\taiTextureFlags_Invert");
-            if (flags & aiTextureFlags_UseAlpha)
-                puts("\taiTextureFlags_UseAlpha");
-            if (flags & aiTextureFlags_IgnoreAlpha)
-                puts("\taiTextureFlags_IgnoreAlpha");
         }
         
         mempush(&out_material->texture_count, (void **)&out_material->textures, &texture, sizeof(texture), realloc);
@@ -216,17 +142,6 @@ static void material_import_assimp_base_properties(
     out_material->base_properties.shading_model = material_get_assimp_int(in_material, AI_MATKEY_SHADING_MODEL, _material_shading_model_blinn);
     out_material->base_properties.blending_mode = material_get_assimp_int(in_material, AI_MATKEY_BLEND_FUNC, _material_blending_mode_default);
 
-    switch (out_material->base_properties.blending_mode)
-    {
-    case _material_blending_mode_default:
-        puts("default blending");
-        break;
-
-    case _material_blending_mode_additive:
-        puts("additive blending");
-        break;
-    }
-    
     out_material->base_properties.opacity = material_get_assimp_float(in_material, AI_MATKEY_OPACITY, 1.0f);
     out_material->base_properties.transparency_factor = material_get_assimp_float(in_material, AI_MATKEY_TRANSPARENCYFACTOR, 1.0f);
     out_material->base_properties.bump_scaling = material_get_assimp_float(in_material, AI_MATKEY_BUMPSCALING, 1.0f);
