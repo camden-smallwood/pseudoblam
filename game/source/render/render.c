@@ -303,11 +303,12 @@ static void render_initialize_quad(void)
     glGenBuffers(1, &render_globals.quad_vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, render_globals.quad_vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
-    
+
     shader_bind_vertex_attributes(render_globals.quad_shader, _vertex_type_flat);
+    shader_bind_vertex_attributes(render_globals.occlusion_pass.shader_index, _vertex_type_flat);
     shader_bind_vertex_attributes(render_globals.lighting_pass.shader_index, _vertex_type_flat);
-    shader_bind_vertex_attributes(render_globals.hdr_pass.shader_index, _vertex_type_flat);
     shader_bind_vertex_attributes(render_globals.blur_pass.shader_index, _vertex_type_flat);
+    shader_bind_vertex_attributes(render_globals.hdr_pass.shader_index, _vertex_type_flat);
 }
 
 static void render_quad(void)
