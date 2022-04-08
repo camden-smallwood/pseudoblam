@@ -9,6 +9,8 @@ COMMON.H
 
 /* ---------- macros */
 
+#define NUMBER_OF(array) (sizeof((array)) / sizeof((array)[0]))
+
 #define BIT(bit_index) (1u << (bit_index))
 #define TEST_BIT(bits, bit_index) (((bits) & BIT(bit_index)) != 0)
 #define SET_BIT(bits, bit_index, value) ((bits) = ((value) ? ((bits) | BIT(bit_index)) : ((bits) & ~BIT(bit_index))))
@@ -20,6 +22,18 @@ COMMON.H
 #define BIT_VECTOR_SET_BIT(bits, bit_index, value) SET_BIT((bits)[BIT_VECTOR_WORD_INDEX(bit_index)], BIT_VECTOR_WORD_BIT_INDEX(bit_index), (value))
 
 /* ---------- prototypes/COMMON.C */
+
+/**
+ * Attempts to find the first occurance of any whitespace character in the supplied UTF-8 string.
+ * @returns The address of the first occurance of any whitespace character in the supplied UTF-8 string, or NULL if none was found.
+ */
+const char *string_find_whitespace(const char *string);
+
+/**
+ * Attempts to find the last occurance of any whitespace character in the supplied UTF-8 string.
+ * @returns The address of the last occurance of any whitespace character in the supplied UTF-8 string, or NULL if none was found.
+ */
+const char *string_find_whitespace_reverse(const char *string);
 
 /**
  * Pushes an element to the end of an abstract dynamic array.

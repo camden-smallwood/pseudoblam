@@ -4,10 +4,39 @@ COMMON.C
 */
 
 #include <assert.h>
+#include <ctype.h>
 #include <string.h>
 #include "common/common.h"
 
 /* ---------- public code */
+
+const char *string_find_whitespace(
+    const char *string)
+{
+    assert(string);
+
+    size_t string_length = strlen(string);
+
+    for (size_t i = 0; i < string_length; i++)
+        if (isspace(string[i]))
+            return string + i;
+
+    return NULL;
+}
+
+const char *string_find_whitespace_reverse(
+    const char *string)
+{
+    assert(string);
+
+    size_t string_length = strlen(string);
+
+    for (size_t i = string_length; i > 0; i--)
+        if (isspace(string[i - 1]))
+            return string + (i - 1);
+
+    return NULL;
+}
 
 void *mempush(
     int *out_count,
