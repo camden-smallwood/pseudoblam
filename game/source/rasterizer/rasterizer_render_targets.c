@@ -71,6 +71,7 @@ void framebuffer_initialize(
     memset(framebuffer, 0, sizeof(*framebuffer));
 
     glGenFramebuffers(1, &framebuffer->id);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->id);
 }
 
 void framebuffer_dispose(
@@ -89,6 +90,8 @@ void framebuffer_use(
 
 void framebuffer_clear(
     struct framebuffer *framebuffer,
+    int x,
+    int y,
     int width,
     int height)
 {
@@ -119,7 +122,7 @@ void framebuffer_clear(
     else
         glDisable(GL_DEPTH_TEST);
     
-    glViewport(0, 0, width, height);
+    glViewport(x, y, width, height);
     framebuffer_use(framebuffer);
     glClear(clear_flags);
 }
@@ -155,13 +158,28 @@ void framebuffer_copy(
 
         if (attachment->type == _framebuffer_attachment_type_texture)
         {
-            if (attachment_index == source_attachment_index)
+            struct texture_data *texture = texture_get_data(attachment->texture_index);
+            
+            if (texture->pixel_format == GL_DEPTH_COMPONENT)
             {
-                source_attachment = GL_COLOR_ATTACHMENT0 + color_index;
-                blit_flags |= GL_COLOR_BUFFER_BIT;
-                break;
+                if (attachment_index == source_attachment_index)
+                {
+                    source_attachment = GL_DEPTH_ATTACHMENT + depth_index;
+                    blit_flags |= GL_DEPTH_BUFFER_BIT;
+                    break;
+                }
+                depth_index++;
             }
-            color_index++;
+            else
+            {
+                if (attachment_index == source_attachment_index)
+                {
+                    source_attachment = GL_COLOR_ATTACHMENT0 + color_index;
+                    blit_flags |= GL_COLOR_BUFFER_BIT;
+                    break;
+                }
+                color_index++;
+            }
         }
         else if (attachment->type == _framebuffer_attachment_type_depth)
         {
@@ -188,13 +206,28 @@ void framebuffer_copy(
 
         if (attachment->type == _framebuffer_attachment_type_texture)
         {
-            if (attachment_index == dest_attachment_index)
+            struct texture_data *texture = texture_get_data(attachment->texture_index);
+
+            if (texture->pixel_format == GL_DEPTH_COMPONENT)
             {
-                dest_attachment = GL_COLOR_ATTACHMENT0 + color_index;
-                blit_flags |= GL_COLOR_BUFFER_BIT;
-                break;
+                if (attachment_index == dest_attachment_index)
+                {
+                    dest_attachment = GL_DEPTH_ATTACHMENT + depth_index;
+                    blit_flags |= GL_DEPTH_BUFFER_BIT;
+                    break;
+                }
+                depth_index++;
             }
-            color_index++;
+            else
+            {
+                if (attachment_index == dest_attachment_index)
+                {
+                    dest_attachment = GL_COLOR_ATTACHMENT0 + color_index;
+                    blit_flags |= GL_COLOR_BUFFER_BIT;
+                    break;
+                }
+                color_index++;
+            }
         }
         else if (attachment->type == _framebuffer_attachment_type_depth)
         {
@@ -348,6 +381,12 @@ void framebuffer_build(
             GL_DEPTH_ATTACHMENT,
             GL_RENDERBUFFER,
             depth_buffer->id);
+    }
+
+    if (!color_attachment_count)
+    {
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
     }
 
     assert(framebuffer);

@@ -54,12 +54,19 @@ void renderbuffer_resize(struct renderbuffer *buffer, int samples, int width, in
 void framebuffer_initialize(struct framebuffer *framebuffer);
 void framebuffer_dispose(struct framebuffer *framebuffer);
 void framebuffer_use(struct framebuffer *framebuffer);
-void framebuffer_clear(struct framebuffer *framebuffer, int width, int height);
+
+void framebuffer_clear(struct framebuffer *framebuffer, int x, int y, int width, int height);
+
 void framebuffer_copy(
     struct framebuffer *source_framebuffer, int source_attachment_index,
     int source_x, int source_y, int source_width, int source_height,
     struct framebuffer *dest_framebuffer, int dest_attachment_index,
     int dest_x, int dest_y, int dest_width, int dest_height);
+
 void framebuffer_attach_texture(struct framebuffer *framebuffer, int texture_index);
+int framebuffer_get_texture_index(struct framebuffer *framebuffer, int attachment_index);
+
 void framebuffer_attach_renderbuffer(struct framebuffer *framebuffer, struct renderbuffer *renderbuffer);
+struct renderbuffer *framebuffer_get_renderbuffer(struct framebuffer *framebuffer, int attachment_index);
+
 void framebuffer_build(struct framebuffer *framebuffer);

@@ -26,11 +26,12 @@ in mat3 frag_tbn;
 in mat3 frag_view_tbn;
 
 layout(location = 0) out vec3 out_position;
-layout(location = 1) out vec3 out_normal;
-layout(location = 2) out vec4 out_albedo_specular;
-layout(location = 3) out vec4 out_material;
-layout(location = 4) out vec3 out_emissive;
-layout(location = 5) out vec3 out_view_normal;
+layout(location = 1) out vec3 out_velocity;
+layout(location = 2) out vec3 out_normal;
+layout(location = 3) out vec4 out_albedo_specular;
+layout(location = 4) out vec4 out_material;
+layout(location = 5) out vec3 out_emissive;
+layout(location = 6) out vec3 out_view_normal;
 
 void main()
 {

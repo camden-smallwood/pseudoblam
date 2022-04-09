@@ -41,6 +41,19 @@ static void render_object(int shader_index, int object_index);
 
 /* ---------- geometry pass */
 
+enum render_geometry_pass_attachment
+{
+    _render_geometry_pass_position_texture,
+    _render_geometry_pass_velocity_texture,
+    _render_geometry_pass_normal_texture,
+    _render_geometry_pass_albedo_specular_texture,
+    _render_geometry_pass_material_texture,
+    _render_geometry_pass_emissive_texture,
+    _render_geometry_pass_view_normal_texture,
+    _render_geometry_pass_depth_buffer,
+    NUMBER_OF_RENDER_GEOMETRY_PASS_ATTACHMENTS
+};
+
 struct render_geometry_pass_data
 {
     int shader_index;
@@ -49,6 +62,7 @@ struct render_geometry_pass_data
     struct renderbuffer depth_buffer;
 
     int position_texture_index;
+    int velocity_texture_index;
     int normal_texture_index;
     int albedo_specular_texture_index;
     int material_texture_index;
@@ -61,6 +75,12 @@ static void render_geometry_pass(void);
 
 /* ---------- depth pass */
 
+enum render_depth_pass_attachment
+{
+    _render_depth_pass_depth_texture,
+    NUMBER_OF_RENDER_DEPTH_PASS_ATTACHMENTS
+};
+
 struct render_depth_pass_data
 {
     struct framebuffer framebuffer;
@@ -72,13 +92,20 @@ static void render_depth_pass(void);
 
 /* ---------- occlusion pass */
 
-enum render_occlusion_ssao_constants
+enum render_occlusion_pass_constants
 {
     NUMBER_OF_SSAO_KERNEL_SAMPLES = 64,
 
     SSAO_NOISE_TEXTURE_WIDTH = 4,
     SSAO_NOISE_TEXTURE_HEIGHT = 4,
     NUMBER_OF_SSAO_NOISE_POINTS = SSAO_NOISE_TEXTURE_WIDTH * SSAO_NOISE_TEXTURE_HEIGHT,
+};
+
+enum render_occlusion_pass_attachment
+{
+    _render_occlusion_pass_base_texture,
+    _render_occlusion_pass_noise_texture,
+    NUMBER_OF_RENDER_OCCLUSION_PASS_ATTACHMENTS
 };
 
 struct render_occlusion_pass_data
@@ -97,7 +124,36 @@ struct render_occlusion_pass_data
 static void render_initialize_occlusion_pass(void);
 static void render_occlusion_pass(void);
 
+/* ---------- shadow pass */
+
+enum render_shader_pass_attachment
+{
+    _render_shader_pass_texture,
+    NUMBER_OF_RENDER_SHADOW_PASS_ATTACHMENTS
+};
+
+struct render_shadow_pass_data
+{
+    int shader_index;
+    
+    int texture_width;
+    int texture_height;
+    int texture_index;
+
+    struct framebuffer framebuffer;
+};
+
+static void render_initialize_shadow_pass(void);
+static void render_shadow_pass(void);
+
 /* ---------- lighting pass */
+
+enum render_lighting_pass_attachment
+{
+    _render_lighting_pass_base_texture,
+    _render_lighting_pass_hdr_texture,
+    NUMBER_OF_RENDER_LIGHTING_PASS_ATTACHMENTS
+};
 
 struct render_lighting_pass_data
 {
@@ -128,6 +184,12 @@ static void render_transparent_pass(void);
 
 /* ---------- postprocess pass */
 
+enum render_postprocess_pass_attachment
+{
+    _render_postprocess_pass_texture,
+    NUMBER_OF_RENDER_POSTPROCESS_PASS_ATTACHMENTS
+};
+
 struct render_postprocess_pass_data
 {
     int texture_index;
@@ -138,6 +200,12 @@ static void render_initialize_postprocess_pass(void);
 static void render_postprocess_pass(void);
 
 /* ---------- blur pass */
+
+enum render_blur_pass_attachment
+{
+    _render_blur_pass_texture,
+    NUMBER_OF_RENDER_BLUR_PASS_ATTACHMENTS
+};
 
 struct render_blur_pass_data
 {
@@ -179,6 +247,7 @@ struct
     struct render_geometry_pass_data geometry_pass;
     struct render_depth_pass_data depth_pass;
     struct render_occlusion_pass_data occlusion_pass;
+    struct render_shadow_pass_data shadow_pass;
     struct render_lighting_pass_data lighting_pass;
     struct render_transparent_pass_data transparent_pass;
     struct render_postprocess_pass_data postprocess_pass;
@@ -211,6 +280,7 @@ void render_initialize(void)
     render_initialize_geometry_pass();
     render_initialize_depth_pass();
     render_initialize_occlusion_pass();
+    render_initialize_shadow_pass();
     render_initialize_lighting_pass();
     render_initialize_transparent_pass();
     render_initialize_postprocess_pass();
@@ -242,24 +312,27 @@ void render_load_content(void)
 
             if (!mesh->vertex_data)
                 continue;
-            
-            const struct vertex_definition *vertex_definition = vertex_definition_get(mesh->vertex_type);
 
+            // TODO: rasterizer mesh
             glGenVertexArrays(1, &mesh->vertex_array);
             glBindVertexArray(mesh->vertex_array);
 
+            const struct vertex_definition *vertex_definition = vertex_definition_get(mesh->vertex_type);
+
+            // TODO: rasterizer vertex buffer
             glGenBuffers(1, &mesh->vertex_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_buffer);
             glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * vertex_definition->size, mesh->vertex_data, GL_STATIC_DRAW);
 
+            // TODO: rasterizer index buffer
             glGenBuffers(1, &mesh->index_buffer);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->index_count * sizeof(int), mesh->indices, GL_STATIC_DRAW);
 
+            // TODO: rasterizer uniform buffer
             glGenBuffers(1, &mesh->uniform_buffer);
             glBindBuffer(GL_UNIFORM_BUFFER, mesh->uniform_buffer);
             glBufferData(GL_UNIFORM_BUFFER, sizeof(mat4) * MAXIMUM_NUMBER_OF_MODEL_NODES, NULL, GL_STATIC_DRAW);
-            glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
             shader_bind_vertex_attributes(render_globals.geometry_pass.shader_index, mesh->vertex_type);
         }
@@ -271,6 +344,7 @@ void render_update(float delta_ticks)
     render_geometry_pass();
     render_depth_pass();
     render_occlusion_pass();
+    render_shadow_pass();
     render_lighting_pass();
     render_transparent_pass();
     render_postprocess_pass();
@@ -285,8 +359,6 @@ static void render_initialize_quad(void)
 {
     render_globals.quad_shader = shader_new("../assets/shaders/quad.vs", "../assets/shaders/texture.fs");
 
-    // TODO: initialize as mesh?
-    
     struct vertex_flat quad_vertices[] =
     {
         { .position = { -1.0f, 1.0f }, .texcoord = { 0.0f, 1.0f } },
@@ -297,13 +369,16 @@ static void render_initialize_quad(void)
         { .position = { 1.0f, 1.0f }, .texcoord = { 1.0f, 1.0f } },
     };
 
+    // TODO: rasterizer mesh
     glGenVertexArrays(1, &render_globals.quad_vertex_array);
     glBindVertexArray(render_globals.quad_vertex_array);
     
+    // TODO: rasterizer vertex buffer
     glGenBuffers(1, &render_globals.quad_vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, render_globals.quad_vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
 
+    // TODO: bind the flat vertex attributes to the shader of each render pass
     shader_bind_vertex_attributes(render_globals.quad_shader, _vertex_type_flat);
     shader_bind_vertex_attributes(render_globals.occlusion_pass.shader_index, _vertex_type_flat);
     shader_bind_vertex_attributes(render_globals.lighting_pass.shader_index, _vertex_type_flat);
@@ -313,6 +388,8 @@ static void render_initialize_quad(void)
 
 static void render_quad(void)
 {
+    framebuffer_use(NULL);
+
     // TODO: framebuffer_clear (?)
     glViewport(0, 0, render_globals.screen_width, render_globals.screen_height);
     glDisable(GL_DEPTH_TEST);
@@ -499,10 +576,12 @@ static void render_initialize_geometry_pass(void)
     render_globals.geometry_pass.shader_index = shader_new("../assets/shaders/model.vs", "../assets/shaders/geometry.fs");
 
     framebuffer_initialize(&render_globals.geometry_pass.framebuffer);
-    framebuffer_use(&render_globals.geometry_pass.framebuffer);
 
     render_globals.geometry_pass.position_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.position_texture_index);
+
+    render_globals.geometry_pass.velocity_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
+    framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.velocity_texture_index);
 
     render_globals.geometry_pass.normal_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.normal_texture_index);
@@ -523,13 +602,11 @@ static void render_initialize_geometry_pass(void)
     framebuffer_attach_renderbuffer(&render_globals.geometry_pass.framebuffer, &render_globals.geometry_pass.depth_buffer);
 
     framebuffer_build(&render_globals.geometry_pass.framebuffer);
-
-    framebuffer_use(NULL);
 }
 
 static void render_geometry_pass(void)
 {
-    framebuffer_clear(&render_globals.geometry_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
+    framebuffer_clear(&render_globals.geometry_pass.framebuffer, 0, 0, render_globals.screen_width, render_globals.screen_height);
 
     static struct object_iterator iterator;
     object_iterator_new(&iterator);
@@ -538,8 +615,6 @@ static void render_geometry_pass(void)
     {
         render_object(render_globals.geometry_pass.shader_index, iterator.index);
     }
-
-    framebuffer_use(NULL);
 }
 
 /* ---------- depth pass */
@@ -547,23 +622,19 @@ static void render_geometry_pass(void)
 static void render_initialize_depth_pass(void)
 {
     framebuffer_initialize(&render_globals.depth_pass.framebuffer);
-    framebuffer_use(&render_globals.depth_pass.framebuffer);
 
-    render_globals.depth_pass.texture_index = texture_new(_texture_type_2d, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0, render_globals.screen_width, render_globals.screen_height, 0);
+    render_globals.depth_pass.texture_index = texture_new(_texture_type_2d, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.depth_pass.framebuffer, render_globals.depth_pass.texture_index);
 
     framebuffer_build(&render_globals.depth_pass.framebuffer);
-
-    framebuffer_use(NULL);
 }
 
 static void render_depth_pass(void)
 {
-    framebuffer_clear(&render_globals.depth_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
+    framebuffer_clear(&render_globals.depth_pass.framebuffer, 0, 0, render_globals.screen_width, render_globals.screen_height);
     framebuffer_copy(
-        &render_globals.geometry_pass.framebuffer, 6, 0, 0, render_globals.screen_width, render_globals.screen_height,
-        &render_globals.depth_pass.framebuffer, 0, 0, 0, render_globals.screen_width, render_globals.screen_height);
-    framebuffer_use(NULL);
+        &render_globals.geometry_pass.framebuffer, _render_geometry_pass_depth_buffer, 0, 0, render_globals.screen_width, render_globals.screen_height,
+        &render_globals.depth_pass.framebuffer, _render_depth_pass_depth_texture, 0, 0, render_globals.screen_width, render_globals.screen_height);
 }
 
 /* ---------- occlusion pass */
@@ -573,7 +644,6 @@ static void render_initialize_occlusion_pass(void)
     render_globals.occlusion_pass.shader_index = shader_new("../assets/shaders/quad.vs", "../assets/shaders/ssao.fs");
 
     framebuffer_initialize(&render_globals.occlusion_pass.framebuffer);
-    framebuffer_use(&render_globals.occlusion_pass.framebuffer);
     
     render_globals.occlusion_pass.base_texture_index = texture_new(_texture_type_2d, GL_RED, GL_RED, GL_UNSIGNED_BYTE, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.occlusion_pass.framebuffer, render_globals.occlusion_pass.base_texture_index);
@@ -581,8 +651,6 @@ static void render_initialize_occlusion_pass(void)
     render_globals.occlusion_pass.noise_texture_index = texture_new(_texture_type_2d, GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, 0, SSAO_NOISE_TEXTURE_WIDTH, SSAO_NOISE_TEXTURE_HEIGHT, 0);
 
     framebuffer_build(&render_globals.occlusion_pass.framebuffer);
-
-    framebuffer_use(NULL);
 
     srand(time(NULL));
 
@@ -620,7 +688,7 @@ static void render_initialize_occlusion_pass(void)
 
 static void render_occlusion_pass(void)
 {
-    framebuffer_clear(&render_globals.occlusion_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
+    framebuffer_clear(&render_globals.occlusion_pass.framebuffer, 0, 0, render_globals.screen_width, render_globals.screen_height);
 
     shader_use(render_globals.occlusion_pass.shader_index);
 
@@ -638,8 +706,27 @@ static void render_occlusion_pass(void)
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     shader_unbind_textures(render_globals.occlusion_pass.shader_index);
+}
 
-    framebuffer_use(NULL);
+/* ---------- shadow pass */
+
+static void render_initialize_shadow_pass(void)
+{
+    framebuffer_initialize(&render_globals.shadow_pass.framebuffer);
+    
+    render_globals.shadow_pass.texture_width = 1024;
+    render_globals.shadow_pass.texture_height = 1024;
+    render_globals.shadow_pass.texture_index = texture_new(_texture_type_2d, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_FLOAT, 0, render_globals.shadow_pass.texture_width, render_globals.shadow_pass.texture_height, 0);
+    framebuffer_attach_texture(&render_globals.shadow_pass.framebuffer, render_globals.shadow_pass.texture_index);
+
+    framebuffer_build(&render_globals.shadow_pass.framebuffer);
+}
+
+static void render_shadow_pass(void)
+{
+    framebuffer_clear(&render_globals.shadow_pass.framebuffer, 0, 0, render_globals.shadow_pass.texture_width, render_globals.shadow_pass.texture_height);
+    
+    // TODO: render objects from each light's perspective
 }
 
 /* ---------- lighting pass */
@@ -649,7 +736,6 @@ static void render_initialize_lighting_pass(void)
     render_globals.lighting_pass.shader_index = shader_new("../assets/shaders/quad.vs", "../assets/shaders/lighting.fs");
 
     framebuffer_initialize(&render_globals.lighting_pass.framebuffer);
-    framebuffer_use(&render_globals.lighting_pass.framebuffer);
     
     render_globals.lighting_pass.base_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.lighting_pass.framebuffer, render_globals.lighting_pass.base_texture_index);
@@ -658,13 +744,11 @@ static void render_initialize_lighting_pass(void)
     framebuffer_attach_texture(&render_globals.lighting_pass.framebuffer, render_globals.lighting_pass.hdr_texture_index);
 
     framebuffer_build(&render_globals.lighting_pass.framebuffer);
-    
-    framebuffer_use(NULL);
 }
 
 static void render_lighting_pass(void)
 {
-    framebuffer_clear(&render_globals.lighting_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
+    framebuffer_clear(&render_globals.lighting_pass.framebuffer, 0, 0, render_globals.screen_width, render_globals.screen_height);
 
     shader_use(render_globals.lighting_pass.shader_index);
     
@@ -689,10 +773,8 @@ static void render_lighting_pass(void)
     shader_unbind_textures(render_globals.lighting_pass.shader_index);
 
     framebuffer_copy(
-        &render_globals.lighting_pass.framebuffer, 1, 0, 0, render_globals.screen_width, render_globals.screen_height,
-        &render_globals.postprocess_pass.framebuffer, 0, 0, 0, render_globals.screen_width, render_globals.screen_height);
-    
-    framebuffer_use(NULL);
+        &render_globals.lighting_pass.framebuffer, _render_lighting_pass_hdr_texture, 0, 0, render_globals.screen_width, render_globals.screen_height,
+        &render_globals.postprocess_pass.framebuffer, _render_postprocess_pass_texture, 0, 0, render_globals.screen_width, render_globals.screen_height);
 }
 
 /* ---------- transparent pass */
@@ -700,14 +782,11 @@ static void render_lighting_pass(void)
 static void render_initialize_transparent_pass(void)
 {
     framebuffer_initialize(&render_globals.transparent_pass.framebuffer);
-    framebuffer_use(&render_globals.transparent_pass.framebuffer);
 
     render_globals.transparent_pass.texture_index = texture_new(_texture_type_2d, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.transparent_pass.framebuffer, render_globals.transparent_pass.texture_index);
 
     framebuffer_build(&render_globals.transparent_pass.framebuffer);
-
-    framebuffer_use(NULL);
 }
 
 static void render_transparent_pass(void)
@@ -720,14 +799,11 @@ static void render_transparent_pass(void)
 static void render_initialize_postprocess_pass(void)
 {
     framebuffer_initialize(&render_globals.postprocess_pass.framebuffer);
-    framebuffer_use(&render_globals.postprocess_pass.framebuffer);
 
     render_globals.postprocess_pass.texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.postprocess_pass.framebuffer, render_globals.postprocess_pass.texture_index);
 
     framebuffer_build(&render_globals.postprocess_pass.framebuffer);
-
-    framebuffer_use(NULL);
 }
 
 static void render_postprocess_pass(void)
@@ -742,14 +818,11 @@ static void render_initialize_blur_pass(void)
     render_globals.blur_pass.shader_index = shader_new("../assets/shaders/quad.vs", "../assets/shaders/blur.fs");
 
     framebuffer_initialize(&render_globals.blur_pass.framebuffer);
-    framebuffer_use(&render_globals.blur_pass.framebuffer);
 
     render_globals.blur_pass.texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.blur_pass.framebuffer, render_globals.blur_pass.texture_index);
 
     framebuffer_build(&render_globals.blur_pass.framebuffer);
-
-    framebuffer_use(NULL);
 }
 
 static void render_blur_pass(void)
@@ -761,7 +834,7 @@ static void render_blur_pass(void)
     {
         for (int blur_axis = 0; blur_axis < 2; blur_axis++, blur_horizontal = !blur_horizontal)
         {
-            framebuffer_clear(&render_globals.blur_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
+            framebuffer_clear(&render_globals.blur_pass.framebuffer, 0, 0, render_globals.screen_width, render_globals.screen_height);
 
             shader_use(render_globals.blur_pass.shader_index);
 
@@ -775,10 +848,8 @@ static void render_blur_pass(void)
             shader_unbind_textures(render_globals.blur_pass.shader_index);
 
             framebuffer_copy(
-                &render_globals.blur_pass.framebuffer, 0, 0, 0, render_globals.screen_width, render_globals.screen_height,
-                &render_globals.postprocess_pass.framebuffer, 0, 0, 0, render_globals.screen_width, render_globals.screen_height);
-            
-            framebuffer_use(NULL);
+                &render_globals.blur_pass.framebuffer, _render_blur_pass_texture, 0, 0, render_globals.screen_width, render_globals.screen_height,
+                &render_globals.postprocess_pass.framebuffer, _render_postprocess_pass_texture, 0, 0, render_globals.screen_width, render_globals.screen_height);
         }
     }
 }
@@ -790,19 +861,16 @@ static void render_initialize_hdr_pass(void)
     render_globals.hdr_pass.shader_index = shader_new("../assets/shaders/quad.vs", "../assets/shaders/bloom.fs");
 
     framebuffer_initialize(&render_globals.hdr_pass.framebuffer);
-    framebuffer_use(&render_globals.hdr_pass.framebuffer);
 
     render_globals.hdr_pass.texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.hdr_pass.framebuffer, render_globals.hdr_pass.texture_index);
     
     framebuffer_build(&render_globals.hdr_pass.framebuffer);
-
-    framebuffer_use(NULL);
 }
 
 static void render_hdr_pass(void)
 {
-    framebuffer_clear(&render_globals.hdr_pass.framebuffer, render_globals.screen_width, render_globals.screen_height);
+    framebuffer_clear(&render_globals.hdr_pass.framebuffer, 0, 0, render_globals.screen_width, render_globals.screen_height);
 
     shader_use(render_globals.hdr_pass.shader_index);
     
@@ -815,6 +883,4 @@ static void render_hdr_pass(void)
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     shader_unbind_textures(render_globals.hdr_pass.shader_index);
-
-    framebuffer_use(NULL);
 }
