@@ -589,7 +589,7 @@ static void render_initialize_geometry_pass(void)
     render_globals.geometry_pass.albedo_specular_texture_index = texture_new(_texture_type_2d, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.albedo_specular_texture_index);
 
-    render_globals.geometry_pass.material_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
+    render_globals.geometry_pass.material_texture_index = texture_new(_texture_type_2d, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.material_texture_index);
 
     render_globals.geometry_pass.emissive_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
