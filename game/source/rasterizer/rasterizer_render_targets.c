@@ -80,6 +80,7 @@ void framebuffer_dispose(
     assert(framebuffer);
 
     glDeleteFramebuffers(1, &framebuffer->id);
+    free(framebuffer->attachments);
 }
 
 void framebuffer_use(

@@ -71,6 +71,7 @@ struct render_geometry_pass_data
 };
 
 static void render_initialize_geometry_pass(void);
+static void render_resize_geometry_pass(void);
 static void render_geometry_pass(void);
 
 /* ---------- depth pass */
@@ -88,6 +89,7 @@ struct render_depth_pass_data
 };
 
 static void render_initialize_depth_pass(void);
+static void render_resize_depth_pass(void);
 static void render_depth_pass(void);
 
 /* ---------- occlusion pass */
@@ -122,6 +124,7 @@ struct render_occlusion_pass_data
 };
 
 static void render_initialize_occlusion_pass(void);
+static void render_resize_occlusion_pass(void);
 static void render_occlusion_pass(void);
 
 /* ---------- shadow pass */
@@ -144,6 +147,7 @@ struct render_shadow_pass_data
 };
 
 static void render_initialize_shadow_pass(void);
+static void render_resize_shadow_pass(void);
 static void render_shadow_pass(void);
 
 /* ---------- lighting pass */
@@ -168,6 +172,7 @@ struct render_lighting_pass_data
 };
 
 static void render_initialize_lighting_pass(void);
+static void render_resize_lighting_pass(void);
 static void render_lighting_pass(void);
 
 /* ---------- transparent pass */
@@ -180,6 +185,7 @@ struct render_transparent_pass_data
 };
 
 static void render_initialize_transparent_pass(void);
+static void render_resize_transparent_pass(void);
 static void render_transparent_pass(void);
 
 /* ---------- postprocess pass */
@@ -197,6 +203,7 @@ struct render_postprocess_pass_data
 };
 
 static void render_initialize_postprocess_pass(void);
+static void render_resize_postprocess_pass(void);
 static void render_postprocess_pass(void);
 
 /* ---------- blur pass */
@@ -215,7 +222,8 @@ struct render_blur_pass_data
 };
 
 static void render_initialize_blur_pass(void);
-static void render_hdr_pass(void);
+static void render_resize_blur_pass(void);
+static void render_blur_pass(void);
 
 /* ---------- hdr pass */
 
@@ -227,7 +235,8 @@ struct render_hdr_pass_data
 };
 
 static void render_initialize_hdr_pass(void);
-static void render_blur_pass(void);
+static void render_resize_hdr_pass(void);
+static void render_hdr_pass(void);
 
 /* ---------- private variables */
 
@@ -295,8 +304,21 @@ void render_dispose(void)
 
 void render_handle_screen_resize(int width, int height)
 {
+    if (width == render_globals.screen_width && height == render_globals.screen_height)
+        return;
+
     render_globals.screen_width = width;
     render_globals.screen_height = height;
+
+    render_resize_geometry_pass();
+    render_resize_depth_pass();
+    render_resize_occlusion_pass();
+    render_resize_shadow_pass();
+    render_resize_lighting_pass();
+    render_resize_transparent_pass();
+    render_resize_postprocess_pass();
+    render_resize_blur_pass();
+    render_resize_hdr_pass();
 }
 
 void render_load_content(void)
@@ -574,30 +596,52 @@ static void render_object(int shader_index, int object_index)
 static void render_initialize_geometry_pass(void)
 {
     render_globals.geometry_pass.shader_index = shader_new("../assets/shaders/model.vs", "../assets/shaders/geometry.fs");
+    render_globals.geometry_pass.position_texture_index = -1;
+    render_globals.geometry_pass.velocity_texture_index = -1;
+    render_globals.geometry_pass.normal_texture_index = -1;
+    render_globals.geometry_pass.albedo_specular_texture_index = -1;
+    render_globals.geometry_pass.material_texture_index = -1;
+    render_globals.geometry_pass.emissive_texture_index = -1;
+    render_globals.geometry_pass.view_normal_texture_index = -1;
 
+    render_resize_geometry_pass();
+}
+
+static void render_resize_geometry_pass(void)
+{
+    renderbuffer_dispose(&render_globals.geometry_pass.depth_buffer);
+    framebuffer_dispose(&render_globals.geometry_pass.framebuffer);
     framebuffer_initialize(&render_globals.geometry_pass.framebuffer);
 
+    texture_delete(render_globals.geometry_pass.position_texture_index);
     render_globals.geometry_pass.position_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.position_texture_index);
 
+    texture_delete(render_globals.geometry_pass.velocity_texture_index);
     render_globals.geometry_pass.velocity_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.velocity_texture_index);
 
+    texture_delete(render_globals.geometry_pass.normal_texture_index);
     render_globals.geometry_pass.normal_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.normal_texture_index);
 
+    texture_delete(render_globals.geometry_pass.albedo_specular_texture_index);
     render_globals.geometry_pass.albedo_specular_texture_index = texture_new(_texture_type_2d, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.albedo_specular_texture_index);
 
+    texture_delete(render_globals.geometry_pass.material_texture_index);
     render_globals.geometry_pass.material_texture_index = texture_new(_texture_type_2d, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.material_texture_index);
 
+    texture_delete(render_globals.geometry_pass.emissive_texture_index);
     render_globals.geometry_pass.emissive_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.emissive_texture_index);
 
+    texture_delete(render_globals.geometry_pass.view_normal_texture_index);
     render_globals.geometry_pass.view_normal_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.geometry_pass.framebuffer, render_globals.geometry_pass.view_normal_texture_index);
 
+    renderbuffer_dispose(&render_globals.geometry_pass.depth_buffer);
     renderbuffer_initialize(&render_globals.geometry_pass.depth_buffer, 0, GL_DEPTH_COMPONENT, render_globals.screen_width, render_globals.screen_height);
     framebuffer_attach_renderbuffer(&render_globals.geometry_pass.framebuffer, &render_globals.geometry_pass.depth_buffer);
 
@@ -621,8 +665,17 @@ static void render_geometry_pass(void)
 
 static void render_initialize_depth_pass(void)
 {
+    render_globals.depth_pass.texture_index = -1;
+    
+    render_resize_depth_pass();
+}
+
+static void render_resize_depth_pass(void)
+{
+    framebuffer_dispose(&render_globals.depth_pass.framebuffer);
     framebuffer_initialize(&render_globals.depth_pass.framebuffer);
 
+    texture_delete(render_globals.depth_pass.texture_index);
     render_globals.depth_pass.texture_index = texture_new(_texture_type_2d, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.depth_pass.framebuffer, render_globals.depth_pass.texture_index);
 
@@ -642,15 +695,8 @@ static void render_depth_pass(void)
 static void render_initialize_occlusion_pass(void)
 {
     render_globals.occlusion_pass.shader_index = shader_new("../assets/shaders/quad.vs", "../assets/shaders/ssao.fs");
-
-    framebuffer_initialize(&render_globals.occlusion_pass.framebuffer);
-    
-    render_globals.occlusion_pass.base_texture_index = texture_new(_texture_type_2d, GL_RED, GL_RED, GL_UNSIGNED_BYTE, 0, render_globals.screen_width, render_globals.screen_height, 0);
-    framebuffer_attach_texture(&render_globals.occlusion_pass.framebuffer, render_globals.occlusion_pass.base_texture_index);
-    
+    render_globals.occlusion_pass.base_texture_index = -1;
     render_globals.occlusion_pass.noise_texture_index = texture_new(_texture_type_2d, GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, 0, SSAO_NOISE_TEXTURE_WIDTH, SSAO_NOISE_TEXTURE_HEIGHT, 0);
-
-    framebuffer_build(&render_globals.occlusion_pass.framebuffer);
 
     srand(time(NULL));
 
@@ -684,6 +730,20 @@ static void render_initialize_occlusion_pass(void)
         
         glm_vec3_copy(noise, render_globals.occlusion_pass.noise_points[i]);
     }
+
+    render_resize_occlusion_pass();
+}
+
+static void render_resize_occlusion_pass(void)
+{
+    framebuffer_dispose(&render_globals.occlusion_pass.framebuffer);
+    framebuffer_initialize(&render_globals.occlusion_pass.framebuffer);
+    
+    texture_delete(render_globals.occlusion_pass.base_texture_index);
+    render_globals.occlusion_pass.base_texture_index = texture_new(_texture_type_2d, GL_RED, GL_RED, GL_UNSIGNED_BYTE, 0, render_globals.screen_width, render_globals.screen_height, 0);
+    framebuffer_attach_texture(&render_globals.occlusion_pass.framebuffer, render_globals.occlusion_pass.base_texture_index);
+    
+    framebuffer_build(&render_globals.occlusion_pass.framebuffer);
 }
 
 static void render_occlusion_pass(void)
@@ -722,6 +782,11 @@ static void render_initialize_shadow_pass(void)
     framebuffer_build(&render_globals.shadow_pass.framebuffer);
 }
 
+static void render_resize_shadow_pass(void)
+{
+    // TODO: signal shadow texture resize?
+}
+
 static void render_shadow_pass(void)
 {
     framebuffer_clear(&render_globals.shadow_pass.framebuffer, 0, 0, render_globals.shadow_pass.texture_width, render_globals.shadow_pass.texture_height);
@@ -734,12 +799,22 @@ static void render_shadow_pass(void)
 static void render_initialize_lighting_pass(void)
 {
     render_globals.lighting_pass.shader_index = shader_new("../assets/shaders/quad.vs", "../assets/shaders/lighting.fs");
+    render_globals.lighting_pass.base_texture_index = -1;
+    render_globals.lighting_pass.hdr_texture_index = -1;
 
+    render_resize_lighting_pass();
+}
+
+static void render_resize_lighting_pass(void)
+{
+    framebuffer_dispose(&render_globals.lighting_pass.framebuffer);
     framebuffer_initialize(&render_globals.lighting_pass.framebuffer);
     
+    texture_delete(render_globals.lighting_pass.base_texture_index);
     render_globals.lighting_pass.base_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.lighting_pass.framebuffer, render_globals.lighting_pass.base_texture_index);
 
+    texture_delete(render_globals.lighting_pass.hdr_texture_index);
     render_globals.lighting_pass.hdr_texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.lighting_pass.framebuffer, render_globals.lighting_pass.hdr_texture_index);
 
@@ -781,8 +856,17 @@ static void render_lighting_pass(void)
 
 static void render_initialize_transparent_pass(void)
 {
+    render_globals.transparent_pass.texture_index = -1;
+
+    render_resize_transparent_pass();
+}
+
+static void render_resize_transparent_pass(void)
+{
+    framebuffer_dispose(&render_globals.transparent_pass.framebuffer);
     framebuffer_initialize(&render_globals.transparent_pass.framebuffer);
 
+    texture_delete(render_globals.transparent_pass.texture_index);
     render_globals.transparent_pass.texture_index = texture_new(_texture_type_2d, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.transparent_pass.framebuffer, render_globals.transparent_pass.texture_index);
 
@@ -798,8 +882,17 @@ static void render_transparent_pass(void)
 
 static void render_initialize_postprocess_pass(void)
 {
+    render_globals.postprocess_pass.texture_index = -1;
+
+    render_resize_postprocess_pass();
+}
+
+static void render_resize_postprocess_pass(void)
+{
+    framebuffer_dispose(&render_globals.postprocess_pass.framebuffer);
     framebuffer_initialize(&render_globals.postprocess_pass.framebuffer);
 
+    texture_delete(render_globals.postprocess_pass.texture_index);
     render_globals.postprocess_pass.texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.postprocess_pass.framebuffer, render_globals.postprocess_pass.texture_index);
 
@@ -816,9 +909,17 @@ static void render_postprocess_pass(void)
 static void render_initialize_blur_pass(void)
 {
     render_globals.blur_pass.shader_index = shader_new("../assets/shaders/quad.vs", "../assets/shaders/blur.fs");
+    render_globals.blur_pass.texture_index = -1;
 
+    render_resize_blur_pass();
+}
+
+static void render_resize_blur_pass(void)
+{
+    framebuffer_dispose(&render_globals.blur_pass.framebuffer);
     framebuffer_initialize(&render_globals.blur_pass.framebuffer);
 
+    texture_delete(render_globals.blur_pass.texture_index);
     render_globals.blur_pass.texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.blur_pass.framebuffer, render_globals.blur_pass.texture_index);
 
@@ -859,9 +960,17 @@ static void render_blur_pass(void)
 static void render_initialize_hdr_pass(void)
 {
     render_globals.hdr_pass.shader_index = shader_new("../assets/shaders/quad.vs", "../assets/shaders/bloom.fs");
+    render_globals.hdr_pass.texture_index = -1;
 
+    render_resize_hdr_pass();
+}
+
+static void render_resize_hdr_pass(void)
+{
+    framebuffer_dispose(&render_globals.hdr_pass.framebuffer);
     framebuffer_initialize(&render_globals.hdr_pass.framebuffer);
 
+    texture_delete(render_globals.hdr_pass.texture_index);
     render_globals.hdr_pass.texture_index = texture_new(_texture_type_2d, GL_RGB32F, GL_RGB, GL_FLOAT, 0, render_globals.screen_width, render_globals.screen_height, 0);
     framebuffer_attach_texture(&render_globals.hdr_pass.framebuffer, render_globals.hdr_pass.texture_index);
     

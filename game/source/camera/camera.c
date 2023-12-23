@@ -19,8 +19,7 @@ void camera_initialize(struct camera_data *camera)
 {
     assert(camera);
 
-    camera->horizontal_fov = 90.0f;
-    camera->vertical_fov = 0.0f;
+    camera->field_of_view = 0.70f;
     camera->aspect_ratio = 1.0f;
     camera->near_clip = 0.01f;
     camera->far_clip = 1000.0f;
@@ -34,9 +33,6 @@ void camera_handle_screen_resize(struct camera_data *camera, int width, int heig
     assert(camera);
     
     camera->aspect_ratio = (float)width / (float)height;
-
-    float inverse_aspect_ratio = (float)height / (float)width;
-    camera->vertical_fov = 2.0f * atanf(tanf(glm_rad(camera->horizontal_fov) / 2.0f) * inverse_aspect_ratio);
 }
 
 void camera_rotate_towards_point(struct camera_data *camera, vec3 point, float amount)
@@ -93,7 +89,7 @@ void camera_update(struct camera_data *camera)
         camera->view);
     
     glm_perspective(
-        camera->vertical_fov,
+        camera->field_of_view,
         camera->aspect_ratio,
         camera->near_clip,
         camera->far_clip,

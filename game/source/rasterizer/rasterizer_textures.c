@@ -18,6 +18,7 @@ RASTERIZER_TEXTURES.C
 struct
 {
     int texture_count;
+    int *textures_in_use;
     struct texture_data *textures;
 } static texture_globals;
 
@@ -61,15 +62,33 @@ int texture_allocate(
 
     texture.type = type;
 
-    int texture_index = texture_globals.texture_count;
+    int texture_index = -1;
 
-    mempush(
-        &texture_globals.texture_count,
-        (void **)&texture_globals.textures,
-        &texture,
-        sizeof(texture),
-        realloc);
+    for (int i = 0; i < texture_globals.texture_count; i++)
+    {
+        if (!BIT_VECTOR_TEST_BIT(texture_globals.textures_in_use, i))
+        {
+            texture_index = i;
+            break;
+        }
+    }
+
+    if (texture_index == -1)
+    {
+        texture_index = texture_globals.texture_count;
+
+        mempush(
+            &texture_globals.texture_count,
+            (void **)&texture_globals.textures,
+            &texture,
+            sizeof(texture),
+            realloc);
+        
+        texture_globals.textures_in_use = realloc(texture_globals.textures_in_use, BIT_VECTOR_LENGTH_IN_WORDS(texture_globals.texture_count));
+    }
     
+    BIT_VECTOR_SET_BIT(texture_globals.textures_in_use, texture_index, true);
+
     return texture_index;
 }
 
@@ -83,25 +102,15 @@ int texture_new(
     int height,
     int depth)
 {
-    struct texture_data texture;
-    memset(&texture, 0, sizeof(texture));
+    int texture_index = texture_allocate(type);
+    struct texture_data *texture = texture_get_data(texture_index);
 
-    texture.type = type;
-    texture.internal_format = internal_format;
-    texture.pixel_format = pixel_format;
-    texture.pixel_type = pixel_type;
+    texture->internal_format = internal_format;
+    texture->pixel_format = pixel_format;
+    texture->pixel_type = pixel_type;
 
-    glGenTextures(1, &texture.id);
+    glGenTextures(1, &texture->id);
 
-    int texture_index = texture_globals.texture_count;
-
-    mempush(
-        &texture_globals.texture_count,
-        (void **)&texture_globals.textures,
-        &texture,
-        sizeof(texture),
-        realloc);
-    
     texture_resize(texture_index, samples, width, height, depth);
     
     return texture_index;
@@ -111,9 +120,13 @@ void texture_delete(
     int texture_index)
 {
     struct texture_data *texture = texture_get_data(texture_index);
-    assert(texture);
+    
+    if (!texture)
+        return;
 
     glDeleteTextures(1, &texture->id);
+
+    BIT_VECTOR_SET_BIT(texture_globals.textures_in_use, texture_index, false);
 }
 
 struct texture_data *texture_get_data(

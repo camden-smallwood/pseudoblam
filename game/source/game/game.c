@@ -49,6 +49,7 @@ struct
     float camera_movement_speed;
 
     int plane_object_index;
+    int flashlight_light_index;
     int weapon_object_index;
     int grunt_object_index;
 } game_globals;
@@ -117,10 +118,36 @@ void game_load_content(void)
     // Create scene lights
     struct light_data *light;
 
+    // Initialize the flashlight
+    game_globals.flashlight_light_index = light_new();
+    light = light_get_data(game_globals.flashlight_light_index);
+    light->type = _light_type_spot;
+    SET_BIT(light->flags, _light_is_hidden_bit, true);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.0f;
+    light->linear = 0.1f;
+    light->quadratic = 0.32f;
+    light->inner_cutoff = 12.5f;
+    light->outer_cutoff = 17.5f;
+
+    // Initialize a point light for the scene
     light = light_get_data(light_new());
     light->type = _light_type_point;
     glm_vec3_copy((vec3){-10.0f, -10.0f, 10.0f}, light->position);
-    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.4f, 0.6f, 0.8f}, light->diffuse_color);
+    glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
+    glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
+    light->constant = 1.0f;
+    light->linear = 0.009f;
+    light->quadratic = 0.0032f;
+
+    // Initialize a point light for the scene
+    light = light_get_data(light_new());
+    light->type = _light_type_point;
+    glm_vec3_copy((vec3){10.0f, -10.0f, 10.0f}, light->position);
+    glm_vec3_copy((vec3){0.8f, 0.6f, 0.4f}, light->diffuse_color);
     glm_vec3_copy((vec3){0.05f, 0.05f, 0.05f}, light->ambient_color);
     glm_vec3_copy((vec3){1.0f, 1.0f, 1.0f}, light->specular_color);
     light->constant = 1.0f;
@@ -377,5 +404,30 @@ static void game_update_objects(void)
     {
         SET_BIT(game_globals.flags, _game_input_3_bit, false);
         animation_manager_set_animation_active(&weapon_object->animations, melee_strike_1_animation_index, melee_strike_1_animation_active = true);
+    }
+
+    // --------------------------------------------------------------------------------
+    // Flashlight updates
+    // --------------------------------------------------------------------------------
+
+    struct light_data *light = light_get_data(game_globals.flashlight_light_index);
+    glm_vec3_copy(game_globals.camera.position, light->position);
+    glm_vec3_copy(game_globals.camera.forward, light->direction);
+    
+    vec3 light_offset = { 0.0f, 0.0f, 0.0f };
+    glm_vec3_copy(light->direction, light_offset);
+    glm_vec3_mul(light_offset, (vec3){0.25f, 0.25f, 0.25f}, light_offset);
+
+    glm_vec3_add(light->position, light_offset, light->position);
+
+    if (keys[SDL_SCANCODE_H])
+    {
+        SET_BIT(game_globals.flags, _game_input_h_bit, true);
+    }
+    else if (TEST_BIT(game_globals.flags, _game_input_h_bit))
+    {
+        SET_BIT(game_globals.flags, _game_input_h_bit, false);
+        bool light_is_hidden = TEST_BIT(light->flags, _light_is_hidden_bit);
+        SET_BIT(light->flags, _light_is_hidden_bit, !light_is_hidden);
     }
 }

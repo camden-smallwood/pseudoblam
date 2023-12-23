@@ -10,11 +10,8 @@ CAMERA.H
 
 struct camera_data
 {
-    float horizontal_fov;
-    float vertical_fov;
-
+    float field_of_view;
     float aspect_ratio;
-
     float near_clip;
     float far_clip;
 
